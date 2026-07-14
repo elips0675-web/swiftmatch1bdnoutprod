@@ -1,5 +1,7 @@
 # Project Notes
 
+> **Before starting any task:** Read `## Golden Rule: Production ≠ File Created` and run the Pre-flight Checklist.
+
 ## Golden Rule: Never display raw translation keys
 
 Every value displayed to the user MUST be wrapped in `t()`:
@@ -137,7 +139,170 @@ npx cap run android --livereload=http://<IP>:8081 --open
 ### CORS
 На сервере настроен `cors({ origin: '*' })` — подходит для Capacitor.
 
-## Common mistakes to avoid
+## Golden Rule: Production ≠ File Created
+
+Если задача звучит как «добавить X в продакшен», Definition of Done — не `git commit`, а **проверенный рабочий флоу**.
+
+| Создано | Не значит «готово» |
+|---|---|
+| `Dockerfile` | Образ собирается, healthcheck отвечает, `docker-compose up` не падает |
+| `nginx.conf` | `location /api` проксирует, WS не обрывается через 60s, `client_max_body_size` задан |
+| `sentry.ts` | DSN в `.env`, source maps генерируются, `beforeSend` фильтрует JWT/пароли |
+| `swagger.js` | Все новые роуты имеют JSDoc, авторизация через Bearer описана |
+| Тесты Vitest/Playwright | **0 failures** — «pre-existing» не оправдание. Упавший тест = баг или мок сломан |
+
+---
+
+## Pre-flight Checklist (перед каждым закрытием production-задачи)
+
+Проверить **все** пункты, даже если задача казалась «только про фронт»:
+
+### 1. Security grep (30 секунд)
+```bash
+grep -rE "dev-secret|localhost:300[0-9]|password.*=.*$|JWT_SECRET.*=.*key" \
+  --include="*.env" --include="*.ts" --include="*.js" \
+  --exclude-dir=node_modules --exclude-dir=dist
+```
+Если нашлось — не коммитить. Сгенерировать `crypto.randomBytes(32).toString('hex')` и вынести в `.env.example` (без реальных значений).
+
+### 2. Конфигурационная консистентность
+
+Все порты должны совпадать по цепочке:
+- `server/.env` → `PORT=3002`
+- `vite.config.ts` → `proxy: { '/api': 'http://localhost:3002' }`
+- `capacitor.config.ts` / `src/lib/native.ts` → `VITE_API_URL` указывает на тот же хост
+
+Несоответствие = 502 Bad Gateway на проде.
+
+### 3. База данных: миграции, не ALTER TABLE
+
+Новые колонки добавляются через `database/migrations/`, а не ручным ALTER TABLE в консоли MySQL.
+Если в руте используется новая колонка — она должна быть в `mysql_schema.sql` и в отдельном файле миграции.
+
+Правило: `git diff` не должен содержать `ALTER TABLE` в `.js`/`.ts` файлах (только в `migrations/`).
+
+### 4. Платежный флоу (если touched Stripe)
+
+- [ ] `STRIPE_SECRET_KEY` и `STRIPE_WEBHOOK_SECRET` в `server/.env` (не `sk_test_...` если задача про «live»)
+- [ ] Убрать `mockFallback` из прод-ветки или завернуть в `if (process.env.NODE_ENV !== 'production')`
+- [ ] Добавить idempotency key на `checkout.sessions.create`
+- [ ] Webhook роут использует `express.raw({ type: 'application/json' })` перед `express.json()`
+- [ ] Проверить цепочку: выбор тарифа → редирект на Stripe → success/cancel → подписка в `subscriptions` таблице
+
+### 5. Email / SMTP (если touched auth/notify)
+
+- [ ] `server/src/mail.js` не содержит `console.log` как единственный транспорт в проде
+- [ ] `.env` содержит `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (или fallback на Mailgun/Resend API key)
+- [ ] Регистрация с реальным email отправляет письмо (проверить через Mailtrap или логи)
+
+### 6. WebSocket reliability (если touched ws.js / use-websocket.ts)
+
+- [ ] Сервер (`server/src/ws.js`) настроен `pingInterval: 10000, pingTimeout: 5000`
+- [ ] Клиент (`src/hooks/use-websocket.ts`) имеет reconnect с exponential backoff (max 30s)
+- [ ] Сообщения подтверждаются (ack) — иначе при обрыве мобильного интернета сообщения теряются
+- [ ] `user:banned` event разлогинивает клиента без перезагрузки страницы
+
+### 7. File Upload Security (если touched /api/upload)
+
+- [ ] Ограничение размера: `limits: { fileSize: 5 * 1024 * 1024 }` (5 MB)
+- [ ] Фильтр типа: `file.mimetype.startsWith('image/')`
+- [ ] В проде файлы идут на S3 (Selectel/R2/Yandex), а не на локальный диск. Если диск — добавить anti-virus сканирование (ClamAV) или хотя бы расширение whitelist
+- [ ] Имя файла — uuid + оригинальное расширение, никаких `../` или оригинального name
+
+### 8. Admin routes (если touched /api/admin/*)
+
+- [ ] `adminAuth` middleware остаётся passive (вызывает `next()` на ошибке) — не делать его блокирующим
+- [ ] Но каждый PUT/POST/DELETE в админке должен проверять `req.user.role === 'admin'` внутри самого хендлера
+- [ ] Все новые админ-роуты возвращают массивы для таблиц (`[{...}, {...}]`), а не объекты `{data: [...]}` — Recharts и DataTable ломаются
+- [ ] SQL-запросы обёрнуты в try/catch, пустой результат заменяется на `[]` или `{}` — никаких `chartData.slice is not a function`
+
+### 9. Sentry / Observability (если touched инфраструктура)
+
+- [ ] `SENTRY_DSN` в `.env` (frontend и backend)
+- [ ] `beforeSend` фильтрует `req.headers.authorization`, `password`, `token`
+- [ ] Добавлен `/health` роут в Express:
+```js
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', db: dbPool._connection?.state !== 'disconnected' });
+});
+```
+- [ ] Docker healthcheck использует `curl -f http://localhost:3002/health`
+
+### 10. Тесты
+
+- [ ] `npm run test` (frontend) — 0 failures
+- [ ] `cd server && npm run test` — 0 failures. «Pre-existing» — не причина оставлять. Если тест мокает БД — мок должен возвращать ту же структуру, что реальный `mysql2`
+- [ ] Playwright: `npx playwright test` проходит (требует запущенного сервера; добавить `webServer` в `playwright.config.ts`)
+
+---
+
+## Integration Thinking: компоненты не существуют в вакууме
+
+Прежде чем создать файл, ответить на 3 вопроса:
+
+1. **Кто его потребляет?**  
+   Swagger без валидных JWT-схем — бесполезен для фронта. Docker без `/health` — убивается оркестратором. Nginx без `proxy_read_timeout` — убивает WS.
+
+2. **Что произойдёт в 3 ночи, когда это сломается?**  
+   Нет healthcheck → Kubernetes перезапускает контейнер каждые 2 минуты.  
+   Нет Sentry → ошибка в Stripe webhook остаётся незамеченной 8 часов.  
+   Нет логов → не воспроизвести баг.
+
+3. **Как я проверю это без ручного клика?**  
+   Если ответ «открою браузер и посмотрю» — плохо. Нужен curl/API call/тест.
+
+---
+
+## Data & State Consistency (расширение правил переводов)
+
+Всё, что касается new features, должно использовать translation keys:
+
+- Новые интересы → `interest.new_thing` в `constants.ts` + `language-context.tsx`
+- Новые статусы подписки → `premium.status.active`, не "Активна"
+- Новые ошибки API → `error.stripe.webhook_failed`, не "Webhook error"
+
+**Но:** admin-dashboard и Sentry-логи — исключение. Админ видит technical IDs (`user_123`, `stripe_session_xxx`), а не `t()`. Не оборачивать логи и email-рассылки (кроме UI-текста) в `t()`.
+
+---
+
+## Environment-specific Logic
+
+Любой `if (process.env.NODE_ENV === 'development')` или `if (!STRIPE_KEY)` с mock-fallback должен быть явно задокументирован:
+
+```js
+// server/src/routes/premium.js
+const stripe = process.env.STRIPE_SECRET_KEY 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY) 
+  : null;
+
+// Если stripe === null — использовать mock. Это ОК для dev, но в prod 
+// STRIPE_SECRET_KEY обязателен, иначе подписки не работают.
+```
+
+**Запрещено:** тихий fallback без комментария. Пользователь не должен платить реальными деньгами и попадать в mock.
+
+---
+
+## Capacitor / Native-specific
+
+- `src/lib/native.ts` перехватывает fetch. Любой новый API-роут должен работать через абсолютный URL (`VITE_API_URL`), иначе в APK запросы уйдут в `file:///api/...`
+- WebSocket в нативном режиме использует `wss://`, а не `ws://`. Проверить `capacitor.config.ts` → `cleartext: true` только для dev, в prod — `false` + валидный SSL
+- `@capacitor/preferences` — замена localStorage. Если фича использует localStorage, она должна иметь fallback на Preferences для Android
+
+---
+
+## What to NEVER do (absolute bans)
+
+- **Никогда** не коммитить `.env` с реальными секретами. `.env` в `.gitignore`, `.env.example` — в репо
+- **Никогда** не оставлять `console.log` в продакшен-логике платежей, писем, авторизации. Использовать `req.log` (структурированный лог) или winston
+- **Никогда** не добавлять `cors({ origin: '*' })` в веб-версии продакшена. Только для Capacitor (`native.ts` определяет режим)
+- **Никогда** не использовать `fs.writeFile` для пользовательских загрузок без валидации пути. Только uuid имена, только `/uploads/` директория
+- **Никогда** не менять `adminAuth` middleware с passive на blocking. Это сломает dev-login и админку
+- **Никогда** не хранить `refresh_token` в localStorage/Preferences без httpOnly альтернативы. (Сейчас проект использует Bearer в заголовке — это ок, но не добавлять новые sensitive токены в storage)
+
+---
+
+## Past mistakes (fixed, do NOT repeat)
 
 1. **Admin save 401** — admin routes require JWT. Keep `adminAuth` middleware PASSIVE (call `next()` on failure, don't block). `/api/admin/me` has its own auth check — leave it alone.
 2. **Education badge styling** — Don't change `py`, `px`, `rounded-*`, `border-*`, or any visual classes in `admin-content.tsx` unless asked. The user wants them identical to interests.
@@ -151,19 +316,3 @@ npx cap run android --livereload=http://<IP>:8081 --open
 10. **jsdom constraint validation** — jsdom blocks form `submit` event if a `required` field is empty or `type="email"` has invalid value. Always add `noValidate` to `<form>` elements that use custom JS validation (standard practice).
 11. **git stash untracked files** — `git stash` (without `-u`) does NOT stash untracked files. Lint-staged automatic backup also doesn't include untracked files. When troubleshooting stash operations, use `git stash show -p` to verify content, and restore with `git restore --source <stash-hash> --worktree -- .` from the unreachable commit.
 12. **Husky pre-commit + eslint** — The `.husky/pre-commit` runs `lint-staged` which runs eslint + prettier. If the hook fails, it stash-pop's working changes and can lose untracked files. Use `git commit --no-verify` when the changes are verified (tests pass, build succeeds) to avoid hook interference.
-13. **Production checklist (read before marking "production" tasks done):**
-    - Run `grep -r "secret\|password\|localhost" --include="*.env"` across all `.env` files — dev secrets leak
-    - Boot the stack and poke every new file (Sentry, Swagger, healthcheck)
-    - Inspect failing tests — they are real bugs, not "pre-existing" noise
-    - Trace the entire payment/auth/email flow end-to-end, not just the code diff
-    - Check that admin API routes match what the frontend and tests expect (name, format, error codes)
-
-14. **Production blind spots (from Kimi audit):**
-    - **Components must be designed interdependently, not in isolation.** Swagger without valid JWT schemas is useless to frontend. Docker without `/health` route will crash orchestration. Nginx without `proxy_read_timeout` for WS kills chats every 60s. Sentry without `beforeSend` leaks JWT in error logs.
-    - **File upload is an RCE vector.** Always add `multer` limits (`fileSize: 5MB`, `fileFilter: image/*`), AV scanning, and S3 storage — not local disk.
-    - **WebSocket needs `pingInterval`/`pongTimeout`.** Mobile clients (Capacitor) lose messages in tunnels without heartbeat. `socket.io` defaults are not enough for production.
-    - **Migrate DB schema properly — no manual ALTER TABLE.** Use `umzug` / `node-pg-migrate` / custom `migrate.js` with `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ADD COLUMN IF NOT EXISTS`. Schema drift between staging and prod kills deploys.
-    - **Payment flow is more than Stripe keys.** Add: idempotency key on `checkout.sessions.create` (prevents double-charge on double-click), webhook idempotency (Stripe may send `checkout.session.completed` twice), grace period on cancel (don't cut access instantly), subscription audit events (`subscription_events` table).
-    - **Integration tests > manual poking.** Write a test that: boots Docker Compose, `POST /api/auth/register`, checks SMTP inbox (mailtrap), completes Stripe test checkout, verifies WS delivery. Power-cycled testing is unreliable.
-    - **Monitoring is not optional.** Add: `/health` route (for Docker/k8s), `/metrics` (Prometheus — memory, DB connections, WS clients), alerting (Stripe webhook 500, SMTP queue grows, DB connection pool exhaustion).
-    - **Ask yourself: "How will I know this broke at 3am?"** If the answer is "a user will complain", it's not production-ready.
