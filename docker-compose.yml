@@ -10,12 +10,18 @@ services:
       - db_data:/var/lib/mysql
       - ./database/mysql_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./database/demo_data.sql:/docker-entrypoint-initdb.d/02-data.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
   app:
     build: .
     ports:
       - "3002:3002"
-      - "8081:8081"
     environment:
       PORT: 3002
       DB_HOST: db
@@ -23,8 +29,11 @@ services:
       DB_PASSWORD: root
       DB_NAME: swiftmatch1bd
       JWT_SECRET: change-me-in-production
+      NODE_ENV: production
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   db_data:

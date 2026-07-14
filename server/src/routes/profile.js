@@ -4,6 +4,66 @@ import { auth } from '../middleware.js'
 
 const router = Router()
 
+/**
+ * @openapi
+ * /api/profile/{id}:
+ *   get:
+ *     tags: [Profile]
+ *     summary: Get user profile by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Profile data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Profile'
+ *       404:
+ *         description: Profile not found
+ *   put:
+ *     tags: [Profile]
+ *     summary: Update user profile
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               display_name: { type: string }
+ *               age: { type: integer }
+ *               bio: { type: string }
+ *               gender: { type: string }
+ *               city: { type: string }
+ *               interests: { type: array, items: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Updated profile
+ *       500:
+ *         description: Failed to update profile
+ *
+ * /api/profile/me:
+ *   delete:
+ *     tags: [Profile]
+ *     summary: Delete own account (soft delete)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Account deleted
+ *       401:
+ *         description: Authentication required
+ */
+
 function parseJsonField(val, fallback) {
   if (Array.isArray(val)) return val
   if (typeof val === 'string') { try { return JSON.parse(val) } catch { return fallback || [] } }

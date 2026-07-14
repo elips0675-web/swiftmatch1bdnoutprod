@@ -28,6 +28,8 @@ import premiumRoutes from './routes/premium.js'
 import authRoutes, { createRefreshToken } from './routes/auth.js'
 import adminModerationRoutes from './routes/admin-moderation.js'
 import { JWT_SECRET } from './middleware.js'
+import { setupSwagger } from './swagger.js'
+import { initSentry } from './sentry.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -139,6 +141,9 @@ app.get('/api/content', async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch content' })
   }
 })
+
+setupSwagger(app)
+initSentry(app)
 
 app.use(profileRoutes)
 app.use(uploadRoutes)

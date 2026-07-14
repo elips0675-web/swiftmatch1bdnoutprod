@@ -7,6 +7,7 @@
     "dev": "node --watch src/index.js"
   },
   "dependencies": {
+    "@sentry/node": "^10.65.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -19,6 +20,8 @@
     "nodemailer": "^9.0.1",
     "socket.io": "^4.8.3",
     "stripe": "^22.3.0",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1",
     "web-push": "^3.6.7"
   },
   "devDependencies": {

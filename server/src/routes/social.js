@@ -8,6 +8,84 @@ import { auth } from '../middleware.js'
 
 const likeLimiter = rateLimit({ windowMs: 60_000, max: 30, message: { message: 'Too many likes' } })
 
+/**
+ * @openapi
+ * /api/chats:
+ *   get:
+ *     tags: [Chats]
+ *     summary: Get chat list with unread counts
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Chat list
+ *
+ * /api/chats/{chatId}/read:
+ *   put:
+ *     tags: [Chats]
+ *     summary: Mark chat as read
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: chatId
+ *         required: true
+ *         schema: { type: integer }
+ *
+ * /api/chats/{chatId}/messages:
+ *   get:
+ *     tags: [Chats]
+ *     summary: Get messages with reactions
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: chatId
+ *         required: true
+ *         schema: { type: integer }
+ *
+ * /api/chats/{chatId}/messages/{msgId}/reactions:
+ *   post:
+ *     tags: [Chats]
+ *     summary: Toggle emoji reaction on a message
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: chatId
+ *         required: true
+ *         schema: { type: integer }
+ *       - in: path
+ *         name: msgId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [emoji]
+ *             properties:
+ *               emoji: { type: string }
+ *
+ * /api/likes:
+ *   post:
+ *     tags: [Social]
+ *     summary: Like a user
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [liked_user_id]
+ *             properties:
+ *               liked_user_id: { type: integer }
+ */
+
 const router = Router()
 
 // ─── Search / Discovery ────────────────────────────────────────

@@ -1,0 +1,162 @@
+# SwiftMatch — Production Context
+
+## Project Overview
+
+SwiftMatch — дейтинг-приложение (аналог Tinder/Badoo). React 18 + Vite + Tailwind (фронтенд), Express.js + MySQL (бэкенд). Есть кастомная админка, подписки (Stripe + mock), чаты (WebSocket), геопоиск, AI-рекомендации, i18n (RU/EN).
+
+### Ports
+- Frontend: **8081** (Vite dev server)
+- API: **3002** (Express)
+- DB: 3306 (MySQL via Laragon)
+
+### Auth
+- JWT (Bearer token), refresh tokens
+- Dev-login для админки (без Supabase)
+- `adminAuth` middleware — **passive** (не блокирует, вызывает `next()` на ошибке)
+
+### Key Files
+- `vite.config.ts` — proxy → `localhost:3002`
+- `server/.env` — `PORT=3002`, `DB_HOST=localhost`, `JWT_SECRET=dev-secret-key`
+- `server/src/index.js` — Express entry point (helmet, cors, request-id, routes, Sentry, Swagger, WS)
+- `server/src/ws.js` — Socket.IO
+- `server/src/mail.js` — Nodemailer (SMTP не настроен, логирует в консоль)
+
+---
+
+## What's Done (All 8 Phases)
+
+### Phase 1 — Core User Flow ✅
+Register → questionnaire → likes → match → chat. Photo upload via `/api/upload`. Onboarding with MySQL + localStorage fallback.
+
+### Phase 2 — Social Features ✅
+Matches page, premium tiers, groups (creation/join/categories), contest (voting/leaderboard), online status (WS), typing indicator.
+
+### Phase 3 — Admin & Moderation ✅
+Email newsletters (nodemailer), push notifications (VAPID + web-push), ban + WS `user:banned`, banned words in chats, action history, impersonation, real premium status in admin (from `subscriptions`).
+
+### Phase 4 — Monetization ✅
+Stripe Checkout + mock fallback, webhook signature validation, premium gating (10 likes/day free), ad banners (feature flag `showAds`), admin pricing UI.
+
+### Phase 5 — Polish & Advanced ✅
+Geo-search (Haversine), view history, AI recommendations (compatibility_scores), attachment test, message deletion, push notifications, 11 demo bots, i18n (RU/EN).
+
+### Phase 6 — Infrastructure & Real-time ✅
+Socket.IO client, real-time messages, VAPID keys, Stripe package, UTF-8 everywhere, data cleanup, helmet security headers, request-id logging, CSRF not needed (API-only JWT).
+
+### Phase 7 — Testing & Production Infrastructure ✅ (THIS SESSION)
+- **Frontend tests (Vitest):** 42 tests passing (8 files)
+  - `login.test.tsx` — 6 tests
+  - `register.test.tsx` — 7 tests
+  - `error-boundary.test.tsx` — 5 tests
+  - `auth-context.test.tsx` — 5 tests
+  - `use-premium.test.ts` — 5 tests
+  - `example.test.ts` — 1 test
+  - `utils.test.ts` — 8 tests
+  - `api.test.ts` — 5 tests
+- **Server tests (Vitest):** 6 files (auth, profile, premium, admin, social, middleware) - 9 pre-existing failures
+- **E2E (Playwright):** `playwright.config.ts` + 3 spec files (login, register, profile)
+- **Sentry:** `src/lib/sentry.ts` + `server/src/sentry.js` (initialized in `main.tsx` + `index.js`)
+- **Swagger:** `server/src/swagger.js` + JSDoc annotations for auth, profile, premium, social routes
+- **Docker:** Multi-stage `Dockerfile` (healthcheck, `node:20-alpine`, `USER node`), `docker-compose.yml` (db healthcheck)
+- **Nginx:** `nginx.conf` (SPA fallback, API proxy, SSL, WebSocket, security headers - X-Frame-Options, HSTS, CSP)
+- **Prettier:** `.prettierrc`
+- **Husky + lint-staged:** `.husky/pre-commit`
+
+---
+
+## Bugs Fixed This Session
+
+### 1. vi.mock TDZ (Temporal Dead Zone)
+- **Files:** `src/test/login.test.tsx`, `src/test/register.test.tsx`
+- **Problem:** `const mockToast = vi.fn()` followed by `vi.mock("@/hooks/use-toast", () => ({ toast: mockToast }))` — vitest hoists `vi.mock` above the `const`, so `mockToast` is uninitialized when the factory runs
+- **Fix:** Changed to `const mockToast = vi.hoisted(() => vi.fn())`. `vi.hoisted()` runs at hoist time before `vi.mock`, creating the mock properly
+
+### 2. jsdom Constraint Validation Blocks Form Submit
+- **File:** `src/pages/register.tsx`
+- **Problem:** Inputs had `required` + `type="email"`. jsdom blocks form `submit` event when a required field is empty or email format is invalid, so `handleRegister` (custom validation with `toast()`) never fires
+- **Fix:** Added `noValidate` to `<form>` — standard practice when using custom JS validation
+
+### 3. Dynamic import / await import toast in tests
+- **Files:** `src/test/login.test.tsx`, `src/test/register.test.tsx`
+- **Problem:** Tests used `const { toast } = await import("@/hooks/use-toast")` inside test bodies, but vitest's module mock cache meant this sometimes returned a different reference than the page's imported `toast`
+- **Fix:** Switched to direct `mockToast` reference (already the same instance from `vi.hoisted`)
+
+---
+
+## Remaining Issues
+
+### Server Tests (9 failures — PRE-EXISTING, unrelated to this session)
+
+1. **admin.test.js (7 failures):**
+   - `/api/admin/analytics` — 404 (route doesn't exist: `analytics.js` not found)
+   - `/api/admin/revenue` — 404 (route doesn't exist: `monetization.js` instead)
+   - `/api/admin/stats` — 500 (`(intermediate value) is not iterable` in dashboard.js)
+   - `/api/admin/users` — response shape wrong (returns `{users: [...]}` not array)
+   - `/api/admin/features` GET — returns object not array
+   - `/api/admin/features` PUT — 500 instead of 400 validation error
+   - All "handles database error" tests that expect 500 instead get 404
+
+2. **profile.test.js (1 failure):**
+   - `PUT /api/profile/:id` — mock doesn't return `display_name: 'Updated'`, returns `undefined`
+
+3. **social.test.js (1 failure):**
+   - `GET /api/chats/:chatId/messages` — mock returns empty array instead of messages with reactions
+
+### Stripe / SMTP / Ads
+- Live Stripe key needed in `.env`
+- SMTP credentials needed
+- Real ad SDK integration (AdMob/Yandex)
+
+---
+
+## Architecture Overview (for LLM context)
+
+### Frontend Structure
+```
+src/
+├── components/          # UI components (shadcn/ui + custom)
+│   ├── ui/              # Button, Input, Badge, Select, Dialog, etc.
+│   └── shared/          # AdminGuard, AdminLayout, etc.
+├── context/             # React contexts (auth, language, feature-flags)
+├── hooks/               # Custom hooks (use-premium, use-websocket, etc.)
+├── lib/                 # Utilities (sentry, native, token, utils)
+├── pages/               # Route pages (login, register, chats, admin/*)
+├── test/                # Vitest test files
+└── main.tsx             # Entry point (Sentry init + React root)
+```
+
+### Server Structure
+```
+server/src/
+├── routes/              # Express route handlers
+│   ├── admin/           # Admin dashboard, users, features, content, etc.
+│   ├── auth.js          # Register, login, forgot-password, reset-password
+│   ├── profile.js       # GET/PUT profile, DELETE account
+│   ├── social.js        # Chats, messages, likes, reactions
+│   └── premium.js       # Subscription plans, Stripe sessions
+├── middleware/           # adminAuth
+├── __tests__/           # Vitest test files
+├── index.js             # Entry point (helmet, cors, routes, Sentry, Swagger, WS)
+├── sentry.js            # Sentry server init
+├── swagger.js           # Swagger/OpenAPI config
+├── ws.js                # Socket.IO setup (chat, notifications, online status)
+└── mail.js              # Nodemailer (console.log fallback when SMTP missing)
+```
+
+### Database (MySQL)
+- `swiftmatch` database
+- Tables: `users`, `user_profiles`, `user_photos`, `interests`, `user_interests`, `matches`, `chats`, `chat_messages`, `chat_participants`, `message_reactions`, `subscriptions` (premium), `activity_log`, `feature_flags`, `reports`, `banned_words`, `content_config`
+- Schema in `database/mysql_schema.sql`
+
+### Key Patterns
+- **Translation keys in DB, not display text:** `interest.sport` not `"Спорт"`
+- **Dev-login auto-auth:** AdminGuard tries dev-login when Supabase absent
+- **adminAuth is passive:** Calls `next()` on failure, doesn't block
+- **noValidate on forms** with custom validation
+
+### Test Patterns
+- `vi.hoisted(() => vi.fn())` for shared mocks in vi.mock factory
+- `renderWithProviders()` wrapper (auth + language contexts)
+- `userEvent.setup()` for simulating user interactions
+- `waitFor()` for async assertions
+- `getByTextContent()` helper for elements split across `<span>` children

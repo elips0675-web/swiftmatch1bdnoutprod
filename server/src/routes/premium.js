@@ -4,6 +4,63 @@ import { auth } from '../middleware.js'
 
 const router = Router()
 
+/**
+ * @openapi
+ * /api/premium/tiers:
+ *   get:
+ *     tags: [Premium]
+ *     summary: Get available subscription tiers
+ *     responses:
+ *       200:
+ *         description: List of tiers
+ *
+ * /api/premium/my:
+ *   get:
+ *     tags: [Premium]
+ *     summary: Get own active subscription
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Active subscription or null
+ *       401:
+ *         description: Authentication required
+ *
+ * /api/premium/create-checkout:
+ *   post:
+ *     tags: [Premium]
+ *     summary: Create checkout session or activate mock subscription
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [tier, duration_months]
+ *             properties:
+ *               tier: { type: string, enum: [plus, gold, platinum] }
+ *               duration_months: { type: integer }
+ *     responses:
+ *       201:
+ *         description: Subscription activated (mock) or Stripe URL returned
+ *       400:
+ *         description: Invalid tier or missing fields
+ *
+ * /api/premium/cancel:
+ *   post:
+ *     tags: [Premium]
+ *     summary: Cancel active subscription
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Subscription cancelled
+ *       404:
+ *         description: No active subscription found
+ */
+
 const TIERS = [
   { id: 'plus', name: 'Plus', price: 299, duration_months: 1, features: ['5 суперлайков в день', 'Без рекламы', 'Кто лайкнул меня'] },
   { id: 'gold', name: 'Gold', price: 699, duration_months: 1, features: ['10 суперлайков в день', 'Без рекламы', 'Кто лайкнул меня', 'Режим невидимки', 'Приоритетные лайки'] },

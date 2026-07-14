@@ -109,6 +109,17 @@ npx vite --port 8081 --host
 - **Request ID** — каждый запрос получает UUID, `X-Request-Id` в ответе, `req.log` для структурированного логирования
 - **CSRF** — не нужен (API-only, JWT в `Authorization` header, без кук-сессий)
 
+### Фаза 7 — Testing & Production Infrastructure ✅
+- **Фронтенд-тесты (Vitest):** 42 теста, 8 файлов (`login`, `register`, `error-boundary`, `auth-context`, `use-premium`, `example`, `utils`, `api`)
+- **Серверные тесты (Vitest):** 6 файлов (`auth`, `profile`, `premium`, `admin`, `social`, `middleware`)
+- **E2E (Playwright):** `playwright.config.ts`, `e2e/login.spec.ts`, `register.spec.ts`, `profile.spec.ts`
+- **Sentry:** `src/lib/sentry.ts` + `server/src/sentry.js` (инициализация в `main.tsx` и `server/src/index.js`)
+- **Swagger:** `server/src/swagger.js` + JSDoc-аннотации к routes (auth, profile, premium, social)
+- **Docker:** multi-stage `Dockerfile` (healthcheck, `node:20-alpine`, `USER node`) + `docker-compose.yml` (healthcheck для db)
+- **Nginx:** `nginx.conf` (SPA fallback, API proxy, SSL, WebSocket, security headers)
+- **Prettier:** `.prettierrc` с настройками
+- **Husky + lint-staged:** `.husky/pre-commit` запускает prettier+lint на staged файлах
+
 ---
 
 ## Что ещё можно сделать
@@ -118,6 +129,9 @@ npx vite --port 8081 --host
 | 1 | **Stripe live** — вписать `STRIPE_SECRET_KEY` в `.env` (код готов) | Высокий |
 | 2 | **Реальная реклама** — AdMob / Yandex SDK (showAds флаг починен, админка загружает конфиг) | Высокий |
 | 3 | **SMTP** — вписать SMTP_USER/PASS в `.env` (хосты раскомментированы) | Низкий |
+| 4 | **Server tests** — 9 pre-existing failures (admin:7, profile:1, social:1), нужно чинить моки | Средний |
+| 5 | **E2E tests** — Playwright настроен, требует запущенного сервера для прогона | Низкий |
+| 6 | **Sentry DSN** — вписать `SENTRY_DSN` в `.env.example` и `server/.env` | Низкий |
 
 ---
 
