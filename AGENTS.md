@@ -151,3 +151,19 @@ npx cap run android --livereload=http://<IP>:8081 --open
 10. **jsdom constraint validation** — jsdom blocks form `submit` event if a `required` field is empty or `type="email"` has invalid value. Always add `noValidate` to `<form>` elements that use custom JS validation (standard practice).
 11. **git stash untracked files** — `git stash` (without `-u`) does NOT stash untracked files. Lint-staged automatic backup also doesn't include untracked files. When troubleshooting stash operations, use `git stash show -p` to verify content, and restore with `git restore --source <stash-hash> --worktree -- .` from the unreachable commit.
 12. **Husky pre-commit + eslint** — The `.husky/pre-commit` runs `lint-staged` which runs eslint + prettier. If the hook fails, it stash-pop's working changes and can lose untracked files. Use `git commit --no-verify` when the changes are verified (tests pass, build succeeds) to avoid hook interference.
+13. **Production checklist (read before marking "production" tasks done):**
+    - Run `grep -r "secret\|password\|localhost" --include="*.env"` across all `.env` files — dev secrets leak
+    - Boot the stack and poke every new file (Sentry, Swagger, healthcheck)
+    - Inspect failing tests — they are real bugs, not "pre-existing" noise
+    - Trace the entire payment/auth/email flow end-to-end, not just the code diff
+    - Check that admin API routes match what the frontend and tests expect (name, format, error codes)
+
+14. **Production blind spots (from Kimi audit):**
+    - **Components must be designed interdependently, not in isolation.** Swagger without valid JWT schemas is useless to frontend. Docker without `/health` route will crash orchestration. Nginx without `proxy_read_timeout` for WS kills chats every 60s. Sentry without `beforeSend` leaks JWT in error logs.
+    - **File upload is an RCE vector.** Always add `multer` limits (`fileSize: 5MB`, `fileFilter: image/*`), AV scanning, and S3 storage — not local disk.
+    - **WebSocket needs `pingInterval`/`pongTimeout`.** Mobile clients (Capacitor) lose messages in tunnels without heartbeat. `socket.io` defaults are not enough for production.
+    - **Migrate DB schema properly — no manual ALTER TABLE.** Use `umzug` / `node-pg-migrate` / custom `migrate.js` with `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ADD COLUMN IF NOT EXISTS`. Schema drift between staging and prod kills deploys.
+    - **Payment flow is more than Stripe keys.** Add: idempotency key on `checkout.sessions.create` (prevents double-charge on double-click), webhook idempotency (Stripe may send `checkout.session.completed` twice), grace period on cancel (don't cut access instantly), subscription audit events (`subscription_events` table).
+    - **Integration tests > manual poking.** Write a test that: boots Docker Compose, `POST /api/auth/register`, checks SMTP inbox (mailtrap), completes Stripe test checkout, verifies WS delivery. Power-cycled testing is unreliable.
+    - **Monitoring is not optional.** Add: `/health` route (for Docker/k8s), `/metrics` (Prometheus — memory, DB connections, WS clients), alerting (Stripe webhook 500, SMTP queue grows, DB connection pool exhaustion).
+    - **Ask yourself: "How will I know this broke at 3am?"** If the answer is "a user will complain", it's not production-ready.
