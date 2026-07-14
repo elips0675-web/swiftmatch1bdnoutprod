@@ -122,16 +122,96 @@ npx vite --port 8081 --host
 
 ---
 
-## Что ещё можно сделать
+## Что доделать до продакшена
 
-| # | Задача | Приоритет |
-|---|--------|-----------|
-| 1 | **Stripe live** — вписать `STRIPE_SECRET_KEY` в `.env` (код готов) | Высокий |
-| 2 | **Реальная реклама** — AdMob / Yandex SDK (showAds флаг починен, админка загружает конфиг) | Высокий |
-| 3 | **SMTP** — вписать SMTP_USER/PASS в `.env` (хосты раскомментированы) | Низкий |
-| 4 | **Server tests** — 9 pre-existing failures (admin:7, profile:1, social:1), нужно чинить моки | Средний |
-| 5 | **E2E tests** — Playwright настроен, требует запущенного сервера для прогона | Низкий |
-| 6 | **Sentry DSN** — вписать `SENTRY_DSN` в `.env.example` и `server/.env` | Низкий |
+### 🔴 БЛОКЕРЫ (нельзя деплоить)
+
+1. **Безопасность — dev-секреты**
+   - `JWT_SECRET=dev-secret-key` → сгенерировать 256+ бит случайных символов
+   - `DB_PASSWORD=` (пустой) + `DB_USER=root` → создать пользователя `swiftmatch_prod` с ограниченными правами
+   - `CORS_ORIGIN=http://localhost:8081` → заменить на домен прода
+
+2. **Админка падает 500/404**
+   - `/api/admin/analytics` — 404 (файл не создан)
+   - `/api/admin/revenue` — 404 (роут называется `monetization.js`)
+   - `/api/admin/stats` — 500 (`dashboard.js` итерирует null из БД)
+   - `/api/admin/users` — возвращает `{users: [...]}` вместо массива
+   - `/api/admin/features` — возвращает объект вместо массива
+
+3. **Stripe — только mock-fallback**
+   - `STRIPE_SECRET_KEY` не заполнен, платежи не проходят
+   - Убрать mock-ветку из прода или оставить только для `NODE_ENV=test`
+   - Добавить `idempotency_key` на `checkout.sessions.create`
+
+4. **SMTP — письма не уходят**
+   - `server/src/mail.js` только логирует в консоль
+   - Регистрация, forgot-password, verify-email — мёртвые
+   - Добавить fallback на Resend / Amazon SES / Mailgun + retry-логику
+
+### 🟠 ВЫСОКИЙ ПРИОРИТЕТ
+
+5. **Реклама — таймер вместо SDK**
+   - AdMob / Yandex Ads SDK не интегрирован, стоит заглушка
+   - Добавить `adUnitId` в `feature_flags` для смены без деплоя
+
+6. **Sentry — не инициализирован**
+   - `SENTRY_DSN` не вписан ни во фронт, ни в бэкенд
+   - Ошибки в чатах и платежах уходят в никуда
+   - Добавить `beforeSend` для фильтрации PII (пароли, токены)
+
+7. **WebSocket — нет heartbeat/reconnect**
+   - При обрыве связи (мобильный интернет) чат не восстанавливается
+   - Добавить `pingInterval/pongTimeout` на сервере, `exponential backoff` на клиенте
+
+8. **БД — нет миграций**
+   - Схема живёт в `mysql_schema.sql`, колонки добавлялись ALTER TABLE вручную
+   - Внедрить `umzug` / `node-pg-migrate` + `npm run migrate` в Dockerfile
+
+9. **Загрузка файлов — нет ограничений**
+   - `/api/upload` не проверяет `image/*`, `fileSize` и не сканирует
+   - Хранилище на диске → перенести на S3 (Selectel / R2 / Yandex Object Storage)
+
+### 🟡 СРЕДНИЙ ПРИОРИТЕТ
+
+10. **Починить 9 server-тестов**
+    - `admin.test.js` (7) — создать `analytics.js`, переименовать `monetization.js` → `revenue.js`, обернуть SQL в `|| []`
+    - `profile.test.js` (1) — мок должен возвращать `display_name` после UPDATE
+    - `social.test.js` (1) — мок чатов должен возвращать messages с reactions
+
+11. **Playwright E2E — добавить webServer в конфиг**
+    ```ts
+    webServer: { command: 'cd server && node src/index.js', url: 'http://localhost:3002/health', timeout: 120000 }
+    ```
+    + добавить `/health` роут в Express
+
+12. **Docker — не production-ready**
+    - Нет `.dockerignore` → в образ утекает `node_modules`, `.git`, `server/.env`
+    - `docker-compose.yml`: нет `restart: unless-stopped`, `mem_limit`, именованного volume для MySQL
+
+13. **Nginx — rate limiting и body size**
+    - `limit_req_zone` на `/api/auth/login` и `/api/upload`
+    - `client_max_body_size 5M;` для фото
+    - `proxy_read_timeout` для WebSocket (сейчас 60s, мало)
+
+14. **Логи — нет структурированного логирования**
+    - `console.log` заменить на `winston` / `pino` с ротацией
+
+### 🟢 НИЗКИЙ ПРИОРИТЕТ
+
+15. **Кэширование**: Redis для сессий, кэша `compatibility_scores`, `feature_flags` (читаются из БД на каждый рендер)
+
+16. **Бэкапы MySQL**: `mysqldump` cron или RDS automated backups
+
+17. **CI/CD**: GitHub Actions для vitest + playwright на PR, сборки Docker + деплоя
+
+### 📋 План по неделям
+
+| Неделя | Задачи |
+|--------|--------|
+| Неделя 1 | Сменить dev-секреты (JWT, DB пароль). Починить 9 server-тестов. Добавить `/health` роут и запустить Playwright. Починить admin/stats, analytics, revenue |
+| Неделя 2 | Stripe live + webhook. SMTP (Resend/SES). Sentry DSN + source maps. `noValidate` на оставшиеся формы |
+| Неделя 3 | Миграции БД (umzug). Загрузка на S3 + валидация. Redis для сессий. Rate limiting |
+| Неделя 4 | Docker: `.dockerignore`, `restart`, volumes. Nginx: rate limit, body size, WS timeouts. CI/CD (GitHub Actions). AdMob/Yandex SDK |
 
 ---
 

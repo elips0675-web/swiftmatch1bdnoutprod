@@ -83,9 +83,38 @@ Socket.IO client, real-time messages, VAPID keys, Stripe package, UTF-8 everywhe
 
 ---
 
-## Remaining Issues
+## External Audit (from Kimi)
 
-### Server Tests (9 failures — PRE-EXISTING, unrelated to this session)
+Full audit in `Оценка kimi.txt` on disk. Summary:
+
+### 🔴 BLOCKERS before production deploy
+1. **Dev secrets everywhere** — `JWT_SECRET=dev-secret-key`, empty `DB_PASSWORD`, `DB_USER=root`, `CORS_ORIGIN=localhost`
+2. **Admin routes crash** — 7 failures in admin tests = real bugs (500/404 on stats, analytics, revenue, features, users)
+3. **Stripe mock-only** — no real payments, `STRIPE_SECRET_KEY` missing
+4. **SMTP dead** — mail.js only logs to console, verification/reset emails never send
+
+### 🟠 High priority
+5. **AdMob/Yandex SDK** not integrated (showAds flag has timer stub)
+6. **Sentry DSN** not configured (both frontend + backend)
+7. **WebSocket** — no heartbeat/reconnect, messages lost on mobile disconnects
+8. **DB migrations** — schema changes done via raw ALTER TABLE, no versioning
+9. **File upload** — no size/type validation, no S3 storage
+
+### 🟡 Medium priority
+10. Fix 9 server tests (admin:7, profile:1, social:1)
+11. Playwright E2E: add webServer config + /health route
+12. Docker: .dockerignore, restart policy, named volumes
+13. Nginx: rate limiting, client_max_body_size, WS timeouts
+14. Structured logging (winston/pino)
+
+### 🟢 Low priority
+15. Redis caching (sessions, compatibility_scores, feature_flags)
+16. MySQL backups (mysqldump cron)
+17. CI/CD (GitHub Actions for tests + deploy)
+
+---
+
+## Remaining Issues
 
 1. **admin.test.js (7 failures):**
    - `/api/admin/analytics` — 404 (route doesn't exist: `analytics.js` not found)
