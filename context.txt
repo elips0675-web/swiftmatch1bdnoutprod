@@ -118,7 +118,7 @@
 - **.env.example:** оба файла содержат все переменные с комментариями
 - **SEO:** sitemap.xml, расширенный robots.txt (Disallow приватных страниц), улучшенный manifest.json (categories, maskable)
 - **Error boundaries:** per-page (30+ lazy-роутов изолированы)
-- **Loading states:** activity.tsx, chats.tsx (спиннер)
+- **Loading states:** activity.tsx, chats.tsx, profile.tsx (спиннер)
 
 Для прода: вписать 7 ключей в `server/.env` (см. таблицу выше).
 
