@@ -23,7 +23,7 @@
 - CORS — `*` (для Capacitor)
 
 ---
-## Что сделано (все 3 недели)
+## Что сделано
 
 ### Неделя 2 — Платежи + Коммуникации ✅
 - **Stripe:** Idempotency-Key middleware (`server/src/middleware/idempotency.js`), STRIPE_LIVE флаг (при `true` mock отключается, без ключа → 500)
@@ -32,25 +32,29 @@
 - **noValidate:** Добавлен на login.tsx, register.tsx, forgot-password.tsx, reset-password.tsx
 
 ### Неделя 3 — Инфраструктура ✅
-- **MIME-фильтр:** `file.mimetype.startsWith('image/')` + расширение .jpg/.jpeg/.png/.gif/.webp
+- **MIME-фильтр:** `file.mimetype.startsWith('image/')` + расширение .jpg/.jpeg/.png/.gif/.webp + `fileSize: 10MB`
 - **S3 scaffold:** lazy-init — при AWS_* env → `@aws-sdk/client-s3` + `multer-s3`, иначе локальный диск (`server/uploads/`)
 - **Redis scaffold:** `server/src/redis.js` — lazy singleton с `ioredis`, ждёт REDIS_URL
 - **Миграции БД:** `database/migrations/` — нумерованные .sql файлы + `migrate.js` (создаёт таблицу `_migrations`, применяет новые)
 
 ### Неделя 4 — Production Hardening ✅
-- **Docker:** `.dockerignore` (node_modules, .git, .env, dist), `restart: unless-stopped` в docker-compose.yml
+- **Docker:** `.dockerignore`, `restart: unless-stopped` в docker-compose.yml
 - **Nginx:** `nginx/swiftmatch.conf` — rate limit (api: 30r/s, auth: 5r/s), `client_max_body_size 20M`, WebSocket 86400s, SSL, SPA fallback
 - **CI/CD:** `.github/workflows/deploy.yml` — lint → build → test (MySQL сервис)
 - **AdMob:** динамический импорт `@capacitor-community/admob` с fallback на `setTimeout(3000)`
-- **Winston:** `server/src/logger.js` переписан с `winston.createLogger`, JSON-формат с timestamp/level/msg/rid
+- **Winston:** `server/src/logger.js` переписан, JSON-формат, добавлен `export default`
 
 ### Дополнительно ✅
-- **admin/analytics.js:** создан (overview, retention, revenue-mix, registrations) — убирает 404
+- **admin/analytics.js:** overview, retention, revenue-mix, registrations
 - **/health роут:** `GET /health` — проверяет `SELECT 1` из БД
-- **WebSocket heartbeat:** `pingInterval: 10000`, `pingTimeout: 5000` на сервере
-- **WS reconnect:** `reconnectionAttempts: Infinity`, `reconnectionDelayMax: 30000`, `randomizationFactor: 0.5` на клиенте
-- **Playwright:** webServer уже настроен (сервер + фронт)
-- **README:** обновлён статус всех пунктов
+- **WebSocket heartbeat:** `pingInterval: 10000`, `pingTimeout: 5000`
+- **WS reconnect:** `reconnectionAttempts: Infinity`, `reconnectionDelayMax: 30000`
+- **JWT_SECRET:** сгенерирован 256 бит (`crypto.randomBytes`)
+- **PUT /features:** добавлена валидация пустого body → 400
+- **Server-тесты:** **56/56 проходят (0 failures)** — исправлены admin(7), profile(1), social(1)
+- **logger.js:** добавлен `export default winstonLogger` для роутов
+- **README:** профессиональный список фич, todo только с реально необходимым
+- **context.txt:** актуален
 
 ---
 ## Что осталось
@@ -61,18 +65,18 @@
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `server/.env` | Реальные платежи |
 | `SMTP_USER`, `SMTP_PASS` | `server/.env` | Email (регистрация, сброс пароля) |
 | `SENTRY_DSN` | `server/.env` + `.env` | Мониторинг ошибок |
-| `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `server/.env` | Облачное хранение файлов |
 | `REDIS_URL` | `server/.env` | Кэш + rate-limit |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | `server/.env` | Облачное хранение файлов |
+| `DB_PASSWORD` | `server/.env` | Непустой пароль MySQL |
+| `CORS_ORIGIN` | `server/.env` | Домен прода |
 
 ### 🟡 Нужно доработать
-1. **Безопасность — dev-секреты:** заменить `JWT_SECRET`, выставить `DB_PASSWORD`, `CORS_ORIGIN`
-2. **9 server-тестов:** admin(7) + profile(1) + social(1) — падают из-за моков и маршрутизации
-3. **npm install @capacitor-community/admob** — для реальной рекламы в нативной сборке
-4. **console.log → req.log** — часть старых роутов ещё не мигрирована на winston
+1. **npm install @capacitor-community/admob** — для реальной рекламы в нативной сборке
+2. **console.log → winston** — часть старых роутов ещё не мигрирована
 
 ### 🟢 Опционально
-5. MySQL backups (mysqldump cron)
-6. Mem_limit в docker-compose.yml
+3. MySQL backups (mysqldump cron)
+4. Mem_limit в docker-compose.yml
 
 ---
 ## Ключевые файлы
