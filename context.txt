@@ -41,6 +41,9 @@
 - **S3 scaffold:** lazy-init (AWS env → multer-s3, иначе локальный диск)
 - **Redis scaffold:** lazy singleton с ioredis, disconnectRedis(), winston-логи
 
+### Bugfixes
+- **double initSentry():** удалён дублирующий вызов без `app` (при включении DSN падал бы)
+
 ### Production Hardening
 - **Логи:** Winston JSON во всех серверных файлах (0 console.log/error)
 - **WebSocket:** pingInterval 10s, pingTimeout 5s, reconnect с exponential backoff (max 30s)

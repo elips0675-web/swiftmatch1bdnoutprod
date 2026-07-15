@@ -144,7 +144,6 @@ app.get('/api/content', async (req, res) => {
 })
 
 setupSwagger(app)
-initSentry(app)
 
 app.use(profileRoutes)
 app.use(uploadRoutes)
@@ -198,7 +197,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Internal server error' })
 })
 
-initSentry()
+initSentry(app)
 
 const httpServer = createServer(app)
 initIO(httpServer)
