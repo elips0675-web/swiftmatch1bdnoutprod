@@ -6,9 +6,16 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  globalSetup: require.resolve('./e2e/setup/global-setup'),
+  reporter: [
+    ['html', { open: 'never' }],
+    ['json', { outputFile: 'test-results.json' }],
+    ['list'],
+  ],
   use: {
     baseURL: 'http://localhost:8081',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
     trace: 'on-first-retry',
   },
   projects: [
@@ -20,7 +27,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'cd server && node src/index.js',
-      url: 'http://localhost:3002/api/content',
+      url: 'http://localhost:3002/health',
       reuseExistingServer: !process.env.CI,
       timeout: 30000,
     },

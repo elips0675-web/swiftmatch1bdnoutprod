@@ -117,6 +117,7 @@ export default function RegisterPage() {
              <div className="relative">
               <User className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
               <Input 
+                data-testid="name"
                 type="text" 
                 placeholder={t('register.name_placeholder')} 
                 value={name}
@@ -128,6 +129,7 @@ export default function RegisterPage() {
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
               <Input 
+                data-testid="email"
                 type="email" 
                 placeholder="Email" 
                 value={email}
@@ -139,6 +141,7 @@ export default function RegisterPage() {
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
               <Input 
+                data-testid="password"
                 type="password" 
                 placeholder={t('register.password_placeholder')} 
                 value={password}
@@ -149,6 +152,7 @@ export default function RegisterPage() {
             </div>
             
             <Button 
+              data-testid="submit-register"
               type="submit" 
               disabled={isLoading}
               className="w-full h-14 rounded-2xl gradient-bg text-white font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all active:scale-95 border-0"

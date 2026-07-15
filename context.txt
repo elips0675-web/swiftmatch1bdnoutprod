@@ -79,7 +79,10 @@
 - **AGENTS.md prompt templates:** добавлены 3 промта — функциональный аудит, аудит связки Админка-БД-Приложение, E2E-тест
 - **persona.md:** исправлен порт API (3001 → 3002)
 - **swagger-jsdoc:** установлен (отсутствовал, сервер не стартовал)
-- **Playwright-тестирование страниц:** скрипт `test_pages.mjs` — проверка всех 28 страниц на console.errors
+- **Playwright-тестирование страниц:** `e2e/audit-full.spec.ts` — проверка всех страниц на console.errors, 500-е API, page errors
+- **data-testid селекторы:** добавлены на login.tsx, register.tsx, chats-chatId.tsx
+- **e2e helpers:** `audit.ts` (console/network/error tracker), `api.ts` (API calls + health check)
+- **global-setup:** проверка `/health` + MySQL перед тестами
 
 ### Production Hardening
 - **Логи:** Winston JSON во всех серверных файлах (0 console.log/error)

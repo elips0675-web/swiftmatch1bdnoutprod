@@ -761,8 +761,83 @@ jobs:
 |---------|-----------|---------|--------------|
 | Unit (frontend) | Vitest + RTL | `npm run test` | hooks, utils, компоненты |
 | Unit (backend) | Vitest (mock mysql2) | `cd server && npm run test` | routes, middleware |
-| E2E | Playwright | `node test_pages.mjs` | 28 pages, console errors, user flows |
-| API | Curl / direct http | — | Healthcheck, все роуты |
+| E2E | Playwright | `npm run test:e2e` | 28+ pages, console errors, user flows |
+| E2E (UI mode) | Playwright UI | `npm run test:e2e:ui` | Interactive debugging |
+| API | Curl / tests | — | Healthcheck, все роуты |
+
+### Playwright структура
+
+```
+e2e/
+├── audit-full.spec.ts       # Полный аудит (health, auth, admin API, pages, chat)
+├── login.spec.ts            # Существующие тесты логина
+├── register.spec.ts         # Существующие тесты регистрации
+├── profile.spec.ts          # Существующие тесты профиля
+├── helpers/
+│   ├── audit.ts             # console/network/page error tracker
+│   └── api.ts               # apiCall(), loginViaApi(), healthCheck()
+├── setup/
+│   └── global-setup.ts      # Health check + DB verify перед тестами
+└── visual/                  # Скриншотные тесты (будущие)
+```
+
+### Конфигурация
+- **screenshot**: `only-on-failure` — скриншот при падении
+- **video**: `retain-on-failure` — видео при падении
+- **trace**: `on-first-retry` — HAR + console + network на первом ретрае
+- **reporter**: `html` + `json` (`test-results.json`) + `list`
+- **globalSetup**: проверка `/health` + MySQL перед запуском
+
+### Селекторы: `data-testid` (must have для ИИ-тестов)
+
+Все интерактивные элементы должны иметь `data-testid`:
+
+| Страница | Селектор | Где |
+|----------|----------|-----|
+| login.tsx | `[data-testid="email"]` | Input email |
+| login.tsx | `[data-testid="password"]` | Input password |
+| login.tsx | `[data-testid="phone"]` | Input phone |
+| login.tsx | `[data-testid="submit-login"]` | Кнопка входа |
+| register.tsx | `[data-testid="name"]` | Input имени |
+| register.tsx | `[data-testid="email"]` | Input email |
+| register.tsx | `[data-testid="password"]` | Input пароля |
+| register.tsx | `[data-testid="submit-register"]` | Кнопка регистрации |
+| chats-chatId.tsx | `[data-testid="message-input"]` | Поле ввода сообщения |
+| chats-chatId.tsx | `[data-testid="send-button"]` | Кнопка отправки |
+| chats-chatId.tsx | `[data-testid="message-list"]` | Контейнер сообщений |
+
+### Promt для DeepSeek: аудит через Playwright
+
+```
+Ты — senior QA engineer. У тебя есть:
+- Playwright тесты в e2e/
+- Работающее приложение на localhost:8081
+- API на localhost:3002
+- Отчёт playwright-report/
+
+### Задача:
+1. Запусти: npx playwright test --reporter=json
+2. Для каждого FAILED теста:
+   - Открой trace viewer: npx playwright show-trace test-results/{trace}.zip
+   - Посмотри скриншот
+   - Прочитай console errors
+   - Найди соответствующий код в src/ и server/src/
+3. Классифицируй ошибку:
+   - FE: баг во фронтенде
+   - BE: баг в API
+   - DB: расхождение схемы и кода
+   - TEST: тест неактуален (изменился UI)
+4. Для каждой ошибки предложи фикс с конкретными файлами
+
+### Формат ответа:
+## Найдено X ошибок
+### 1. [FE/BE/DB/TEST] Краткое описание
+- **Тест:** e2e/...spec.ts:line
+- **Причина:** что сломано
+- **Код:** фрагмент с багом
+- **Фикс:** конкретные изменения
+- **Приоритет:** 🔴/🟠/🟡
+```
 
 ## 🛡️ Security Rules (быстрый чеклист)
 

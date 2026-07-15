@@ -160,6 +160,7 @@ export default function LoginPage() {
                 <div className="relative">
                   <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
                   <Input 
+                    data-testid="phone"
                     type="tel" 
                     placeholder="+7 (999) 000-00-00" 
                     value={phone}
@@ -175,6 +176,7 @@ export default function LoginPage() {
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
                     <Input 
+                      data-testid="email"
                       type="email" 
                       placeholder="Email" 
                       value={email}
@@ -188,6 +190,7 @@ export default function LoginPage() {
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
                     <Input 
+                      data-testid="password"
                       type="password" 
                       placeholder={t('auth.password_placeholder')} 
                       value={password}
@@ -209,6 +212,7 @@ export default function LoginPage() {
             )}
             
             <Button 
+              data-testid="submit-login"
               type="submit" 
               disabled={isLoading}
               className="w-full h-14 rounded-full gradient-bg text-white font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all active:scale-95 border-0"

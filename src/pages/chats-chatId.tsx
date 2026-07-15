@@ -177,7 +177,7 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
         </DropdownMenu>
       </header>
 
-      <main ref={msgContainerRef} className="flex-1 overflow-y-auto anti-screenshot">
+      <main data-testid="message-list" ref={msgContainerRef} className="flex-1 overflow-y-auto anti-screenshot">
         <div className="flex flex-col min-h-full px-4 pt-4 pb-2 space-y-2">
           <div className="flex-1" />
           <div className="text-center my-2"><Badge variant="secondary">{t('chats.today')}</Badge></div>
@@ -227,7 +227,7 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
       <div className="p-4 pb-[calc(4rem+env(safe-area-inset-bottom))] bg-white border-t">
          <div className="flex items-center gap-3">
           <div className="flex-1 relative">
-            <Input value={inputValue} onChange={(e) => setInputValue(e.target.value)} onFocus={() => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 300)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder={t('chats.placeholder')} className="pr-12 h-11 bg-muted/50 border-0 rounded-xl" />
+            <Input data-testid="message-input" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onFocus={() => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 300)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder={t('chats.placeholder')} className="pr-12 h-11 bg-muted/50 border-0 rounded-xl" />
             <Popover>
               <PopoverTrigger asChild><button className="absolute right-4 top-1/2 -translate-y-1/2"><Smile size={20} /></button></PopoverTrigger>
               <PopoverContent side="top" align="end" className="p-2 w-auto">
@@ -235,7 +235,7 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
               </PopoverContent>
             </Popover>
           </div>
-          <Button size="icon" onClick={() => handleSendMessage()} disabled={!inputValue.trim() && !isSending} className="h-11 w-11 rounded-xl gradient-bg text-white">
+          <Button data-testid="send-button" size="icon" onClick={() => handleSendMessage()} disabled={!inputValue.trim() && !isSending} className="h-11 w-11 rounded-xl gradient-bg text-white">
             <Send size={18} />
           </Button>
         </div>
