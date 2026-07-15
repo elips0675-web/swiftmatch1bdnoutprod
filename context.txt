@@ -79,7 +79,7 @@
 - **AGENTS.md prompt templates:** добавлены 3 промта — функциональный аудит, аудит связки Админка-БД-Приложение, E2E-тест
 - **persona.md:** исправлен порт API (3001 → 3002)
 - **swagger-jsdoc:** установлен (отсутствовал, сервер не стартовал)
-- **Playwright-тестирование страниц:** `e2e/audit-full.spec.ts` — проверка всех страниц на console.errors, 500-е API, page errors
+- **Playwright-тестирование:** `e2e/audit-full.spec.ts` — 9 сьюитов: health, registration, negative auth, like→match→chat (два браузера), admin flow, public pages, settings, chat, groups
 - **data-testid селекторы:** добавлены на login, register, forgot-password, settings, profile-edit, groups, search, search-filters, premium-success, admin-features, admin-users, admin-messaging, chats-chatId
 - **e2e helpers:** `audit.ts` (console/network/error tracker), `api.ts` (API calls + health check)
 - **global-setup:** проверка `/health` + MySQL перед тестами
@@ -171,12 +171,18 @@
 
 Для прода: вписать 7 ключей в `server/.env` (см. таблицу выше).
 
-## Playwright Page Test Results
-- **28 страниц проверено** — скрипт `test_pages.mjs`
-- ✅ **PremiumSuccess:** crash исправлен (useSearchParams)
-- ✅ **Activity:** API endpoint добавлен, SQL исправлен
-- ❌ **Rate-limit:** 429 на `/api/auth/` — authLimiter (10/мин) исчерпывается при тестировании многих страниц
-- ✅ **404 роуты** (`/profile/2`, `/matches`, `/premium`): NotFound компонент корректно логирует, не баг
+## Playwright E2E Test Coverage
+- **audit-full.spec.ts** — 9 сьюитов, покрытие всех ключевых флоу:
+  - `Health & Infrastructure` — API healthcheck, frontend loads
+  - `Registration flow` — регистрация нового юзера через UI
+  - `Negative auth tests` — wrong password, empty form validation
+  - `Like → Match → Chat` — два браузера, API лайки, проверка match, отправка сообщения
+  - `Admin flow` — login, toggle feature flags, search users
+  - `Public pages` — /, /login, /register, /forgot-password без ошибок
+  - `Settings page` — toggle switches, logout button
+  - `Chat functionality` — open chat, message input visible
+  - `Groups page` — open create dialog
+- **config:** screenshot/video on failure, json reporter, globalSetup
 
 ## Данные для входа
 | Email | Пароль | Роль |

@@ -43,7 +43,7 @@
 - /matches, /profile/:id route registration in App.tsx — if components exist
 - Pre-existing lint warnings (70+) — не трогать
 - Playwright page test — blocked on rate limiter (429)
-- Добавить data-testid на остальные страницы (chats.tsx, activity.tsx, contest.tsx)
-- **E2E тесты для ключевых флоу:** регистрация → анкета, поиск → лайк → мэтч → чат, админка (бан, feature flags)
-- **Негативные тесты:** 401, validation, XSS, upload reject
-- **WS тесты:** два браузера, real-time сообщения
+- Добавить data-testid на оставшиеся страницы (chats.tsx, activity.tsx, contest.tsx)
+- **Негативные тесты расширенные:** XSS в bio, upload .exe, double submit
+- **WS тесты:** два браузера, real-time сообщение без перезагрузки
+- **Unit тесты:** use-websocket, use-premium, language-context, feature-flags-context
