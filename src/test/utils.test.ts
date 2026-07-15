@@ -9,7 +9,7 @@ describe("cn", () => {
   })
 
   it("handles conditional classes", () => {
-    expect(cn("base", false && "hidden", "visible")).toBe("base visible")
+    expect(cn("base", (false as boolean) && "hidden", "visible")).toBe("base visible")
   })
 
   it("merges Tailwind classes correctly", () => {

@@ -116,6 +116,7 @@
 - **Backup:** скрипты + инструкция в README
 - **Setup:** `scripts/setup.ps1` — автоматическая настройка dev-окружения
 - **.env.example:** оба файла содержат все переменные с комментариями
+- **SEO:** sitemap.xml, расширенный robots.txt (Disallow приватных страниц), улучшенный manifest.json (categories, maskable)
 - **Error boundaries:** per-page (30+ lazy-роутов изолированы)
 - **Loading states:** activity.tsx, chats.tsx (спиннер)
 
