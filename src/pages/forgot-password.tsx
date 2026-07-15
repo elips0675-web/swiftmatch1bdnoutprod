@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
             <p className="text-sm text-green-600 mt-1">{t('auth.forgot_sent_desc')}</p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t('auth.email')}</label>
               <div className="relative">

@@ -95,7 +95,11 @@ router.post('/api/premium/create-checkout', auth, async (req, res) => {
   if (!tierConfig) return res.status(400).json({ message: 'Invalid tier' })
 
   const stripeKey = process.env.STRIPE_SECRET_KEY
-  if (stripeKey) {
+  const isLive = process.env.STRIPE_LIVE === 'true'
+  if (stripeKey || isLive) {
+    if (isLive && !stripeKey) {
+      return res.status(500).json({ message: 'STRIPE_LIVE=true but STRIPE_SECRET_KEY is not set' })
+    }
     try {
       const { default: Stripe } = await import('stripe')
       const stripe = new Stripe(stripeKey)
@@ -119,8 +123,15 @@ router.post('/api/premium/create-checkout', auth, async (req, res) => {
 
       return res.json({ url: session.url, sessionId: session.id })
     } catch (err) {
-      console.error('Stripe error, falling back to mock:', err.message)
+      if (isLive) {
+        return res.status(502).json({ message: 'Stripe payment failed', error: err.message })
+      }
+      req.log?.warn('Stripe error, falling back to mock: ' + err.message)
     }
+  }
+
+  if (isLive) {
+    return res.status(502).json({ message: 'Stripe not configured in live mode' })
   }
 
   const price = tierConfig.price * duration_months

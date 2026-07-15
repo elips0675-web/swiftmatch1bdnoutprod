@@ -11,6 +11,8 @@ import helmet from 'helmet'
 import pool from './db.js'
 import { initIO } from './ws.js'
 import { createLogger, rootLogger } from './logger.js'
+import { idempotency } from './middleware/idempotency.js'
+import { initSentry } from './sentry.js'
 
 import adminDashboard from './routes/admin/dashboard.js'
 import adminUsers from './routes/admin/users.js'
@@ -55,6 +57,7 @@ app.use(express.json())
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 app.use('/api/', limiter)
 app.use('/api/auth/', authLimiter)
+app.use('/api/premium/create-checkout', idempotency)
 
 async function adminAuth(req, res, next) {
   const authHeader = req.headers.authorization
@@ -187,6 +190,8 @@ app.use((err, req, res, next) => {
   log.error('Unhandled error', err)
   res.status(500).json({ message: 'Internal server error' })
 })
+
+initSentry()
 
 const httpServer = createServer(app)
 initIO(httpServer)

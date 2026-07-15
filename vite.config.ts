@@ -58,5 +58,8 @@ export default defineConfig(({ mode }) => ({
       },
     },
     chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      external: ['@capacitor-community/admob'],
+    },
   },
 }));

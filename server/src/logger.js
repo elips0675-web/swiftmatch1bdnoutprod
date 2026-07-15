@@ -1,23 +1,26 @@
-const levels = { error: 0, warn: 1, info: 2, debug: 3 }
+import winston from 'winston'
 
-function log(level, msg, meta) {
-  const entry = {
-    ts: new Date().toISOString(),
-    level,
-    msg,
-    rid: meta?.rid || '-',
-  }
-  const line = JSON.stringify(entry)
-  if (level === 'error') process.stderr.write(line + '\n')
-  else process.stdout.write(line + '\n')
-}
+const LOG_LEVEL = process.env.LOG_LEVEL || 'info'
+
+const winstonLogger = winston.createLogger({
+  level: LOG_LEVEL,
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json(),
+  ),
+  defaultMeta: { service: 'swiftmatch-api' },
+  transports: [
+    new winston.transports.Console(),
+  ],
+})
 
 export function createLogger(rid) {
   return {
-    error: (msg, err) => log('error', msg, { rid, err: err?.message || err }),
-    warn: (msg) => log('warn', msg, { rid }),
-    info: (msg) => log('info', msg, { rid }),
-    debug: (msg) => log('debug', msg, { rid }),
+    error: (msg, err) => winstonLogger.error(msg, { rid, err: err?.message || err, stack: err?.stack }),
+    warn: (msg) => winstonLogger.warn(msg, { rid }),
+    info: (msg) => winstonLogger.info(msg, { rid }),
+    debug: (msg) => winstonLogger.debug(msg, { rid }),
   }
 }
 

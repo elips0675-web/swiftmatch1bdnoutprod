@@ -9,28 +9,76 @@ import { optionalAuth } from '../middleware.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const UPLOAD_DIR = path.resolve(__dirname, '../../uploads')
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1E9)
-    cb(null, unique + path.extname(file.originalname))
-  },
-})
+let storage
+const USE_S3 = process.env.S3_BUCKET && process.env.AWS_ACCESS_KEY_ID
 
-const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = /\.(jpg|jpeg|png|gif|webp)$/i
-    if (allowed.test(path.extname(file.originalname))) return cb(null, true)
-    cb(new Error('Only image files (jpg, jpeg, png, gif, webp) are allowed'))
-  },
-})
+async function initStorage() {
+  if (storage) return storage
+
+  if (USE_S3) {
+    const { S3Client } = await import('@aws-sdk/client-s3')
+    const multerS3 = (await import('multer-s3')).default
+    const s3 = new S3Client({
+      region: process.env.AWS_REGION || 'us-east-1',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      },
+    })
+    storage = multerS3({
+      s3,
+      bucket: process.env.S3_BUCKET,
+      contentType: multerS3.AUTO_CONTENT_TYPE,
+      key: (req, file, cb) => {
+        const unique = Date.now() + '-' + Math.round(Math.random() * 1E9)
+        cb(null, 'uploads/' + unique + path.extname(file.originalname))
+      },
+    })
+  } else {
+    storage = multer.diskStorage({
+      destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+      filename: (req, file, cb) => {
+        const unique = Date.now() + '-' + Math.round(Math.random() * 1E9)
+        cb(null, unique + path.extname(file.originalname))
+      },
+    })
+  }
+  return storage
+}
 
 const router = Router()
 
-router.post('/api/upload', optionalAuth, upload.single('photo'), async (req, res) => {
+let uploadMiddleware
+
+async function getUpload() {
+  if (!uploadMiddleware) {
+    const s = await initStorage()
+    uploadMiddleware = multer({
+      storage: s,
+      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.startsWith('image/')) {
+          return cb(new Error('Only image files (jpg, jpeg, png, gif, webp) are allowed'))
+        }
+        const allowed = /\.(jpg|jpeg|png|gif|webp)$/i
+        if (allowed.test(path.extname(file.originalname))) return cb(null, true)
+        cb(new Error('Only image files (jpg, jpeg, png, gif, webp) are allowed'))
+      },
+    })
+  }
+  return uploadMiddleware.single('photo')
+}
+
+router.post('/api/upload', optionalAuth, async (req, res) => {
   try {
+    const single = await getUpload()
+    await new Promise((resolve, reject) => {
+      single(req, res, (err) => {
+        if (err) reject(err)
+        else resolve()
+      })
+    })
+
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' })
 
     const userId = req.userId || req.body.user_id || 17
@@ -59,8 +107,21 @@ router.delete('/api/photos/:id', async (req, res) => {
     const [rows] = await pool.query('SELECT url FROM user_photos WHERE id = ?', [req.params.id])
     if (rows.length === 0) return res.status(404).json({ message: 'Photo not found' })
 
-    const filePath = path.join(UPLOAD_DIR, path.basename(rows[0].url))
-    try { fs.unlinkSync(filePath) } catch {}
+    if (USE_S3) {
+      const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3')
+      const s3 = new S3Client({
+        region: process.env.AWS_REGION || 'us-east-1',
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        },
+      })
+      const key = rows[0].url.replace('/uploads/', 'uploads/')
+      await s3.send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }))
+    } else {
+      const filePath = path.join(UPLOAD_DIR, path.basename(rows[0].url))
+      try { fs.unlinkSync(filePath) } catch {}
+    }
 
     await pool.query('DELETE FROM user_photos WHERE id = ?', [req.params.id])
     res.json({ success: true })

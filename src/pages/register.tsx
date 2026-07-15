@@ -113,7 +113,7 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-6 animate-in slide-in-from-bottom-8 duration-700">
-          <form onSubmit={handleRegister} className="space-y-4" noValidate>
+          <form onSubmit={handleRegister} noValidate className="space-y-4">
              <div className="relative">
               <User className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
               <Input 

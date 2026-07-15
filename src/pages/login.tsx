@@ -154,7 +154,7 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} noValidate className="space-y-4">
             {loginMethod === "phone" ? (
               <div className="space-y-2">
                 <div className="relative">

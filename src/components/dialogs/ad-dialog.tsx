@@ -10,20 +10,39 @@ import { useLanguage } from "@/context/language-context";
 import { Play } from "lucide-react";
 import { toast } from '@/hooks/use-toast';
 
+function isNative(): boolean {
+  try {
+    return typeof window !== 'undefined' && window.Capacitor?.isNativePlatform() === true
+  } catch {
+    return false
+  }
+}
+
 export function AdDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
   const { t } = useLanguage();
   const [isAdLoading, setIsAdLoading] = useState(false);
 
-  const handleWatchAd = () => {
+  const handleWatchAd = async () => {
     setIsAdLoading(true);
-    setTimeout(() => {
-      setIsAdLoading(false);
-      onOpenChange(false);
-      toast({
-        title: t('ad.profile_unlocked'),
-        description: t('ad.unlock_description'),
-      });
-    }, 3000);
+
+    if (isNative()) {
+      try {
+        const { AdMob } = await import('@capacitor-community/admob');
+        await AdMob.showRewardedVideoAd();
+      } catch (err) {
+        console.warn('[AdMob] SDK not available, using timer fallback:', err);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    } else {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+
+    setIsAdLoading(false);
+    onOpenChange(false);
+    toast({
+      title: t('ad.profile_unlocked'),
+      description: t('ad.unlock_description'),
+    });
   };
 
   return (
