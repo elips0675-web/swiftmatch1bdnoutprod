@@ -75,7 +75,9 @@
 
 ### Документация обновлена
 - **Оценка kimi.txt:** переписан с реальным статусом
-- **AGENTS.md:** добавлены 3 промта — функциональный аудит, аудит связки Админка-БД-Приложение, E2E-тест
+- **AGENTS.md:** структурирован System Prompt (Core Rules, Code Quality, Data Rules, Git, Response Format). Добавлены: Project Structure, CI/CD Pipeline, Git Workflow, Testing Strategy, Security Rules, Production Deployment
+- **AGENTS.md prompt templates:** добавлены 3 промта — функциональный аудит, аудит связки Админка-БД-Приложение, E2E-тест
+- **persona.md:** исправлен порт API (3001 → 3002)
 - **swagger-jsdoc:** установлен (отсутствовал, сервер не стартовал)
 - **Playwright-тестирование страниц:** скрипт `test_pages.mjs` — проверка всех 28 страниц на console.errors
 

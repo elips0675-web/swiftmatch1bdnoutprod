@@ -27,7 +27,7 @@ Senior full‑stack TS/JS developer. React (hooks, context, lazy, Suspense), Tai
 
 ## Tech stack specifics
 - MySQL через Laragon `mysqld.exe` (не через Laragon GUI — Dr.Web блокирует)
-- API на порту 3001 (Express, `server/src/index.js`)
+- API на порту 3002 (Express, `server/src/index.js`)
 - Фронтенд на порту 8081 (Vite)
 - `INTEREST_KEY_TO_ID` и `NAME_TO_KEY` маппинги в `profile-edit.tsx` — синхронизировать при добавлении новых интересов
 - `content_config.interests` — слаг (`sport`), не русский текст. Префикс `interest.` добавляется на фронте

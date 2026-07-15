@@ -2,27 +2,61 @@
 
 > **Before starting any task:** Read `## Golden Rule: Production ≠ File Created` and run the Pre-flight Checklist.
 
-## System Prompt (для AI-ассистентов)
+## System Prompt — SwiftMatch Senior Developer (для AI-ассистентов)
 
-Ты — senior React-разработчик SwiftMatch (дейтинг-приложение). Твой стек:
-- React 18 (Concurrent Features, hooks), Vite 8 (ESM, HMR), TypeScript 5 (strict)
-- Tailwind CSS v3 (config-based, не v4), shadcn/ui (Radix primitives)
-- React Router v6, TanStack React Query v5, React Hook Form + Zod
-- Framer Motion для анимаций, Socket.IO для real-time
-- Express.js / MySQL (бэкенд)
-- i18n: кастомный LanguageContext (RU/EN)
+Ты — senior full-stack разработчик SwiftMatch (дейтинг-приложение аналог Tinder). Отвечаешь **на русском**, код пишешь с **английскими** идентификаторами. **Не добавляешь комментарии** в код (javadoc/jsdoc только для экспортируемых типов, если явно запрошено).
 
-Правила генерации кода:
-1. Только функциональные компоненты + hooks, строгая типизация props
-2. Tailwind классы через `cn()` (clsx + tailwind-merge) из `src/lib/utils.ts`
-3. UI-тексты обязательно через `t()` — БД хранит ключи переводов (не рус/англ)
-4. Анимации через Framer Motion или Tailwind transitions
-5. Формы — React Hook Form + Zod
-6. Серверное состояние — TanStack Query, клиентское — Context
-7. Error boundaries, loading states, accessibility (ARIA)
-8. Все данные в БД/state — translation keys (`interest.sport`, не `"Спорт"`)
-9. Сортировка translated-списков: `t(item).localeCompare(t(item2))`
-10. Стили бейджей в admin-content.tsx не менять
+### Core Rules
+
+| Правило | Стек / Технология |
+|---------|-------------------|
+| Frontend | React 18 (Concurrent Features, hooks), Vite 8 (ESM, HMR) |
+| Styling | Tailwind CSS v3 (config-based, НЕ v4), `cn()` из `src/lib/utils.ts` |
+| UI Kit | shadcn/ui (Radix primitives) — не создавать дубликаты вручную |
+| Routing | React Router v6 |
+| Server State | TanStack React Query v5 |
+| Client State | React Context (только если Query не подходит) |
+| Forms | React Hook Form + Zod |
+| Animations | Framer Motion или Tailwind transitions |
+| Real-time | Socket.IO (клиент: `use-websocket.ts`) |
+| Backend | Express.js / MySQL (mysql2, prepared statements) |
+| i18n | Custom LanguageContext (RU/EN), все строки — translation keys |
+| Mobile | Capacitor Android (fetch-адаптер в `src/lib/native.ts`) |
+
+### Code Quality
+
+- Функциональные компоненты + hooks. Никаких классов.
+- TypeScript strict: явные return types на экспортируемых функциях, **никаких `any`**.
+- Single Responsibility Principle: компонент — одна задача.
+- Server Components нет (React 18 SPA). Все компоненты — client components.
+- Данные с сервера через TanStack Query (не `useEffect` для загрузки).
+- Ошибки: Error Boundary на каждый lazy-роут, loading states на всех страницах.
+- Анимации: Framer Motion для появления / ухода, Tailwind transitions для hover/focus.
+- ARIA-атрибуты на всех интерактивных элементах.
+
+### Data Rules (i18n)
+
+- **Всё** в БД, localStorage, state — translation keys (`interest.sport`, не `"Спорт"`)
+- UI-тексты обязательно через `t()` — ни один raw key не должен быть виден пользователю
+- Сортировка translated-списков: `t(item).localeCompare(t(item2))`
+- Новые сущности: key в `constants.ts` + запись в `language-context.tsx` (RU и EN)
+- Исключение: админка и Sentry-логи — технические ID (`user_123`), не `t()`
+
+### Git & CI
+
+- Conventional Commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`
+- `git commit --no-verify` когда changes проверены (тесты зелёные, сборка проходит)
+- Перед PR: `npx vite build`, `npm run test` (frontend), `cd server && npm run test`
+- **Никогда** не коммитить `.env` с секретами. `.env.example` — в репо.
+
+### Response Format (когда просят код)
+
+Когда тебя просят написать код:
+1. Полный путь к файлу.
+2. Архитектурное решение в 1–2 предложения.
+3. Типы (interface) и Zod-схемы.
+4. Как тестировать (если применимо).
+5. Производительность и безопасность (только если есть риски).
 
 Контекст проекта: `project-context.md`
 
@@ -615,4 +649,159 @@ SELECT ...
 6. Проверь загрузку файла: попробуй загрузить 10MB PDF — должен отклонить
 
 Верни отчёт со скриншотами упавших тестов и логами ошибок.
+```
+
+---
+
+## 🏗️ Project Structure (SwiftMatch)
+
+```
+swiftmatch1bddomadm/
+├── src/                          # Frontend (React 18 + Vite 8)
+│   ├── components/
+│   │   ├── ui/                   # shadcn/ui primitives (через CLI)
+│   │   ├── layout/               # Header, AppShell, BottomNav
+│   │   ├── shared/               # ErrorBoundary, AdminGuard, PremiumGuard
+│   │   └── forms/                # RHF + Zod формы
+│   ├── pages/
+│   │   ├── admin/                # Админка (8 страниц)
+│   │   └── *.tsx                 # User-facing страницы
+│   ├── hooks/                    # Кастомные хуки (use-websocket, use-premium...)
+│   ├── context/                  # React.Context (Language, FeatureFlags...)
+│   ├── lib/
+│   │   ├── utils.ts              # cn() + общие утилиты
+│   │   ├── native.ts             # Capacitor fetch-адаптер
+│   │   └── constants.ts          # Translation keys, options
+│   ├── shim/                     # Полифиллы next-navigation (useSearchParams)
+│   ├── App.tsx                   # Root: Router → Layout → lazy routes
+│   └── vite-env.d.ts
+├── server/                       # Backend (Express.js)
+│   └── src/
+│       ├── index.js              # Express entry: helmet, cors, rate-limit, WS
+│       ├── ws.js                 # Socket.IO server
+│       ├── mail.js               # Nodemailer + retry
+│       ├── logger.js             # Winston JSON logger
+│       ├── sentry.js             # Sentry init + beforeSend
+│       ├── redis.js              # ioredis lazy client
+│       ├── banned-words.js       # Фильтр запрещённых слов
+│       ├── middleware/           # auth.js, idempotency.js, adminAuth.js
+│       └── routes/
+│           ├── admin/            # dashboard, users, features, content, reports...
+│           └── *.js              # auth, profile, social, premium, upload...
+├── database/
+│   ├── mysql_schema.sql          # Полная схема БД
+│   ├── demo_data.sql             # Тестовые данные
+│   └── migrations/               # Нумерованные миграции
+├── android/                      # Capacitor нативный проект
+├── scripts/                      # setup.ps1, backup-mysql, migrate
+├── nginx/                        # swiftmatch.conf
+├── .github/workflows/            # CI/CD (deploy.yml)
+└── test_pages.mjs                # Playwright tests
+```
+
+## 🔄 CI/CD Pipeline (.github/workflows/deploy.yml)
+
+```yaml
+# GitHub Actions — lint → build → test → deploy
+name: CI/CD
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'npm' }
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env: { MYSQL_ROOT_PASSWORD: test, MYSQL_DATABASE: swiftmatch_test }
+        options: --health-cmd="mysqladmin ping" --health-interval=10s
+    steps:
+      - uses: actions/checkout@v4
+      - run: cd server && npm ci
+      - run: mysql -h127.0.0.1 -uroot -ptest swiftmatch_test < database/mysql_schema.sql
+      - run: cd server && npm test
+
+  build-and-deploy:
+    needs: [lint-and-typecheck, test]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci && npx vite build
+      - run: cd server && npm ci
+      # deploy step (scp / docker push / vercel)
+```
+
+## 📋 Git Workflow
+
+| Правило | Значение |
+|---------|----------|
+| Ветки | `main` (production), `develop`, `feature/*`, `bugfix/*`, `hotfix/*` |
+| Коммиты | `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:` |
+| PR | TypeScript check + lint + tests passing |
+| Секреты | `.env` в `.gitignore`, `.env.example` в репо |
+| Husky | pre-commit: lint-staged (eslint + prettier). Использовать `git commit --no-verify` если changes проверены |
+
+## 🧪 Testing Strategy
+
+| Уровень | Инструмент | Команда | Что тестируем |
+|---------|-----------|---------|--------------|
+| Unit (frontend) | Vitest + RTL | `npm run test` | hooks, utils, компоненты |
+| Unit (backend) | Vitest (mock mysql2) | `cd server && npm run test` | routes, middleware |
+| E2E | Playwright | `node test_pages.mjs` | 28 pages, console errors, user flows |
+| API | Curl / direct http | — | Healthcheck, все роуты |
+
+## 🛡️ Security Rules (быстрый чеклист)
+
+- `adminAuth` middleware — **passive** (вызывает `next()` на ошибке, не блокирует)
+- Все SQL-запросы — prepared statements (`??` в mysql2). Никакой конкатенации строк.
+- Server-side только uuid для имён файлов, ограничение 5MB, только image/*
+- CORS: `*` для Capacitor (dev), env-переменная для production
+- Sentry beforeSend: фильтрует authorization, cookie, email, IP
+- Stripe webhook: `express.raw({ type: 'application/json' })` ДО express.json()
+- JWT: 256-bit ключ, 7d expiry, Bearer header
+- Rate limit: `/api/auth/` 10 req/min, общий `/api/` 30 req/s
+
+## 🚀 Production Deployment
+
+### Подготовка
+1. Вписать 7 ключей в `server/.env` (Stripe, SMTP, Sentry, S3, Redis, DB_PASSWORD, CORS_ORIGIN)
+2. `npx vite build` — сборка фронта в `dist/`
+3. `cd server && npm ci --production` — зависимости бэка
+
+### Варианты хостинга
+| Вариант | Плюсы | Минусы |
+|---------|-------|--------|
+| VPS (nginx + PM2) | Полный контроль | Ручное администрирование |
+| Docker + VPS | Изолированно, healthcheck | Сложнее отладка |
+| Railway / Fly.io | Простота, SSL | Меньше контроля |
+
+### Nginx essentials
+```nginx
+location /api {
+    proxy_pass http://localhost:3002;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_read_timeout 86400s;    # для WebSocket
+    client_max_body_size 10M;     # для фото
+}
+
+location / {
+    root /app/dist;
+    try_files $uri $uri/ /index.html;  # SPA fallback
+}
 ```
