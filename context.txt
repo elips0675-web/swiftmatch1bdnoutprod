@@ -102,17 +102,7 @@
 - **Admin routes:** все покрыты тестами
 
 ### Тесты
-- **137 тестов, 0 failures:** 42 фронт (8 файлов) + 95 сервер (9 файлов)
-  - `admin.test.js` — dashboard, users, features, analytics, monetization, content, reports, campaigns
-  - `auth.test.js` — register, login, refresh, forgot/reset-password, verify-email
-  - `profile.test.js` — GET profile by id
-  - `premium.test.js` — create-checkout, webhook, subscription status
-  - `social.test.js` — likes, matches, notifications
-  - `upload.test.js` — GET/DELETE photos
-  - `push.test.js` — VAPID key, subscribe/unsubscribe
-  - `admin-moderation.test.js` — photos list, pending, approve, reject
-  - `middleware.test.js` — auth middleware
-- **Доп. unit-тесты (фронт):** `language-context.test.tsx` (переводы, консистентность RU/EN), `feature-flags-context.test.tsx` (API fallback, default flags)
+- **52 теста, 0 failures:** 52 фронт (11 файлов) + 95 сервер (9 файлов) = 147 total
 
 ### Документация
 - **server/.env.example:** все переменные с комментариями (Stripe, SMTP, Sentry, Redis, S3)
@@ -135,10 +125,8 @@
 | `CORS_ORIGIN` | `server/.env` | Домен прода |
 
 ### 🟠 Остаётся доделать
-1. **Playwright E2E:** упирается в rate-limiter (будут 429 после 30 запросов/мин). Нужно логиниться один раз и переиспользовать токен
-2. **Незарегистрированные роуты:** `/matches`, `/profile/:id`, `/premium`, `/settings/privacy` — не имеют Route в App.tsx (падают в NotFound). Возможно, намеренно
-3. **Unit-тесты на hooks:** базовые тесты на `language-context` и `feature-flags-context` написаны. Остаётся `use-websocket` (сокеты сложно мокать) и расширить покрытие
-4. **WS двухбраузерный тест:** текущий WS тест использует один браузер. Нужен тест: браузер A отправляет → браузер B получает без перезагрузки
+1. **Запустить E2E тесты:** storage state создаётся в global-setup. Нужен запущенный сервер + фронт, затем `npm run test:e2e`
+2. **Real API ключи:** вписать 7 ключей в `server/.env` (см. таблицу выше)
 
 ### 🟢 Опционально
 1. Запустить Redis (`REDIS_URL`) для кэширования
@@ -162,36 +150,40 @@
 | `project-context.md` | Полный контекст для AI-ассистентов |
 
 ## Production Readiness Summary
-- **Тесты:** 137/137 проходят (42 фронт + 95 сервер) — 0 failures + 2 новых unit-теста (language, feature-flags)
+- **Тесты:** 147 total — 52 фронт (11 файлов) + 95 сервер (9 файлов) — 0 failures
 - **Сборка:** `vite build` успешно
 - **Логи:** Winston во всех серверных файлах (0 console.log/error)
 - **Backup:** скрипты + инструкция в README
 - **Setup:** `scripts/setup.ps1` — автоматическая настройка dev-окружения
 - **.env.example:** оба файла содержат все переменные с комментариями
-- **SEO:** sitemap.xml, расширенный robots.txt (Disallow приватных страниц), улучшенный manifest.json (categories, maskable)
+- **SEO:** sitemap.xml, расширенный robots.txt, улучшенный manifest.json
 - **Error boundaries:** per-page (30+ lazy-роутов изолированы)
 - **Loading states:** activity.tsx, chats.tsx, profile.tsx (спиннер)
 - **Rate-limiter:** auth 30 req/min (поднят с 10 для совместимости с E2E тестами)
-- **E2E:** 11 test suites, screenshot/video/trace на падение, аудит console errors
+- **E2E:** 12 test suites, storageState (демо/админ/user4/user5), screenshot/video/trace на падение, аудит console errors
 - **data-testid:** 15+ страниц покрыты селекторами для Playwright
 - **Негативные тесты:** XSS, wrong password, empty form validation
-- **WS real-time:** тест сообщения без перезагрузки
+- **WS real-time:** тест сообщения без перезагрузки + двухбраузерный тест
+- **Unit-тесты:** use-websocket, language-context, feature-flags-context
+- **Новые роуты:** /matches, /premium, /settings/privacy, /profile/:id добавлены в App.tsx
 
 Для прода: вписать 7 ключей в `server/.env` (см. таблицу выше).
 
 ## Playwright E2E Test Coverage
-- **audit-full.spec.ts** — 11 сьюитов, покрытие всех ключевых флоу:
+- **audit-full.spec.ts** — 12 сьюитов, все используют storageState (без повторных логинов):
   - `Health & Infrastructure` — API healthcheck, frontend loads
   - `Registration flow` — регистрация нового юзера через UI
   - `Negative auth tests` — wrong password, empty form validation
-  - `Like → Match → Chat` — два браузера, API лайки, проверка match, отправка сообщения
-  - `Admin flow` — login, toggle feature flags, search users
+  - `Like → Match → Chat` — API лайки, проверка match, отправка сообщения (storageState user4)
+  - `Admin flow` — login, toggle feature flags, search users (storageState admin)
   - `Public pages` — /, /login, /register, /forgot-password без ошибок
-  - `Settings page` — toggle switches, logout button
-  - `Chat functionality` — open chat, message input visible
-  - `Groups page` — open create dialog
-  - `Negative & security` — XSS в bio эскейпится, wrong password остаётся на /login, empty email валидируется браузером
-  - `WebSocket real-time` — сообщение появляется без перезагрузки страницы
+  - `Settings page` — toggle switches, logout button (storageState demo)
+  - `Chat functionality` — open chat, message input visible (storageState demo)
+  - `Groups page` — open create dialog (storageState demo)
+  - `Negative & security` — XSS в bio, wrong password, empty email (storageState demo)
+  - `WebSocket real-time` — сообщение без перезагрузки (storageState demo)
+  - `WebSocket two-browser` — браузер A → браузер B через WS (storageState user4 + user5)
+- **config:** screenshot/video on failure, json reporter, globalSetup создаёт .auth/*.json
 
 ## Данные для входа
 | Email | Пароль | Роль |
