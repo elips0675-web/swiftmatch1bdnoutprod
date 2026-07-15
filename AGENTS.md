@@ -476,6 +476,129 @@ const stripe = process.env.STRIPE_SECRET_KEY
 Верни структурированный markdown-отчёт с таблицами по каждому разделу.
 ```
 
+### Аудит связки Админка-БД-Приложение
+```
+Проведи аудит связки Админка ↔ База данных ↔ Приложение в SwiftMatch.
+
+Цель: найти расхождения между тем, что админка показывает/меняет, тем, что хранится в MySQL, и тем, что видит конечный пользователь.
+
+### 1. СХЕМА ДАННЫХ vs КОД
+
+Проверь database/mysql_schema.sql против server/src/routes/admin/*.js:
+
+| Что проверить | Как |
+|---------------|-----|
+| Все колонки, которые SELECT/INSERT/UPDATE в admin-роутах | Есть ли они в schema? |
+| Типы данных совпадают? | INT vs VARCHAR, TIMESTAMP vs DATETIME |
+| DEFAULT значения | Не сломается ли INSERT без них? |
+| FOREIGN KEY constraints | Не нарушаются ли при DELETE в админке? |
+
+Конкретно проверь:
+- users / user_profiles / user_photos — связь 1:1 или 1:N?
+- subscriptions — foreign key к users?
+- feature_flags — есть ли таблица вообще?
+- activity_log — какие action_type допустимы?
+- banned_words — в БД или в файле?
+
+### 2. ADMIN API vs БД
+
+Для КАЖДОГО admin-роута проверь:
+GET /api/admin/users
+GET /api/admin/users/:id
+PUT /api/admin/users/:id (ban/unban, role)
+GET /api/admin/stats
+GET /api/admin/analytics      ← 404? проверь существование файла
+GET /api/admin/revenue        ← 404? проверь существование файла
+GET /api/admin/features
+PUT /api/admin/features
+GET /api/admin/content/:section
+PUT /api/admin/content/:section
+GET /api/admin/reports
+PUT /api/admin/reports/:id
+POST /api/admin/newsletter
+POST /api/admin/impersonate/:id
+
+Для каждого:
+- Какой SQL выполняется?
+- Что возвращает при пустой БД? (null → 500 или []?)
+- Есть ли try/catch?
+- Возвращает ли массив для DataTable/Recharts? (❌ не {data: [...]})
+
+### 3. ADMIN UI vs ADMIN API
+
+Проверь src/pages/admin/*.tsx vs server/src/routes/admin/*.js:
+
+| UI компонент | Ожидает от API | API реально возвращает | Расхождение? |
+|--------------|----------------|------------------------|--------------|
+| admin-users.tsx | массив пользователей | {users: [...]} или [...]? | |
+| admin-stats.tsx | chartData массив | null при пустой БД? | |
+| admin-features.tsx | [{name, enabled}] | объект с флагами? | |
+| admin-dashboard.tsx | stats объект | какие поля? | |
+
+Особое внимание:
+- `users` endpoint: возвращает `role`, `premium_status`? Откуда берётся premium — из users.subscriptions или отдельный JOIN?
+- `impersonate`: ставит ли cookie/token? Разлогинивает ли админа?
+- `ban`: обновляет ли `users.is_banned`? Отправляет ли WS `user:banned`?
+
+### 4. ИЗМЕНЕНИЯ В АДМИНКЕ → ПРИЛОЖЕНИЕ
+
+Проверь цепочку: админка меняет → БД обновляется → приложение видит:
+
+| Действие админа | Где в БД меняется | Как фронт узнаёт об изменении | Проблема? |
+|-----------------|-------------------|-------------------------------|-----------|
+| Бан пользователя | users.is_active = 0 | WS `user:banned`? Периодический poll? | |
+| Изменение цен premium | subscriptions/pricing? | Приложение кэширует цены? | |
+| Включить feature flag | feature_flags | FeatureFlagsProvider перечитывает? | |
+| Удалить фото | user_photos | Мгновенно пропадает из профиля? | |
+| Ответить на репорт | reports.status | Уведомление пользователю? | |
+
+### 5. КОНКРЕТНЫЕ БАГИ (известные из контекста)
+
+Проверь, починены ли:
+
+- [ ] `GET /api/admin/analytics` — analytics.js существует?
+- [ ] `GET /api/admin/revenue` — в monetization.js?
+- [ ] `GET /api/admin/stats` — null guard?
+- [ ] `GET /api/admin/users` — возвращает {users: [...]} или массив?
+- [ ] `GET /api/admin/features` — объект или [{name, enabled}]?
+- [ ] `PUT /api/admin/features` — 500 при невалидных данных?
+
+### 6. БЕЗОПАСНОСТЬ СВЯЗКИ
+
+- [ ] adminAuth middleware — passive (next() на ошибке) или blocking?
+- [ ] Проверяется ли `req.user.role === 'admin'` ВНУТРИ каждого admin handler?
+- [ ] SQL-инъекции: используются ли prepared statements? (?? в mysql2)
+- [ ] IDOR: может ли админ изменить данные другого админа? Себя?
+
+### Формат отчёта:
+
+```markdown
+## Результат аудита связки Админка-БД-Приложение
+
+### 1. Схема vs Код
+| Таблица | Проблема | Фикс |
+|---------|----------|------|
+
+### 2. Admin API
+| Роут | Статус | Что сломано | Фикс |
+|------|--------|-------------|------|
+
+### 3. UI vs API
+| Компонент | Ожидает | Получает | Расхождение |
+
+### 4. Цепочка изменений
+| Действие | БД обновляется? | Фронт узнаёт? | WS/Realtime? |
+
+### 5. SQL-запросы с проблемами
+```sql
+-- Сейчас:
+SELECT ...
+-- Должно быть:
+SELECT ...
+### 6. Приоритеты фиксов
+| Приоритет | Задача | Файлы |
+```
+
 ### E2E-тест приложения (если есть доступ к runtime)
 ```
 Запусти полный E2E-тест SwiftMatch:
