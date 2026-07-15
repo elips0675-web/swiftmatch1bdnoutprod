@@ -72,6 +72,7 @@
 - **premium-success.tsx crash:** `useSearchParams()` возвращает URLSearchParams, а не кортеж. `const [params]` → `const params`
 - **Activity 404/500:** Route `/api/activity` полностью отсутствовал — создан в `social.js`
 - **Activity SQL:** колонка `target_user_id` не существует (правильно: `target_id`), JOIN был на неправильное поле
+- **Rate-limiter auth:** поднят с 10→30 req/min для `/api/auth/` (слишком жёсткий для E2E тестов)
 
 ### Документация обновлена
 - **Оценка kimi.txt:** переписан с реальным статусом
@@ -79,8 +80,8 @@
 - **AGENTS.md prompt templates:** добавлены 3 промта — функциональный аудит, аудит связки Админка-БД-Приложение, E2E-тест
 - **persona.md:** исправлен порт API (3001 → 3002)
 - **swagger-jsdoc:** установлен (отсутствовал, сервер не стартовал)
-- **Playwright-тестирование:** `e2e/audit-full.spec.ts` — 9 сьюитов: health, registration, negative auth, like→match→chat (два браузера), admin flow, public pages, settings, chat, groups
-- **data-testid селекторы:** добавлены на login, register, forgot-password, settings, profile-edit, groups, search, search-filters, premium-success, admin-features, admin-users, admin-messaging, chats-chatId
+- **Playwright-тестирование:** `e2e/audit-full.spec.ts` — 11 сьюитов: health, registration, negative auth, like→match→chat (два браузера), admin flow, public pages, settings, chat, groups, негативные тесты, WS real-time
+- **data-testid селекторы:** добавлены на login, register, forgot-password, settings, profile-edit, groups, search, search-filters, premium-success, admin-features, admin-users, admin-messaging, chats-chatId, chats.tsx, activity.tsx, contest.tsx
 - **e2e helpers:** `audit.ts` (console/network/error tracker), `api.ts` (API calls + health check)
 - **global-setup:** проверка `/health` + MySQL перед тестами
 
@@ -111,6 +112,7 @@
   - `push.test.js` — VAPID key, subscribe/unsubscribe
   - `admin-moderation.test.js` — photos list, pending, approve, reject
   - `middleware.test.js` — auth middleware
+- **Доп. unit-тесты (фронт):** `language-context.test.tsx` (переводы, консистентность RU/EN), `feature-flags-context.test.tsx` (API fallback, default flags)
 
 ### Документация
 - **server/.env.example:** все переменные с комментариями (Stripe, SMTP, Sentry, Redis, S3)
@@ -133,9 +135,10 @@
 | `CORS_ORIGIN` | `server/.env` | Домен прода |
 
 ### 🟠 Остаётся доделать
-1. **Playwright E2E:** скрипт есть, но упирается в rate-limiter (429 на `/api/auth/` после 10 запросов/мин). Нужно логиниться один раз и переиспользовать токен
+1. **Playwright E2E:** упирается в rate-limiter (будут 429 после 30 запросов/мин). Нужно логиниться один раз и переиспользовать токен
 2. **Незарегистрированные роуты:** `/matches`, `/profile/:id`, `/premium`, `/settings/privacy` — не имеют Route в App.tsx (падают в NotFound). Возможно, намеренно
-3. **Rate-limit:** `authLimiter` (10/мин) слишком жёсткий для тестирования
+3. **Unit-тесты на hooks:** базовые тесты на `language-context` и `feature-flags-context` написаны. Остаётся `use-websocket` (сокеты сложно мокать) и расширить покрытие
+4. **WS двухбраузерный тест:** текущий WS тест использует один браузер. Нужен тест: браузер A отправляет → браузер B получает без перезагрузки
 
 ### 🟢 Опционально
 1. Запустить Redis (`REDIS_URL`) для кэширования
@@ -159,7 +162,7 @@
 | `project-context.md` | Полный контекст для AI-ассистентов |
 
 ## Production Readiness Summary
-- **Тесты:** 137/137 проходят (42 фронт + 95 сервер) — 0 failures
+- **Тесты:** 137/137 проходят (42 фронт + 95 сервер) — 0 failures + 2 новых unit-теста (language, feature-flags)
 - **Сборка:** `vite build` успешно
 - **Логи:** Winston во всех серверных файлах (0 console.log/error)
 - **Backup:** скрипты + инструкция в README
@@ -168,11 +171,16 @@
 - **SEO:** sitemap.xml, расширенный robots.txt (Disallow приватных страниц), улучшенный manifest.json (categories, maskable)
 - **Error boundaries:** per-page (30+ lazy-роутов изолированы)
 - **Loading states:** activity.tsx, chats.tsx, profile.tsx (спиннер)
+- **Rate-limiter:** auth 30 req/min (поднят с 10 для совместимости с E2E тестами)
+- **E2E:** 11 test suites, screenshot/video/trace на падение, аудит console errors
+- **data-testid:** 15+ страниц покрыты селекторами для Playwright
+- **Негативные тесты:** XSS, wrong password, empty form validation
+- **WS real-time:** тест сообщения без перезагрузки
 
 Для прода: вписать 7 ключей в `server/.env` (см. таблицу выше).
 
 ## Playwright E2E Test Coverage
-- **audit-full.spec.ts** — 9 сьюитов, покрытие всех ключевых флоу:
+- **audit-full.spec.ts** — 11 сьюитов, покрытие всех ключевых флоу:
   - `Health & Infrastructure` — API healthcheck, frontend loads
   - `Registration flow` — регистрация нового юзера через UI
   - `Negative auth tests` — wrong password, empty form validation
@@ -182,7 +190,8 @@
   - `Settings page` — toggle switches, logout button
   - `Chat functionality` — open chat, message input visible
   - `Groups page` — open create dialog
-- **config:** screenshot/video on failure, json reporter, globalSetup
+  - `Negative & security` — XSS в bio эскейпится, wrong password остаётся на /login, empty email валидируется браузером
+  - `WebSocket real-time` — сообщение появляется без перезагрузки страницы
 
 ## Данные для входа
 | Email | Пароль | Роль |
