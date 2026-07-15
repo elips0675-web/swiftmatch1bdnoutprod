@@ -128,6 +128,17 @@
 1. **Запустить E2E тесты:** storage state создаётся в global-setup. Нужен запущенный сервер + фронт, затем `npm run test:e2e`
 2. **Real API ключи:** вписать 7 ключей в `server/.env` (см. таблицу выше)
 
+### Проверка страниц (июль 2026)
+| Страница | Статус | Примечание |
+|---|---|---|
+| `/chats?groupId=102` | ✅ 200 | groupId обрабатывается на фронте (GroupFeed), API /api/chats игнорирует groupId |
+| `/matches` | ✅ 200 | Новая страница, API /api/matches возвращает массив |
+| `/premium` | ✅ 200 | Новая страница, API /api/premium/tiers работает |
+| `/settings/privacy` | ✅ 200 | Использует localStorage (main settings.tsx так же) |
+| `/profile/:id` | ✅ 200 | Редиректит на /user?id=:id |
+| `/api/settings` | ❌ 404 | Роут не существует на бэкенде. **Починено:** settings-privacy.tsx переписан на localStorage |
+| `/api/groups` (list all) | ❌ 404 | Роут не существует. Группы используют demo-data локально
+
 ### 🟢 Опционально
 1. Запустить Redis (`REDIS_URL`) для кэширования
 2. MySQL backup по cron — скрипты готовы, README содержит инструкцию

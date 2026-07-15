@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLanguage } from "@/context/language-context"
 import { useRouter } from "@/shims/next-navigation"
-import { getToken } from '@/lib/token'
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, EyeOff, ShieldCheck, Scale } from "lucide-react"
@@ -15,50 +14,22 @@ export default function SettingsPrivacy() {
 
   useEffect(() => {
     setIsClient(true)
-    const token = getToken()
-    fetch('/api/settings', {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    setSettings({
+      incognito: JSON.parse(localStorage.getItem('incognito-mode') || 'false'),
+      dataProcessingConsent: JSON.parse(localStorage.getItem('data-processing-consent') || 'true'),
     })
-      .then(r => r.json())
-      .then((data: Record<string, unknown>) => {
-        setSettings({
-          incognito: Boolean(data.incognito),
-          dataProcessingConsent: data.dataProcessingConsent !== false,
-        })
-      })
-      .catch(() => {})
   }, [])
 
-  const handleIncognitoChange = async (val: boolean) => {
+  const handleIncognitoChange = (val: boolean) => {
     setSettings(prev => ({ ...prev, incognito: val }))
-    const token = getToken()
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ incognito: val }),
-      })
-      if (!res.ok) throw new Error()
-    } catch {
-      setSettings(prev => ({ ...prev, incognito: !val }))
-      toast.error(t('settings.error'))
-    }
+    localStorage.setItem('incognito-mode', JSON.stringify(val))
+    toast.success(val ? t('settings.incognito.enabled_desc') : t('settings.incognito.disabled_desc'))
   }
 
-  const handleConsentChange = async (val: boolean) => {
+  const handleConsentChange = (val: boolean) => {
     setSettings(prev => ({ ...prev, dataProcessingConsent: val }))
-    const token = getToken()
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ dataProcessingConsent: val }),
-      })
-      if (!res.ok) throw new Error()
-    } catch {
-      setSettings(prev => ({ ...prev, dataProcessingConsent: !val }))
-      toast.error(t('settings.error'))
-    }
+    localStorage.setItem('data-processing-consent', JSON.stringify(val))
+    toast.success(val ? t('settings.consent_enabled') : t('settings.consent_withdrawn'))
   }
 
   return (
