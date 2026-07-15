@@ -1,11 +1,19 @@
 import Redis from 'ioredis'
+import logger from './logger.js'
 
 const REDIS_URL = process.env.REDIS_URL
 
 let client = null
+let connected = false
 
 export function getRedis() {
-  if (!REDIS_URL) return null
+  if (!REDIS_URL) {
+    if (!connected) {
+      logger.info('Redis not configured — skipping')
+      connected = true
+    }
+    return null
+  }
   if (client) return client
 
   client = new Redis(REDIS_URL, {
@@ -18,7 +26,15 @@ export function getRedis() {
   })
 
   client.on('error', (err) => {
-    console.error('[redis] error:', err.message)
+    logger.error('[redis] connection error', err)
+  })
+
+  client.on('connect', () => {
+    logger.info('[redis] connected')
+  })
+
+  client.on('close', () => {
+    logger.info('[redis] connection closed')
   })
 
   return client
@@ -30,7 +46,16 @@ export async function withRedis(fn) {
   try {
     return await fn(r)
   } catch (err) {
-    console.error('[redis] operation failed:', err.message)
+    logger.error('[redis] operation failed', err)
     return null
+  }
+}
+
+export async function disconnectRedis() {
+  if (client) {
+    await client.quit()
+    client = null
+    connected = false
+    logger.info('[redis] disconnected')
   }
 }

@@ -55,8 +55,12 @@
 - **logger.js:** добавлен `export default winstonLogger` для роутов
 - **console.log/error → winston:** заменены во всех 15 route-файлах (76 вхождений), добавлен `import logger`
 - **docker-compose.yml:** добавлен `mem_limit: 512m` для app, убран дублирующийся `restart`
-- **MySQL backup:** `scripts/backup-mysql.ps1` (Windows) и `scripts/backup-mysql.sh` (Linux)
-- **README:** профессиональный список фич, todo только с реально необходимым
+- **MySQL backup:** `scripts/backup-mysql.ps1` (Windows) и `scripts/backup-mysql.sh` (Linux) + инструкция в README
+- **@capacitor-community/admob:** установлен (v6.0.0), `cap sync android` выполнен
+- **Redis scaffold:** улучшен — добавлены `disconnectRedis()`, winston-логи, лог singleton
+- **server/.env.example:** полностью переписан — все переменные с комментариями (Stripe, SMTP, Sentry, Redis, S3)
+- **.env.example:** обновлён (Sentry DSN, WS URL 3002)
+- **README:** профессиональный список фич, todo только с реально необходимым, секция backup
 - **context.txt:** актуален
 
 ---
@@ -74,11 +78,11 @@
 | `CORS_ORIGIN` | `server/.env` | Домен прода |
 
 ### 🟡 Нужно доработать
-1. **npm install @capacitor-community/admob** — для реальной рекламы в нативной сборке
+_(нет — всё, что можно было сделать кодом, сделано)_
 
 ### 🟢 Опционально
-2. MySQL backups (готов скрипт `scripts/backup-mysql.ps1` / `backup-mysql.sh`)
-3. Запустить Redis (`REDIS_URL`) для кэширования
+1. Запустить Redis (`REDIS_URL`) для кэширования
+2. MySQL backup по cron — скрипты готовы, README содержит инструкцию
 
 ---
 ## Ключевые файлы

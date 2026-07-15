@@ -148,14 +148,10 @@ npx vite --port 8081 --host
 | `DB_PASSWORD` | `server/.env` | Непустой пароль для MySQL |
 | `CORS_ORIGIN` | `server/.env` | Домен прода (вместо `localhost:8081`) |
 
-### 🟡 Нужно доделать (код частично готов)
-
-- Установить `@capacitor-community/admob` для реальной рекламы в нативной сборке (`npm install`)
-
 ### 🟢 Опционально
 
 - Включить Redis (`REDIS_URL`) для кэширования сессий и совместимости
-- Настроить `mysqldump` cron: `scripts/backup-mysql.ps1` (Windows) или `scripts/backup-mysql.sh` (Linux) с retention 7 дней
+- Настроить `mysqldump` cron: `scripts/backup-mysql.ps1` (Windows) или `scripts/backup-mysql.sh` (Linux) с retention 7 дней (инструкция ниже)
 
 ---
 
@@ -168,6 +164,32 @@ npx vite --port 8081 --host
 | `server/src/ws.js` | Socket.IO (чат, уведомления, онлайн-статус) |
 | `src/` | Фронтенд на React + Vite + Tailwind |
 | `database/` | `mysql_schema.sql` + `demo_data.sql` |
+
+## Резервное копирование MySQL
+
+Скрипты в `scripts/`:
+
+### Windows (PowerShell)
+```powershell
+# Единоразово
+.\scripts\backup-mysql.ps1 -DbName swiftmatch -DbUser root
+
+# Планировщик задач (ежедневно в 3:00)
+$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"C:\swiftmatch1bd\scripts\backup-mysql.ps1`""
+$trigger = New-ScheduledTaskTrigger -Daily -At 03:00
+Register-ScheduledTask -TaskName "SwiftMatch Backup" -Action $action -Trigger $trigger -RunLevel Highest
+```
+
+### Linux / Docker
+```bash
+# Тестовый запуск
+./scripts/backup-mysql.sh swiftmatch root
+
+# Cron (ежедневно в 3:00)
+crontab -l | { cat; echo "0 3 * * * /path/to/swiftmatch1bd/scripts/backup-mysql.sh swiftmatch root '' localhost 3306 /path/to/backups 7 >> /var/log/swiftmatch-backup.log 2>&1"; } | crontab -
+```
+
+Бэкапы сохраняются в `backups/swiftmatch_YYYY-MM-DD_HHmmss.sql`, автоматически удаляются через 7 дней.
 
 ## Capacitor Android
 
