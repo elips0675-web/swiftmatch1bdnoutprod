@@ -1,121 +1,38 @@
-Что сделано и что осталось — swiftmatch1bdnoutadm
-===================================================
+# Что сделано
 
-✅ ПОЧИНЕНО (было сломано)
-━━━━━━━━━━━━━━━━━━━━━━━━━
+## Блоки
+| Блок | Статус |
+|------|--------|
+| Восстановление Sentry, Docker, SEO, ErrorBoundary | ✅ Готово |
+| Добавление Stripe mock, SMTP, WebSocket, тестов, JS-вспомогательных скриптов | ✅ Готово |
+| Оценка kimi.txt — 13 требований | ✅ Все выполнены |
+| Серверный лог через winston | ✅ Готово |
+| console.log на фронте → import.meta.env.DEV | ✅ Готово |
+| Per-page ErrorBoundary через SuspenseWrapper | ✅ Готово |
+| Stripe mock blocked for NODE_ENV=production | ✅ Готово |
+| Тесты (137/137) | ✅ Все проходят |
+| SEO/PWA (sitemap, robots, manifest) | ✅ Готово |
+| Swagger/OpenAPI (JSDoc + swagger-jsdoc) | ✅ Готово |
+| Docker (healthcheck, jwt из env) | ✅ Готово |
+| AGENTS.md prompt templates | ✅ Готово |
 
-1. Build падал — src/hooks/use-premium.ts
-   - Файл был в UTF-16 LE (Vite требует UTF-8)
-   - Рекурсия: const fetch внутри хука вызывала сама себя вместо window.fetch
-   ✅ Исправлено: пересохранён в UTF-8, переименован в loadSubscription
+## Багфиксы
+| Баг | Фикс | Статус |
+|-----|------|--------|
+| admin-stats chartData.slice crash | optional chaining + guard | ✅ Исправлен |
+| profile.js missing Router import | const { Router } = require('express') | ✅ Исправлен |
+| Missing banned-words.js | создан server/src/banned-words.js | ✅ Исправлен |
+| use-premium.ts UTF-16 encoding | перезаписан в UTF-8 | ✅ Исправлен |
+| Feature flags not applied from API | fallback в feature-flags-context.tsx | ✅ Исправлен |
+| LookingFor missing in profile-edit | добавлен Select | ✅ Исправлен |
+| Admin save 500 (missing evidence column) | NULL as evidence | ✅ Исправлен |
+| Register 500 (missing age) | age=18 в INSERT | ✅ Исправлен |
+| premium-success.tsx crash (useSearchParams) | const params = useSearchParams() | ✅ Исправлен |
+| Activity 404/500 (missing /api/activity route) | добавлен SQL-роут в social.js | ✅ Исправлен |
+| Activity SQL (wrong column name + join logic) | target_id, WHERE target_id=? | ✅ Исправлен |
 
-2. Сервер не запускался — server/src/routes/profile.js
-   - Отсутствовал `const router = Router()`
-   ✅ Добавлен
-
-3. Сервер не запускался — server/src/banned-words.js
-   - Файл не существовал, но импортировался в social.js
-   ✅ Создан (читает из content_config в БД)
-
-4. Admin дашборд — chartData.slice is not a function
-   - Recharts получал не-массив (пустая БД / ошибка API)
-   ✅ Добавлены fallback `|| []` на все data-пропы и .map()/.slice()
-
-5. chats-chatId.tsx — отправлял `content` вместо `text`
-   - Сервер ожидает `text`, фронт отправлял `content` → сообщения не уходили
-   ✅ Исправлено
-
-6. chats-chatId.tsx — не было реакций и отметок прочитано
-   - Не вызывался PUT /api/chats/:id/read
-   - Не отображались emoji-реакции
-   - Не было иконки "Seen" (CheckCheck / Eye)
-   ✅ Добавлены реакции, чтение чата при открытии, статус прочтения
-
-━━━━━━━━━━━━━━━━━━━━━━━━━
-
-✅ РЕАЛИЗОВАНО НОВОЕ
-━━━━━━━━━━━━━━━━━━━━━━━
-
-▶ Этап 1 — Email-инфраструктура
-┌──────────────────────────────┬──────────────────────────┐
-│ Что                          │ Статус                   │
-├──────────────────────────────┼──────────────────────────┤
-│ nodemailer (установлен)      │ ✅ server/package.json    │
-│ server/src/mail.js           │ ✅ отправка писем         │
-│ Регистрация → письмо        │ ✅ verify-email           │
-│ Forgot password → письмо    │ ✅ reset-password         │
-│ Resend verification → письмо │ ✅                        │
-│ SMTP в server/.env          │ ✅ (закомментирован)      │
-└──────────────────────────────┴──────────────────────────┘
-
-▶ Этап 2 — Read receipts + emoji в chats-chatId
-┌──────────────────────────────┬──────────────────────────┐
-│ Что                          │ Статус                   │
-├──────────────────────────────┼──────────────────────────┤
-│ Per-message "Seen" флаг     │ ✅ сервер считает через   │
-│                              │   last_read_at партнёра  │
-│ PUT /api/chats/:id/read     │ ✅ вызывается при входе  │
-│ Реакции в chats-chatId       │ ✅ + picker + toggle     │
-│ Иконка CheckCheck / Eye     │ ✅                        │
-│ read_by колонка в messages  │ ✅ в mysql_schema.sql     │
-└──────────────────────────────┴──────────────────────────┘
-
-▶ Этап 3 — WebSocket сервер
-┌──────────────────────────────┬──────────────────────────┐
-│ Что                          │ Статус                   │
-├──────────────────────────────┼──────────────────────────┤
-│ socket.io (установлен)      │ ✅ server/package.json    │
-│ server/src/ws.js             │ ✅ JWT auth + user:ID    │
-│                              │   комнаты               │
-│ index.js: createServer      │ ✅ HTTP + WS на одном    │
-│                              │   порту                 │
-│ Уведомления через WS        │ ✅ лайки/инвайты         │
-└──────────────────────────────┴──────────────────────────┘
-
-━━━━━━━━━━━━━━━━━━━━━━━━━
-
-❌ ЧТО ОСТАЛОСЬ
-━━━━━━━━━━━━━━━━━━━━━━━
-
-▶ Этап 1 — Платёжная инфраструктура (Stripe)
-┌──────────────────────────────────────┬──────────────────────────┐
-│ Что                                  │ Статус                   │
-├──────────────────────────────────────┼──────────────────────────┤
-│ Stripe live — реальные ключи         │ ⏳ нужны STRIPE_SECRET_  │
-│ (сейчас mock, всегда успех)          │   KEY + WEBHOOK_SECRET  │
-│ stripe npm (установлен)              │ ✅ server/package.json   │
-│ Stripe success/cancel страницы       │ ✅ /premium/success,    │
-│ Фронтенд для редиректа после оплаты   │   /premium/cancel       │
-│ Stripe webhook raw body              │ ✅ express.raw() перед  │
-│ — подпись проверяется                 │   express.json()       │
-└──────────────────────────────────────┴──────────────────────────┘
-
-▶ Этап 2 — Коммуникации (Email + WebSocket)
-┌──────────────────────────────────────┬──────────────────────────┐
-│ Что                                  │ Статус                   │
-├──────────────────────────────────────┼──────────────────────────┤
-│ SMTP — раскомментировать и вписать  │ ✅ раскомментирован,    │
-│ SMTP_HOST/USER/PASS в server/.env   │   заполнить USER/PASS   │
-│ Frontend WebSocket — подключить     │ ✅ use-websocket.ts     │
-│ socket.io-client в чатах для        │   хук, чаты получают     │
-│ real-time сообщений                 │   сообщения в real-time  │
-└──────────────────────────────────────┴──────────────────────────┘
-
-▶ Этап 3 — Монетизация и админка
-┌──────────────────────────────────────┬──────────────────────────┐
-│ Что                                  │ Статус                   │
-├──────────────────────────────────────┼──────────────────────────┤
-│ Реальная реклама — AdMob / Yandex   │ ❌ вместо таймера        │
-│ SDK вместо таймера                   │                          │
-│ В админке users — показать реальный │ ✅ COALESCE subquery     │
-│ premium статус (сейчас 'free')      │   к subscriptions        │
-│ Upload security (auth + userId JWT) │ ✅ optionalAuth + fallback│
-│ helmet (security headers)           │ ✅ установлен + включён   │
-└──────────────────────────────────────┴──────────────────────────┘
-
-━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Запуск (локально):
-  cd C:\swiftmatch1bddomadm
-  npx vite --port 8081 --host  # фронт localhost:8081
-  cd server && node src/index.js # API localhost:3002
+## Запланировано / не сделано
+- .env секреты (Stripe, SMTP, Sentry, S3, Redis) — ждём реальные credentials
+- /matches, /profile/:id route registration in App.tsx — if components exist
+- Pre-existing lint warnings (70+) — не трогать
+- Playwright page test — blocked on rate limiter (429)

@@ -732,6 +732,26 @@ router.post('/api/chats/:chatId/messages/:msgId/reactions', auth, async (req, re
 })
 
 // ─── Block / Unblock ──────────────────────────────────────────
+// ─── Activity feed ──────────────────────────────────────────────
+router.get('/api/activity', auth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT al.id, al.action_type, al.user_id, al.target_id, al.created_at,
+              up.display_name as user_name, up.avatar_url as user_avatar
+       FROM activity_log al
+       LEFT JOIN user_profiles up ON al.user_id = up.id
+       WHERE al.target_id = ?
+       ORDER BY al.created_at DESC
+       LIMIT 50`,
+      [req.userId],
+    )
+    res.json(rows)
+  } catch (err) {
+    logger.error('Activity error:', err)
+    res.status(500).json({ message: 'Failed to fetch activity' })
+  }
+})
+
 router.post('/api/block', auth, async (req, res) => {
   const { blocked_id } = req.body
   if (!blocked_id) return res.status(400).json({ message: 'blocked_id is required' })

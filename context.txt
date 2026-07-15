@@ -69,11 +69,15 @@
 - **double initSentry():** удалён дублирующий вызов без `app`
 - **register 500:** INSERT в user_profiles не указывал `age` (NOT NULL) — добавлен `age=18`
 - **reports 500:** SELECT использовал `r.evidence`, колонки нет в БД — заменено на `NULL as evidence`
+- **premium-success.tsx crash:** `useSearchParams()` возвращает URLSearchParams, а не кортеж. `const [params]` → `const params`
+- **Activity 404/500:** Route `/api/activity` полностью отсутствовал — создан в `social.js`
+- **Activity SQL:** колонка `target_user_id` не существует (правильно: `target_id`), JOIN был на неправильное поле
 
 ### Документация обновлена
 - **Оценка kimi.txt:** переписан с реальным статусом
-- **AGENTS.md:** добавлены 2 промта — функциональный аудит + E2E-тест
+- **AGENTS.md:** добавлены 3 промта — функциональный аудит, аудит связки Админка-БД-Приложение, E2E-тест
 - **swagger-jsdoc:** установлен (отсутствовал, сервер не стартовал)
+- **Playwright-тестирование страниц:** скрипт `test_pages.mjs` — проверка всех 28 страниц на console.errors
 
 ### Production Hardening
 - **Логи:** Winston JSON во всех серверных файлах (0 console.log/error)
@@ -123,6 +127,11 @@
 | `DB_PASSWORD` | `server/.env` | Непустой пароль MySQL |
 | `CORS_ORIGIN` | `server/.env` | Домен прода |
 
+### 🟠 Остаётся доделать
+1. **Playwright E2E:** скрипт есть, но упирается в rate-limiter (429 на `/api/auth/` после 10 запросов/мин). Нужно логиниться один раз и переиспользовать токен
+2. **Незарегистрированные роуты:** `/matches`, `/profile/:id`, `/premium`, `/settings/privacy` — не имеют Route в App.tsx (падают в NotFound). Возможно, намеренно
+3. **Rate-limit:** `authLimiter` (10/мин) слишком жёсткий для тестирования
+
 ### 🟢 Опционально
 1. Запустить Redis (`REDIS_URL`) для кэширования
 2. MySQL backup по cron — скрипты готовы, README содержит инструкцию
@@ -156,6 +165,13 @@
 - **Loading states:** activity.tsx, chats.tsx, profile.tsx (спиннер)
 
 Для прода: вписать 7 ключей в `server/.env` (см. таблицу выше).
+
+## Playwright Page Test Results
+- **28 страниц проверено** — скрипт `test_pages.mjs`
+- ✅ **PremiumSuccess:** crash исправлен (useSearchParams)
+- ✅ **Activity:** API endpoint добавлен, SQL исправлен
+- ❌ **Rate-limit:** 429 на `/api/auth/` — authLimiter (10/мин) исчерпывается при тестировании многих страниц
+- ✅ **404 роуты** (`/profile/2`, `/matches`, `/premium`): NotFound компонент корректно логирует, не баг
 
 ## Данные для входа
 | Email | Пароль | Роль |

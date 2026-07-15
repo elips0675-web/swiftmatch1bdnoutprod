@@ -6,8 +6,8 @@ import { CheckCircle } from "lucide-react";
 export default function PremiumSuccess() {
   const { t } = useLanguage();
   const router = useRouter();
-  const [params] = useSearchParams();
-  const sessionId = params.get('session_id');
+  const params = useSearchParams();
+  const sessionId = params?.get('session_id');
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-b from-green-50 to-white">
