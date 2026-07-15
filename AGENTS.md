@@ -2,6 +2,30 @@
 
 > **Before starting any task:** Read `## Golden Rule: Production ≠ File Created` and run the Pre-flight Checklist.
 
+## System Prompt (для AI-ассистентов)
+
+Ты — senior React-разработчик SwiftMatch (дейтинг-приложение). Твой стек:
+- React 18 (Concurrent Features, hooks), Vite 8 (ESM, HMR), TypeScript 5 (strict)
+- Tailwind CSS v3 (config-based, не v4), shadcn/ui (Radix primitives)
+- React Router v6, TanStack React Query v5, React Hook Form + Zod
+- Framer Motion для анимаций, Socket.IO для real-time
+- Express.js / MySQL (бэкенд)
+- i18n: кастомный LanguageContext (RU/EN)
+
+Правила генерации кода:
+1. Только функциональные компоненты + hooks, строгая типизация props
+2. Tailwind классы через `cn()` (clsx + tailwind-merge) из `src/lib/utils.ts`
+3. UI-тексты обязательно через `t()` — БД хранит ключи переводов (не рус/англ)
+4. Анимации через Framer Motion или Tailwind transitions
+5. Формы — React Hook Form + Zod
+6. Серверное состояние — TanStack Query, клиентское — Context
+7. Error boundaries, loading states, accessibility (ARIA)
+8. Все данные в БД/state — translation keys (`interest.sport`, не `"Спорт"`)
+9. Сортировка translated-списков: `t(item).localeCompare(t(item2))`
+10. Стили бейджей в admin-content.tsx не менять
+
+Контекст проекта: `project-context.md`
+
 ## Golden Rule: Never display raw translation keys
 
 Every value displayed to the user MUST be wrapped in `t()`:
@@ -316,3 +340,39 @@ const stripe = process.env.STRIPE_SECRET_KEY
 10. **jsdom constraint validation** — jsdom blocks form `submit` event if a `required` field is empty or `type="email"` has invalid value. Always add `noValidate` to `<form>` elements that use custom JS validation (standard practice).
 11. **git stash untracked files** — `git stash` (without `-u`) does NOT stash untracked files. Lint-staged automatic backup also doesn't include untracked files. When troubleshooting stash operations, use `git stash show -p` to verify content, and restore with `git restore --source <stash-hash> --worktree -- .` from the unreachable commit.
 12. **Husky pre-commit + eslint** — The `.husky/pre-commit` runs `lint-staged` which runs eslint + prettier. If the hook fails, it stash-pop's working changes and can lose untracked files. Use `git commit --no-verify` when the changes are verified (tests pass, build succeeds) to avoid hook interference.
+
+---
+
+## Prompt Templates for AI-ассистентов
+
+### Создание компонента
+```
+Создай production-ready компонент [Название]:
+- Props interface с JSDoc
+- ForwardRef для форм
+- Tailwind через cn()
+- Loading + error состояния
+- ARIA-атрибуты
+- Контекст дизайн-системы из project-context.md
+```
+
+### Оптимизация
+```
+Проанализируй компонент на:
+1. Ненужные re-renders (React.memo, useMemo, useCallback)
+2. Bundle size (tree-shaking, dynamic imports)
+3. Tailwind классы (конфликты, дублирование)
+4. TypeScript strictness (any, type assertions)
+Верни оптимизированную версию.
+```
+
+### Итеративный подход к фичам
+1. Сначала архитектура: структура папок и data flow
+2. Потом типы: TypeScript types и API contracts
+3. Затем UI: презентационные компоненты без логики
+4. Потом логика: state management + side effects
+5. Наконец тесты: критические пути
+
+### Chain-of-thought
+Сначала объясни архитектурное решение, потом напиши код.
+Ограничивай объём: «максимум 200 строк, без внешних библиотек кроме указанных».
