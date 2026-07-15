@@ -11,6 +11,7 @@
 - **Monitoring:** Sentry (установлен, ждёт DSN)
 - **Logging:** Winston (JSON-формат)
 - **i18n:** Custom LanguageContext (RU/EN)
+- **Mobile:** Capacitor (Android APK), AdMob v6.0.0
 
 ## Ports
 - Frontend: **8081** (Vite dev server, proxy → localhost:3002)
@@ -25,51 +26,53 @@
 ---
 ## Что сделано
 
-### Неделя 2 — Платежи + Коммуникации ✅
-- **Stripe:** Idempotency-Key middleware (`server/src/middleware/idempotency.js`), STRIPE_LIVE флаг (при `true` mock отключается, без ключа → 500)
-- **SMTP:** Retry-логика (3 попытки, exponential backoff 1s/2s/3s), проверка пустых SMTP_USER/PASS → graceful skip
-- **Sentry:** Установлены `@sentry/react` + `@sentry/node`, init с `beforeSend` (PII scrubbing: email, токены, IP). `server/src/sentry.js` — requestHandler/errorHandler для Express. `src/lib/sentry.ts` — клиентский init.
-- **noValidate:** Добавлен на login.tsx, register.tsx, forgot-password.tsx, reset-password.tsx
+### Платежи + Коммуникации
+- **Stripe:** Idempotency-Key middleware, STRIPE_LIVE флаг
+- **SMTP:** Nodemailer + retry (3 попытки, exponential backoff), graceful skip без ключа
+- **Sentry:** `@sentry/react` + `@sentry/node`, beforeSend с PII scrubbing, requestHandler/errorHandler
 
-### Неделя 3 — Инфраструктура ✅
-- **MIME-фильтр:** `file.mimetype.startsWith('image/')` + расширение .jpg/.jpeg/.png/.gif/.webp + `fileSize: 10MB`
-- **S3 scaffold:** lazy-init — при AWS_* env → `@aws-sdk/client-s3` + `multer-s3`, иначе локальный диск (`server/uploads/`)
-- **Redis scaffold:** `server/src/redis.js` — lazy singleton с `ioredis`, ждёт REDIS_URL
-- **Миграции БД:** `database/migrations/` — нумерованные .sql файлы + `migrate.js` (создаёт таблицу `_migrations`, применяет новые)
-
-### Неделя 4 — Production Hardening ✅
-- **Docker:** `.dockerignore`, `restart: unless-stopped` в docker-compose.yml
-- **Nginx:** `nginx/swiftmatch.conf` — rate limit (api: 30r/s, auth: 5r/s), `client_max_body_size 20M`, WebSocket 86400s, SSL, SPA fallback
+### Инфраструктура
+- **Docker:** `.dockerignore`, healthcheck (curl /health), `mem_limit: 512m`, `JWT_SECRET` через env
+- **Nginx:** rate limit (api 30r/s, auth 5r/s), WebSocket 86400s, SSL, SPA fallback
 - **CI/CD:** `.github/workflows/deploy.yml` — lint → build → test (MySQL сервис)
-- **AdMob:** динамический импорт `@capacitor-community/admob` с fallback на `setTimeout(3000)`
-- **Winston:** `server/src/logger.js` переписан, JSON-формат, добавлен `export default`
+- **Миграции БД:** `database/migrations/` — нумерованные .sql + migrate.js
+- **MySQL backup:** `scripts/backup-mysql.ps1` + `.sh`, retention 7 дней
+- **Setup:** `scripts/setup.ps1` — авто-копирование .env + генерация JWT_SECRET + npm install
+- **S3 scaffold:** lazy-init (AWS env → multer-s3, иначе локальный диск)
+- **Redis scaffold:** lazy singleton с ioredis, disconnectRedis(), winston-логи
 
-### Дополнительно ✅
+### Production Hardening
+- **Логи:** Winston JSON во всех серверных файлах (0 console.log/error)
+- **WebSocket:** pingInterval 10s, pingTimeout 5s, reconnect с exponential backoff (max 30s)
+- **Error boundaries:** per-page для каждого lazy-роута (падение одной страницы не валит весь сайт)
+- **Loading states:** добавлены в activity.tsx и chats.tsx (спиннер при загрузке)
+- **AdMob:** динамический импорт `@capacitor-community/admob` v6.0.0, `cap sync android`
+- **Frontend console.log:** обёрнуты в `import.meta.env.DEV`
+- **noValidate:** добавлен на все формы авторизации (login, register, forgot/reset-password)
+- **no-empty / unused expressions:** исправлены в admin-users.tsx, profile.tsx, chats.tsx
+
+### Админка
 - **admin/analytics.js:** overview, retention, revenue-mix, registrations
-- **/health роут:** `GET /health` — проверяет `SELECT 1` из БД
-- **WebSocket heartbeat:** `pingInterval: 10000`, `pingTimeout: 5000`
-- **WS reconnect:** `reconnectionAttempts: Infinity`, `reconnectionDelayMax: 30000`
-- **JWT_SECRET:** сгенерирован 256 бит (`crypto.randomBytes`)
-- **PUT /features:** добавлена валидация пустого body → 400
-- **Server-тесты:** **56/56 проходят (0 failures)** — исправлены admin(7), profile(1), social(1)
-- **logger.js:** добавлен `export default winstonLogger` для роутов
-- **console.log/error → winston:** заменены во всех 15 route-файлах (76 вхождений), добавлен `import logger`
-- **docker-compose.yml:** добавлен `mem_limit: 512m` для app, убран дублирующийся `restart`
-- **MySQL backup:** `scripts/backup-mysql.ps1` (Windows) и `scripts/backup-mysql.sh` (Linux) + инструкция в README
-- **@capacitor-community/admob:** установлен (v6.0.0), `cap sync android` выполнен
-- **Redis scaffold:** улучшен — добавлены `disconnectRedis()`, winston-логи, лог singleton
-- **server/.env.example:** полностью переписан — все переменные с комментариями (Stripe, SMTP, Sentry, Redis, S3)
-- **.env.example:** обновлён (Sentry DSN, WS URL 3002)
-- **README:** профессиональный список фич, todo только с реально необходимым, секция backup
-- **context.txt:** актуален
-- **console.log → rootLogger:** заменены в ws.js (2), mail.js (4), sentry.js (2), index.js (2)
-- **Docker healthcheck:** добавлен в docker-compose.yml для app (curl /health)
-- **JWT_SECRET:** `change-me-in-production` → `${JWT_SECRET:-change-me-in-production}` (через env)
-- **Loading states:** добавлены в activity.tsx (isActivityLoading + spinner), chats.tsx (isChatsLoading + spinner)
-- **Unused imports:** удалены `Skeleton` из profile.tsx, `useCallback` из chats.tsx
-- **Per-page ErrorBoundary:** SuspenseWrapper обёрнут в ErrorBoundary (каждый lazy-роут имеет свою границу ошибок)
-- **Тесты: 137/137 проходят** — добавлены upload.test.js (6), push.test.js (6), admin-moderation.test.js (9), content/reports/messaging в admin.test.js (20). Всего: 42 фронт + 95 сервер
-- **Frontend console.log:** обёрнуты в `import.meta.env.DEV` (native.ts, push-notifications.ts)
+- **PUT /features:** валидация пустого body → 400
+- **Admin routes:** все покрыты тестами
+
+### Тесты
+- **137 тестов, 0 failures:** 42 фронт (8 файлов) + 95 сервер (9 файлов)
+  - `admin.test.js` — dashboard, users, features, analytics, monetization, content, reports, campaigns
+  - `auth.test.js` — register, login, refresh, forgot/reset-password, verify-email
+  - `profile.test.js` — GET profile by id
+  - `premium.test.js` — create-checkout, webhook, subscription status
+  - `social.test.js` — likes, matches, notifications
+  - `upload.test.js` — GET/DELETE photos
+  - `push.test.js` — VAPID key, subscribe/unsubscribe
+  - `admin-moderation.test.js` — photos list, pending, approve, reject
+  - `middleware.test.js` — auth middleware
+
+### Документация
+- **server/.env.example:** все переменные с комментариями (Stripe, SMTP, Sentry, Redis, S3)
+- **.env.example:** Sentry DSN, WS URL
+- **README:** профессиональный список фич, секция backup
+- **project-context.md:** полный контекст для AI-ассистентов
 
 ---
 ## Что осталось
@@ -84,9 +87,6 @@
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | `server/.env` | Облачное хранение файлов |
 | `DB_PASSWORD` | `server/.env` | Непустой пароль MySQL |
 | `CORS_ORIGIN` | `server/.env` | Домен прода |
-
-### 🟡 Нужно доработать
-_(нет — всё, что можно было сделать кодом, сделано)_
 
 ### 🟢 Опционально
 1. Запустить Redis (`REDIS_URL`) для кэширования
@@ -110,13 +110,14 @@ _(нет — всё, что можно было сделать кодом, сд�
 | `project-context.md` | Полный контекст для AI-ассистентов |
 
 ## Production Readiness Summary
-- **Тесты:** 98/98 проходят (42 фронт + 56 сервер) — 0 failures
+- **Тесты:** 137/137 проходят (42 фронт + 95 сервер) — 0 failures
 - **Сборка:** `vite build` успешно
-- **AdMob:** установлен v6.0.0, `cap sync android` выполнен
 - **Логи:** Winston во всех серверных файлах (0 console.log/error)
 - **Backup:** скрипты + инструкция в README
 - **Setup:** `scripts/setup.ps1` — автоматическая настройка dev-окружения
 - **.env.example:** оба файла содержат все переменные с комментариями
+- **Error boundaries:** per-page (30+ lazy-роутов изолированы)
+- **Loading states:** activity.tsx, chats.tsx (спиннер)
 
 Для прода: вписать 7 ключей в `server/.env` (см. таблицу выше).
 
