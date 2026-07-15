@@ -14,7 +14,9 @@
 | SEO/PWA (sitemap, robots, manifest) | ✅ Готово |
 | Swagger/OpenAPI (JSDoc + swagger-jsdoc) | ✅ Готово |
 | Docker (healthcheck, jwt из env) | ✅ Готово |
-| AGENTS.md prompt templates | ✅ Готово |
+| AGENTS.md prompt templates + restructure | ✅ Готово |
+| AGENTS.md: CI/CD, Git Workflow, Project Structure, Security, Testing, Deployment | ✅ Готово |
+| persona.md port fix (3001 → 3002) | ✅ Готово |
 
 ## Багфиксы
 | Баг | Фикс | Статус |
