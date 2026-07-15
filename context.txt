@@ -80,7 +80,7 @@
 - **persona.md:** исправлен порт API (3001 → 3002)
 - **swagger-jsdoc:** установлен (отсутствовал, сервер не стартовал)
 - **Playwright-тестирование страниц:** `e2e/audit-full.spec.ts` — проверка всех страниц на console.errors, 500-е API, page errors
-- **data-testid селекторы:** добавлены на login.tsx, register.tsx, chats-chatId.tsx
+- **data-testid селекторы:** добавлены на login, register, forgot-password, settings, profile-edit, groups, search, search-filters, premium-success, admin-features, admin-users, admin-messaging, chats-chatId
 - **e2e helpers:** `audit.ts` (console/network/error tracker), `api.ts` (API calls + health check)
 - **global-setup:** проверка `/health` + MySQL перед тестами
 

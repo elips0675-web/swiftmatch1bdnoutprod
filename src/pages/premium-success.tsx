@@ -19,7 +19,7 @@ export default function PremiumSuccess() {
         <p className="text-muted-foreground text-sm mb-8">
           {t('premium.success_desc') || 'Спасибо за покупку! Ваш премиум-доступ уже активирован.'}
         </p>
-        <Button onClick={() => router.push('/')} className="w-full h-12 rounded-full gradient-bg text-white font-black">
+        <Button data-testid="back-home-button" onClick={() => router.push('/')} className="w-full h-12 rounded-full gradient-bg text-white font-black">
           {t('premium.back_home') || 'На главную'}
         </Button>
       </div>

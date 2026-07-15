@@ -198,7 +198,7 @@ export default function AdminUsersPage() {
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder={t('admin.users.search_placeholder')} value={search} onChange={e => handleSearch(e.target.value)} className="pl-9 h-10 rounded-xl" />
+          <Input data-testid="search-users" placeholder={t('admin.users.search_placeholder')} value={search} onChange={e => handleSearch(e.target.value)} className="pl-9 h-10 rounded-xl" />
         </div>
         <Select value={statusFilter} onValueChange={handleStatusFilter}>
           <SelectTrigger className="w-[150px] h-10 rounded-xl"><SelectValue placeholder={t('admin.users.status')} /></SelectTrigger>

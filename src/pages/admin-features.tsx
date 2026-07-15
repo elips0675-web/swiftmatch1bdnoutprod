@@ -113,10 +113,10 @@ export default function FeatureFlagsPage() {
         ))}
       </CardContent>
       <CardFooter className="flex items-center justify-end gap-3 border-t bg-muted/5 px-6 py-4">
-        <Button variant="ghost" onClick={handleReset} disabled={!hasChanges} className="rounded-full text-xs font-bold h-10 px-6">
+        <Button data-testid="reset-features" variant="ghost" onClick={handleReset} disabled={!hasChanges} className="rounded-full text-xs font-bold h-10 px-6">
           <RotateCcw className="mr-2 h-3 w-3" /> {t('admin.features.reset_btn')}
         </Button>
-        <Button onClick={handleSave} disabled={!hasChanges || saving} className="min-w-[140px] rounded-full bg-primary text-primary-foreground font-bold h-10 px-8">
+        <Button data-testid="save-features" onClick={handleSave} disabled={!hasChanges || saving} className="min-w-[140px] rounded-full bg-primary text-primary-foreground font-bold h-10 px-8">
           {saving ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Save className="mr-2 h-3 w-3" />}
           {t('admin.features.save_btn')}
         </Button>

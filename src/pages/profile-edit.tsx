@@ -382,7 +382,7 @@ export default function EditProfilePage() {
                 <Sparkles size={11} className={isGeneratingBio ? "animate-spin" : ""} /> {t('profile.ai_improve')}
               </button>
             </div>
-            <Textarea value={profile.bio || ''} onChange={e => setProfile({ ...profile, bio: e.target.value })} className="rounded-xl bg-muted/30 border-0 min-h-[90px] text-xs resize-none font-medium p-4" />
+            <Textarea data-testid="profile-bio" value={profile.bio || ''} onChange={e => setProfile({ ...profile, bio: e.target.value })} className="rounded-xl bg-muted/30 border-0 min-h-[90px] text-xs resize-none font-medium p-4" />
           </div>
 
           <div className="h-px bg-border/50 my-6"></div>
@@ -396,7 +396,7 @@ export default function EditProfilePage() {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">{t('profile.label.name')}</Label>
-              <Input value={profile.displayName || ''} onChange={e => setProfile({ ...profile, displayName: e.target.value })} className="rounded-xl bg-muted/30 border-0 h-11 font-bold px-4 focus-visible:ring-primary/20" />
+              <Input data-testid="profile-name" value={profile.displayName || ''} onChange={e => setProfile({ ...profile, displayName: e.target.value })} className="rounded-xl bg-muted/30 border-0 h-11 font-bold px-4 focus-visible:ring-primary/20" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -485,7 +485,7 @@ export default function EditProfilePage() {
         </div>
 
         <div className="mt-8 px-2">
-          <Button onClick={handleSave} disabled={isSaving} className="w-full h-14 rounded-2xl gradient-bg text-white font-black uppercase tracking-widest shadow-xl shadow-primary/30 border-0 hover:brightness-110 active:scale-95 transition-all">
+          <Button data-testid="save-profile" onClick={handleSave} disabled={isSaving} className="w-full h-14 rounded-2xl gradient-bg text-white font-black uppercase tracking-widest shadow-xl shadow-primary/30 border-0 hover:brightness-110 active:scale-95 transition-all">
             {isSaving ? <Loader2 className="animate-spin mr-2" /> : null}
             {t('profile.save_all')}
           </Button>

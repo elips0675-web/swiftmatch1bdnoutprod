@@ -309,13 +309,13 @@ function SearchContent() {
                 <Sparkles size={48} className="text-muted-foreground opacity-20 mb-4" />
                 <h4 className="text-xl font-black uppercase">{t('search.no_profiles')}</h4>
                 <p className="text-sm text-muted-foreground mt-2">{t('search.no_profiles_desc')}</p>
-                <Button variant="outline" onClick={() => setIsFiltersOpen(true)} className="mt-8 rounded-full px-8 uppercase text-[10px] font-black">{t('button.change_filters')}</Button>
+                <Button data-testid="change-filters" variant="outline" onClick={() => setIsFiltersOpen(true)} className="mt-8 rounded-full px-8 uppercase text-[10px] font-black">{t('button.change_filters')}</Button>
             </div>
         ) : (
           <>
             <div className="relative w-full flex-1 mb-10 max-w-[360px] flex items-center justify-center">
-              <Button variant="ghost" size="icon" onClick={handlePrev} disabled={currentIndex === 0} className="absolute -left-4 z-20 w-10 h-10 rounded-full bg-white/80 shadow-lg border-0"><ChevronLeft size={24} /></Button>
-              <Button variant="ghost" size="icon" onClick={handleNext} disabled={currentIndex >= userList.length - 1} className="absolute -right-4 z-20 w-10 h-10 rounded-full bg-white/80 shadow-lg border-0"><ChevronRight size={24} /></Button>
+              <Button data-testid="prev-profile" variant="ghost" size="icon" onClick={handlePrev} disabled={currentIndex === 0} className="absolute -left-4 z-20 w-10 h-10 rounded-full bg-white/80 shadow-lg border-0"><ChevronLeft size={24} /></Button>
+              <Button data-testid="next-profile" variant="ghost" size="icon" onClick={handleNext} disabled={currentIndex >= userList.length - 1} className="absolute -right-4 z-20 w-10 h-10 rounded-full bg-white/80 shadow-lg border-0"><ChevronRight size={24} /></Button>
 
               <AnimatePresence mode="wait" custom={direction}>
                 {user && <motion.div

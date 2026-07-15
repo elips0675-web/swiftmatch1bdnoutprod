@@ -147,7 +147,7 @@ export default function SettingsPage() {
                     <p className="text-sm font-bold">{t('settings.push_notifications')}</p>
                   </div>
                 </div>
-                <Switch 
+                <Switch data-testid="switch-push-notifications"
                   checked={isClient ? settings.pushNotifications : true} 
                   onCheckedChange={handlePushChange} 
                 />
@@ -162,7 +162,7 @@ export default function SettingsPage() {
                     <p className="text-sm font-bold">{t('settings.email_newsletter')}</p>
                   </div>
                 </div>
-                <Switch checked={isClient ? settings.emailNewsletter : false} onCheckedChange={(val) => setSettings({...settings, emailNewsletter: val})} />
+                <Switch data-testid="switch-email-newsletter" checked={isClient ? settings.emailNewsletter : false} onCheckedChange={(val) => setSettings({...settings, emailNewsletter: val})} />
               </div>
 
               <div className="flex items-center justify-between py-3 border-b border-border/50">
@@ -174,7 +174,7 @@ export default function SettingsPage() {
                     <p className="text-sm font-bold">{t('settings.location')}</p>
                   </div>
                 </div>
-                <Switch checked={isClient ? settings.location : true} onCheckedChange={(val) => setSettings({...settings, location: val})} />
+                <Switch data-testid="switch-location" checked={isClient ? settings.location : true} onCheckedChange={(val) => setSettings({...settings, location: val})} />
               </div>
 
               <div className="flex items-center justify-between py-3 border-b border-border/50">
@@ -186,7 +186,7 @@ export default function SettingsPage() {
                     <p className="text-sm font-bold">{t('settings.discovery')}</p>
                   </div>
                 </div>
-                <Switch checked={isClient ? settings.discovery : true} onCheckedChange={(val) => setSettings({...settings, discovery: val})} />
+                <Switch data-testid="switch-discovery" checked={isClient ? settings.discovery : true} onCheckedChange={(val) => setSettings({...settings, discovery: val})} />
               </div>
             </div>
           </section>
@@ -203,7 +203,7 @@ export default function SettingsPage() {
                     <p className="text-sm font-bold">{t('settings.incognito')}</p>
                   </div>
                 </div>
-                <Switch checked={isClient ? settings.incognito : false} onCheckedChange={handleIncognitoChange} />
+                <Switch data-testid="switch-incognito" checked={isClient ? settings.incognito : false} onCheckedChange={handleIncognitoChange} />
               </div>
 
               <div className="flex items-center justify-between py-3 border-b border-border/50">
@@ -227,7 +227,7 @@ export default function SettingsPage() {
                     <p className="text-sm font-bold">{t('settings.data_consent')}</p>
                   </div>
                 </div>
-                <Switch checked={isClient ? settings.dataProcessingConsent : true} onCheckedChange={handleConsentChange} />
+                <Switch data-testid="switch-data-consent" checked={isClient ? settings.dataProcessingConsent : true} onCheckedChange={handleConsentChange} />
               </div>
             </div>
           </section>
@@ -292,12 +292,12 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-3 pt-8 mt-auto">
-            <Button 
+            <Button data-testid="logout-button"
                 onClick={handleLogout}
                 className="w-full h-12 rounded-full gradient-bg text-white font-black uppercase tracking-wider shadow-lg shadow-primary/20 active:scale-95 transition-all border-0">
                 <LogOut size={16} className="mr-2" /> {t('logout.button')}
             </Button>
-            <Button 
+            <Button data-testid="delete-account-button"
                 variant="ghost" 
                 onClick={handleDeleteAccount}
                 className="w-full justify-center text-muted-foreground/60 hover:text-destructive text-xs font-normal h-auto py-3 gap-2 px-0 transition-colors">

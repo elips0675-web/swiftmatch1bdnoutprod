@@ -17,7 +17,7 @@
 | AGENTS.md prompt templates + restructure | ✅ Готово |
 | AGENTS.md: CI/CD, Git Workflow, Project Structure, Security, Testing, Deployment | ✅ Готово |
 | persona.md port fix (3001 → 3002) | ✅ Готово |
-| data-testid селекторы (login, register, chat) | ✅ Готово |
+| data-testid селекторы (login, register, chat, forgot-password, settings, profile-edit, groups, search, admin) | ✅ Готово |
 | e2e: audit-full.spec.ts + helpers (audit.ts, api.ts) | ✅ Готово |
 | e2e: global-setup.ts (health check before tests) | ✅ Готово |
 | playwright.config: screenshots, video, trace, json reporter | ✅ Готово |
@@ -43,4 +43,7 @@
 - /matches, /profile/:id route registration in App.tsx — if components exist
 - Pre-existing lint warnings (70+) — не трогать
 - Playwright page test — blocked on rate limiter (429)
-- Добавить data-testid на остальные страницы (search, groups, settings, admin, forgot-password)
+- Добавить data-testid на остальные страницы (chats.tsx, activity.tsx, contest.tsx)
+- **E2E тесты для ключевых флоу:** регистрация → анкета, поиск → лайк → мэтч → чат, админка (бан, feature flags)
+- **Негативные тесты:** 401, validation, XSS, upload reject
+- **WS тесты:** два браузера, real-time сообщения

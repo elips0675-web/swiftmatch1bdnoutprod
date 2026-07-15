@@ -124,16 +124,16 @@ export default function AdminMessagingPage() {
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">{t('admin.messaging.subject')}</Label>
-              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder={t('admin.messaging.subject_placeholder')} className="h-10 rounded-xl" />
+              <Input data-testid="messaging-title" value={title} onChange={e => setTitle(e.target.value)} placeholder={t('admin.messaging.subject_placeholder')} className="h-10 rounded-xl" />
             </div>
           </div>
           <div className="space-y-2">
             <Label className="text-[10px] font-bold uppercase text-muted-foreground">{t('admin.messaging.message_text')}</Label>
-            <Textarea value={body} onChange={e => setBody(e.target.value)} placeholder={t('admin.messaging.text_placeholder')} className="min-h-[120px] rounded-xl" />
+            <Textarea data-testid="messaging-body" value={body} onChange={e => setBody(e.target.value)} placeholder={t('admin.messaging.text_placeholder')} className="min-h-[120px] rounded-xl" />
           </div>
         </CardContent>
         <CardFooter className="border-t p-4 flex justify-end">
-          <Button onClick={handleSend} disabled={isSending || !title || !body} className="rounded-full h-10 px-8 font-bold">
+          <Button data-testid="send-campaign" onClick={handleSend} disabled={isSending || !title || !body} className="rounded-full h-10 px-8 font-bold">
             {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
             {t('admin.messaging.send')}
           </Button>

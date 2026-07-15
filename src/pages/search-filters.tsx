@@ -160,7 +160,7 @@ export default function FiltersPage() {
       </main>
 
       <footer className="p-4 bg-white border-t sticky bottom-0">
-        <Button onClick={handleApply} className="w-full h-12">{t('button.apply_filters')}</Button>
+        <Button data-testid="apply-filters" onClick={handleApply} className="w-full h-12">{t('button.apply_filters')}</Button>
       </footer>
     </div>
   );

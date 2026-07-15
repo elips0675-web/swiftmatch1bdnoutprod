@@ -225,7 +225,7 @@ export default function GroupsPage() {
       <main ref={mainRef} className="flex-1 overflow-y-auto pb-24">
         <div className="px-5 pt-6 flex justify-between items-center mb-4">
            <h1 className="text-3xl font-black font-headline tracking-tight">{t('nav.groups')}</h1>
-           <Button onClick={() => setIsCreateOpen(true)} className="gap-2 rounded-full shadow-lg shadow-primary/20 border-0 gradient-bg text-white font-bold h-10 px-5 active:scale-95 transition-all">
+           <Button data-testid="create-group-button" onClick={() => setIsCreateOpen(true)} className="gap-2 rounded-full shadow-lg shadow-primary/20 border-0 gradient-bg text-white font-bold h-10 px-5 active:scale-95 transition-all">
              <PlusCircle size={16} />
              <span className="text-xs uppercase tracking-widest font-black">{t('groups.create_button')}</span>
            </Button>
@@ -310,11 +310,11 @@ export default function GroupsPage() {
           <div className="grid gap-4 px-6">
             <div className="space-y-2">
               <Label htmlFor="name" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">{t('groups.create.name_label')}</Label>
-              <Input id="name" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} className="h-12 rounded-xl bg-muted/50 border-0" placeholder={t('groups.create.name_placeholder')} />
+              <Input data-testid="group-name" id="name" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} className="h-12 rounded-xl bg-muted/50 border-0" placeholder={t('groups.create.name_placeholder')} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="description" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">{t('groups.create.desc_label')}</Label>
-              <Textarea id="description" value={newGroupDesc} onChange={(e) => setNewGroupDesc(e.target.value)} className="rounded-xl bg-muted/50 border-0" placeholder={t('groups.create.desc_placeholder')} />
+              <Textarea data-testid="group-description" id="description" value={newGroupDesc} onChange={(e) => setNewGroupDesc(e.target.value)} className="rounded-xl bg-muted/50 border-0" placeholder={t('groups.create.desc_placeholder')} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="category" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">{t('groups.create.category_label')}</Label>
@@ -333,7 +333,7 @@ export default function GroupsPage() {
             </div>
           </div>
           <DialogFooter className="p-6 flex-col sm:flex-col sm:space-x-0 gap-3">
-            <Button onClick={handleCreateGroup} className="w-full h-12 rounded-xl gradient-bg text-white font-black uppercase tracking-widest shadow-lg shadow-primary/20 border-0">{t('groups.create.submit')}</Button>
+            <Button data-testid="submit-create-group" onClick={handleCreateGroup} className="w-full h-12 rounded-xl gradient-bg text-white font-black uppercase tracking-widest shadow-lg shadow-primary/20 border-0">{t('groups.create.submit')}</Button>
             <Button variant="ghost" className="w-full h-10 rounded-xl font-black uppercase text-xs tracking-widest" onClick={() => setIsCreateOpen(false)}>{t('button.cancel')}</Button>
           </DialogFooter>
         </DialogContent>

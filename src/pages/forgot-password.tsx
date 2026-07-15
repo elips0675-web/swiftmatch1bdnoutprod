@@ -55,10 +55,10 @@ export default function ForgotPasswordPage() {
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t('auth.email')}</label>
               <div className="relative">
                 <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="mail@example.com" required className="pl-10 h-12 rounded-xl" />
+                <Input data-testid="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="mail@example.com" required className="pl-10 h-12 rounded-xl" />
               </div>
             </div>
-            <Button type="submit" disabled={loading} className="w-full h-12 rounded-full gradient-bg text-white font-black uppercase tracking-wider shadow-lg shadow-primary/20">
+            <Button data-testid="submit-forgot-password" type="submit" disabled={loading} className="w-full h-12 rounded-full gradient-bg text-white font-black uppercase tracking-wider shadow-lg shadow-primary/20">
               {loading ? <Loader2 className="animate-spin" size={16} /> : t('auth.send_reset')}
             </Button>
           </form>
