@@ -1,191 +1,99 @@
 # SwiftMatch — Production Context
 
-## Project Overview
+## Stack
+- **Frontend:** React 18 + Vite 8 + TypeScript 5 strict + Tailwind CSS 3 + shadcn/ui
+- **Backend:** Express.js 4 + MySQL (mysql2) + Socket.IO 4
+- **State:** TanStack Query 5 + React Context
+- **Forms:** React Hook Form + Zod 4
+- **Auth:** JWT (Bearer) + refresh tokens, dev-login для админки
+- **Payments:** Stripe (mock-fallback без ключа)
+- **Realtime:** Socket.IO (chats, online status, typing indicator)
+- **Monitoring:** Sentry (установлен, ждёт DSN)
+- **Logging:** Winston (JSON-формат)
+- **i18n:** Custom LanguageContext (RU/EN)
 
-SwiftMatch — дейтинг-приложение (аналог Tinder/Badoo). React 18 + Vite + Tailwind (фронтенд), Express.js + MySQL (бэкенд). Есть кастомная админка, подписки (Stripe + mock), чаты (WebSocket), геопоиск, AI-рекомендации, i18n (RU/EN).
-
-### Ports
-- Frontend: **8081** (Vite dev server)
+## Ports
+- Frontend: **8081** (Vite dev server, proxy → localhost:3002)
 - API: **3002** (Express)
 - DB: 3306 (MySQL via Laragon)
 
-### Auth
-- JWT (Bearer token), refresh tokens
-- Dev-login для админки (без Supabase)
-- `adminAuth` middleware — **passive** (не блокирует, вызывает `next()` на ошибке)
-
-### Key Files
-- `vite.config.ts` — proxy → `localhost:3002`
-- `server/.env` — `PORT=3002`, `DB_HOST=localhost`, `JWT_SECRET=dev-secret-key`
-- `server/src/index.js` — Express entry point (helmet, cors, request-id, routes, Sentry, Swagger, WS)
-- `server/src/ws.js` — Socket.IO
-- `server/src/mail.js` — Nodemailer (SMTP не настроен, логирует в консоль)
+## Auth
+- `adminAuth` middleware — **passive** (вызывает `next()` на ошибке, не блокирует)
+- AdminGuard при отсутствии Supabase делает dev-login
+- CORS — `*` (для Capacitor)
 
 ---
+## Что сделано (все 3 недели)
 
-## What's Done (All 8 Phases)
+### Неделя 2 — Платежи + Коммуникации ✅
+- **Stripe:** Idempotency-Key middleware (`server/src/middleware/idempotency.js`), STRIPE_LIVE флаг (при `true` mock отключается, без ключа → 500)
+- **SMTP:** Retry-логика (3 попытки, exponential backoff 1s/2s/3s), проверка пустых SMTP_USER/PASS → graceful skip
+- **Sentry:** Установлены `@sentry/react` + `@sentry/node`, init с `beforeSend` (PII scrubbing: email, токены, IP). `server/src/sentry.js` — requestHandler/errorHandler для Express. `src/lib/sentry.ts` — клиентский init.
+- **noValidate:** Добавлен на login.tsx, register.tsx, forgot-password.tsx, reset-password.tsx
 
-### Phase 1 — Core User Flow ✅
-Register → questionnaire → likes → match → chat. Photo upload via `/api/upload`. Onboarding with MySQL + localStorage fallback.
+### Неделя 3 — Инфраструктура ✅
+- **MIME-фильтр:** `file.mimetype.startsWith('image/')` + расширение .jpg/.jpeg/.png/.gif/.webp
+- **S3 scaffold:** lazy-init — при AWS_* env → `@aws-sdk/client-s3` + `multer-s3`, иначе локальный диск (`server/uploads/`)
+- **Redis scaffold:** `server/src/redis.js` — lazy singleton с `ioredis`, ждёт REDIS_URL
+- **Миграции БД:** `database/migrations/` — нумерованные .sql файлы + `migrate.js` (создаёт таблицу `_migrations`, применяет новые)
 
-### Phase 2 — Social Features ✅
-Matches page, premium tiers, groups (creation/join/categories), contest (voting/leaderboard), online status (WS), typing indicator.
+### Неделя 4 — Production Hardening ✅
+- **Docker:** `.dockerignore` (node_modules, .git, .env, dist), `restart: unless-stopped` в docker-compose.yml
+- **Nginx:** `nginx/swiftmatch.conf` — rate limit (api: 30r/s, auth: 5r/s), `client_max_body_size 20M`, WebSocket 86400s, SSL, SPA fallback
+- **CI/CD:** `.github/workflows/deploy.yml` — lint → build → test (MySQL сервис)
+- **AdMob:** динамический импорт `@capacitor-community/admob` с fallback на `setTimeout(3000)`
+- **Winston:** `server/src/logger.js` переписан с `winston.createLogger`, JSON-формат с timestamp/level/msg/rid
 
-### Phase 3 — Admin & Moderation ✅
-Email newsletters (nodemailer), push notifications (VAPID + web-push), ban + WS `user:banned`, banned words in chats, action history, impersonation, real premium status in admin (from `subscriptions`).
-
-### Phase 4 — Monetization ✅
-Stripe Checkout + mock fallback, webhook signature validation, premium gating (10 likes/day free), ad banners (feature flag `showAds`), admin pricing UI.
-
-### Phase 5 — Polish & Advanced ✅
-Geo-search (Haversine), view history, AI recommendations (compatibility_scores), attachment test, message deletion, push notifications, 11 demo bots, i18n (RU/EN).
-
-### Phase 6 — Infrastructure & Real-time ✅
-Socket.IO client, real-time messages, VAPID keys, Stripe package, UTF-8 everywhere, data cleanup, helmet security headers, request-id logging, CSRF not needed (API-only JWT).
-
-### Phase 7 — Testing & Production Infrastructure ✅ (THIS SESSION)
-- **Frontend tests (Vitest):** 42 tests passing (8 files)
-  - `login.test.tsx` — 6 tests
-  - `register.test.tsx` — 7 tests
-  - `error-boundary.test.tsx` — 5 tests
-  - `auth-context.test.tsx` — 5 tests
-  - `use-premium.test.ts` — 5 tests
-  - `example.test.ts` — 1 test
-  - `utils.test.ts` — 8 tests
-  - `api.test.ts` — 5 tests
-- **Server tests (Vitest):** 6 files (auth, profile, premium, admin, social, middleware) - 9 pre-existing failures
-- **E2E (Playwright):** `playwright.config.ts` + 3 spec files (login, register, profile)
-- **Sentry:** `src/lib/sentry.ts` + `server/src/sentry.js` (initialized in `main.tsx` + `index.js`)
-- **Swagger:** `server/src/swagger.js` + JSDoc annotations for auth, profile, premium, social routes
-- **Docker:** Multi-stage `Dockerfile` (healthcheck, `node:20-alpine`, `USER node`), `docker-compose.yml` (db healthcheck)
-- **Nginx:** `nginx.conf` (SPA fallback, API proxy, SSL, WebSocket, security headers - X-Frame-Options, HSTS, CSP)
-- **Prettier:** `.prettierrc`
-- **Husky + lint-staged:** `.husky/pre-commit`
+### Дополнительно ✅
+- **admin/analytics.js:** создан (overview, retention, revenue-mix, registrations) — убирает 404
+- **/health роут:** `GET /health` — проверяет `SELECT 1` из БД
+- **WebSocket heartbeat:** `pingInterval: 10000`, `pingTimeout: 5000` на сервере
+- **WS reconnect:** `reconnectionAttempts: Infinity`, `reconnectionDelayMax: 30000`, `randomizationFactor: 0.5` на клиенте
+- **Playwright:** webServer уже настроен (сервер + фронт)
+- **README:** обновлён статус всех пунктов
 
 ---
+## Что осталось
 
-## Bugs Fixed This Session
+### 🔴 Требуют реальных ключей/сервисов (код готов)
+| Переменная | Где | Назначение |
+|---|---|---|
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `server/.env` | Реальные платежи |
+| `SMTP_USER`, `SMTP_PASS` | `server/.env` | Email (регистрация, сброс пароля) |
+| `SENTRY_DSN` | `server/.env` + `.env` | Мониторинг ошибок |
+| `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `server/.env` | Облачное хранение файлов |
+| `REDIS_URL` | `server/.env` | Кэш + rate-limit |
 
-### 1. vi.mock TDZ (Temporal Dead Zone)
-- **Files:** `src/test/login.test.tsx`, `src/test/register.test.tsx`
-- **Problem:** `const mockToast = vi.fn()` followed by `vi.mock("@/hooks/use-toast", () => ({ toast: mockToast }))` — vitest hoists `vi.mock` above the `const`, so `mockToast` is uninitialized when the factory runs
-- **Fix:** Changed to `const mockToast = vi.hoisted(() => vi.fn())`. `vi.hoisted()` runs at hoist time before `vi.mock`, creating the mock properly
+### 🟡 Нужно доработать
+1. **Безопасность — dev-секреты:** заменить `JWT_SECRET`, выставить `DB_PASSWORD`, `CORS_ORIGIN`
+2. **9 server-тестов:** admin(7) + profile(1) + social(1) — падают из-за моков и маршрутизации
+3. **npm install @capacitor-community/admob** — для реальной рекламы в нативной сборке
+4. **console.log → req.log** — часть старых роутов ещё не мигрирована на winston
 
-### 2. jsdom Constraint Validation Blocks Form Submit
-- **File:** `src/pages/register.tsx`
-- **Problem:** Inputs had `required` + `type="email"`. jsdom blocks form `submit` event when a required field is empty or email format is invalid, so `handleRegister` (custom validation with `toast()`) never fires
-- **Fix:** Added `noValidate` to `<form>` — standard practice when using custom JS validation
-
-### 3. Dynamic import / await import toast in tests
-- **Files:** `src/test/login.test.tsx`, `src/test/register.test.tsx`
-- **Problem:** Tests used `const { toast } = await import("@/hooks/use-toast")` inside test bodies, but vitest's module mock cache meant this sometimes returned a different reference than the page's imported `toast`
-- **Fix:** Switched to direct `mockToast` reference (already the same instance from `vi.hoisted`)
-
----
-
-## External Audit (from Kimi)
-
-Full audit in `Оценка kimi.txt` on disk. Summary:
-
-### 🔴 BLOCKERS before production deploy
-1. **Dev secrets everywhere** — `JWT_SECRET=dev-secret-key`, empty `DB_PASSWORD`, `DB_USER=root`, `CORS_ORIGIN=localhost`
-2. **Admin routes crash** — 7 failures in admin tests = real bugs (500/404 on stats, analytics, revenue, features, users)
-3. **Stripe mock-only** — no real payments, `STRIPE_SECRET_KEY` missing
-4. **SMTP dead** — mail.js only logs to console, verification/reset emails never send
-
-### 🟠 High priority
-5. **AdMob/Yandex SDK** not integrated (showAds flag has timer stub)
-6. **Sentry DSN** not configured (both frontend + backend)
-7. **WebSocket** — no heartbeat/reconnect, messages lost on mobile disconnects
-8. **DB migrations** — schema changes done via raw ALTER TABLE, no versioning
-9. **File upload** — no size/type validation, no S3 storage
-
-### 🟡 Medium priority
-10. Fix 9 server tests (admin:7, profile:1, social:1)
-11. Playwright E2E: add webServer config + /health route
-12. Docker: .dockerignore, restart policy, named volumes
-13. Nginx: rate limiting, client_max_body_size, WS timeouts
-14. Structured logging (winston/pino)
-
-### 🟢 Low priority
-15. Redis caching (sessions, compatibility_scores, feature_flags)
-16. MySQL backups (mysqldump cron)
-17. CI/CD (GitHub Actions for tests + deploy)
+### 🟢 Опционально
+5. MySQL backups (mysqldump cron)
+6. Mem_limit в docker-compose.yml
 
 ---
+## Ключевые файлы
+| Файл | Назначение |
+|---|---|
+| `server/src/index.js` | Express entry — helmet, cors, rate-limit, /health, Sentry, WS, routes |
+| `server/src/ws.js` | Socket.IO (pingInterval 10s, pingTimeout 5s) |
+| `server/src/mail.js` | Nodemailer + retry (3 attempts) |
+| `server/src/logger.js` | Winston JSON logger |
+| `server/src/sentry.js` | Sentry init + beforeSend |
+| `server/src/middleware/idempotency.js` | Idempotency-Key защита |
+| `server/src/redis.js` | ioredis lazy client |
+| `server/src/routes/admin/analytics.js` | analytics/overview, retention, revenue-mix, registrations |
+| `database/migrations/migrate.js` | Миграции БД |
+| `nginx/swiftmatch.conf` | Production Nginx config |
+| `.github/workflows/deploy.yml` | CI/CD pipeline |
+| `project-context.md` | Полный контекст для AI-ассистентов |
 
-## Remaining Issues
-
-1. **admin.test.js (7 failures):**
-   - `/api/admin/analytics` — 404 (route doesn't exist: `analytics.js` not found)
-   - `/api/admin/revenue` — 404 (route doesn't exist: `monetization.js` instead)
-   - `/api/admin/stats` — 500 (`(intermediate value) is not iterable` in dashboard.js)
-   - `/api/admin/users` — response shape wrong (returns `{users: [...]}` not array)
-   - `/api/admin/features` GET — returns object not array
-   - `/api/admin/features` PUT — 500 instead of 400 validation error
-   - All "handles database error" tests that expect 500 instead get 404
-
-2. **profile.test.js (1 failure):**
-   - `PUT /api/profile/:id` — mock doesn't return `display_name: 'Updated'`, returns `undefined`
-
-3. **social.test.js (1 failure):**
-   - `GET /api/chats/:chatId/messages` — mock returns empty array instead of messages with reactions
-
-### Stripe / SMTP / Ads
-- Live Stripe key needed in `.env`
-- SMTP credentials needed
-- Real ad SDK integration (AdMob/Yandex)
-
----
-
-## Architecture Overview (for LLM context)
-
-### Frontend Structure
-```
-src/
-├── components/          # UI components (shadcn/ui + custom)
-│   ├── ui/              # Button, Input, Badge, Select, Dialog, etc.
-│   └── shared/          # AdminGuard, AdminLayout, etc.
-├── context/             # React contexts (auth, language, feature-flags)
-├── hooks/               # Custom hooks (use-premium, use-websocket, etc.)
-├── lib/                 # Utilities (sentry, native, token, utils)
-├── pages/               # Route pages (login, register, chats, admin/*)
-├── test/                # Vitest test files
-└── main.tsx             # Entry point (Sentry init + React root)
-```
-
-### Server Structure
-```
-server/src/
-├── routes/              # Express route handlers
-│   ├── admin/           # Admin dashboard, users, features, content, etc.
-│   ├── auth.js          # Register, login, forgot-password, reset-password
-│   ├── profile.js       # GET/PUT profile, DELETE account
-│   ├── social.js        # Chats, messages, likes, reactions
-│   └── premium.js       # Subscription plans, Stripe sessions
-├── middleware/           # adminAuth
-├── __tests__/           # Vitest test files
-├── index.js             # Entry point (helmet, cors, routes, Sentry, Swagger, WS)
-├── sentry.js            # Sentry server init
-├── swagger.js           # Swagger/OpenAPI config
-├── ws.js                # Socket.IO setup (chat, notifications, online status)
-└── mail.js              # Nodemailer (console.log fallback when SMTP missing)
-```
-
-### Database (MySQL)
-- `swiftmatch` database
-- Tables: `users`, `user_profiles`, `user_photos`, `interests`, `user_interests`, `matches`, `chats`, `chat_messages`, `chat_participants`, `message_reactions`, `subscriptions` (premium), `activity_log`, `feature_flags`, `reports`, `banned_words`, `content_config`
-- Schema in `database/mysql_schema.sql`
-
-### Key Patterns
-- **Translation keys in DB, not display text:** `interest.sport` not `"Спорт"`
-- **Dev-login auto-auth:** AdminGuard tries dev-login when Supabase absent
-- **adminAuth is passive:** Calls `next()` on failure, doesn't block
-- **noValidate on forms** with custom validation
-
-### Test Patterns
-- `vi.hoisted(() => vi.fn())` for shared mocks in vi.mock factory
-- `renderWithProviders()` wrapper (auth + language contexts)
-- `userEvent.setup()` for simulating user interactions
-- `waitFor()` for async assertions
-- `getByTextContent()` helper for elements split across `<span>` children
+## Данные для входа
+| Email | Пароль | Роль |
+|---|---|---|
+| admin@mail.ru | admin123 | Админ |
+| demo@mail.ru | admin123 | Анна (пользователь) |
+| user4..user23@demo.ru | admin123 | 18 демо-пользователей |
