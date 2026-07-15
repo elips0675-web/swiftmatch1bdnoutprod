@@ -185,6 +185,15 @@ app.use('/api/admin', adminMessaging)
 app.use('/api/admin', adminMonetization)
 app.use('/api/admin', adminModerationRoutes)
 
+app.get('/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1')
+    res.json({ status: 'ok', db: 'connected' })
+  } catch {
+    res.status(503).json({ status: 'error', db: 'disconnected' })
+  }
+})
+
 app.use((err, req, res, next) => {
   const log = req.log || rootLogger
   log.error('Unhandled error', err)

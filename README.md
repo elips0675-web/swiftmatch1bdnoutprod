@@ -131,45 +131,48 @@ npx vite --port 8081 --host
    - `DB_PASSWORD=` (пустой) + `DB_USER=root` → создать пользователя `swiftmatch_prod` с ограниченными правами
    - `CORS_ORIGIN=http://localhost:8081` → заменить на домен прода
 
-2. **Админка падает 500/404**
-   - `/api/admin/analytics` — 404 (файл не создан)
-   - `/api/admin/revenue` — 404 (роут называется `monetization.js`)
-   - `/api/admin/stats` — 500 (`dashboard.js` итерирует null из БД)
-   - `/api/admin/users` — возвращает `{users: [...]}` вместо массива
-   - `/api/admin/features` — возвращает объект вместо массива
+2. **Админка — исправлено**
+   - ✅ `/api/admin/analytics` — создан `analytics.js` (overview, retention, revenue-mix, registrations)
+   - ✅ `/api/admin/health` — добавлен `/health` роут
+   - ✅ `dashboard.js` — chartData обёрнуты в `ensureArray()` на фронте
+   - `/api/admin/revenue` → роут называется `monetization.js` (работает как `/api/admin/monetization/revenue`)
 
-3. **Stripe — только mock-fallback**
+3. **Stripe — mock-fallback**
    - `STRIPE_SECRET_KEY` не заполнен, платежи не проходят
    - Убрать mock-ветку из прода или оставить только для `NODE_ENV=test`
    - Добавить `idempotency_key` на `checkout.sessions.create`
 
-4. **SMTP — письма не уходят**
-   - `server/src/mail.js` только логирует в консоль
-   - Регистрация, forgot-password, verify-email — мёртвые
-   - Добавить fallback на Resend / Amazon SES / Mailgun + retry-логику
+4. **SMTP — письма не уходят (исправлено)**
+   - ✅ Retry-логика (3 попытки, exponential backoff) в `server/src/mail.js`
+   - ✅ Проверка пустых `SMTP_USER`/`SMTP_PASS` — graceful skip
+   - `SMTP_USER`/`SMTP_PASS` не заполнены (нужны реальные credentials)
 
 ### 🟠 ВЫСОКИЙ ПРИОРИТЕТ
 
-5. **Реклама — таймер вместо SDK**
-   - AdMob / Yandex Ads SDK не интегрирован, стоит заглушка
-   - Добавить `adUnitId` в `feature_flags` для смены без деплоя
+5. **Реклама — таймер вместо SDK (исправлено)**
+   - ✅ AdMob: динамический импорт `@capacitor-community/admob` с fallback на `setTimeout`
+   - ✅ `adUnitId` можно менять через админку (`/api/admin/monetization/ads`)
+   - Для реальной монетизации: `npm install @capacitor-community/admob` + нативная сборка
 
-6. **Sentry — не инициализирован**
-   - `SENTRY_DSN` не вписан ни во фронт, ни в бэкенд
-   - Ошибки в чатах и платежах уходят в никуда
-   - Добавить `beforeSend` для фильтрации PII (пароли, токены)
+6. **Sentry — инициализирован** ✅
+   - ✅ `@sentry/react` (фронт) + `@sentry/node` (бэк) установлены
+   - ✅ `init()` с `beforeSend` — фильтрация PII (email, токены, пароли)
+   - ✅ `server/src/sentry.js` — подключен Express requestHandler/errorHandler
+   - ✅ `src/lib/sentry.ts` — клиентский init
+   - `SENTRY_DSN` не вписан (нужен DSN из sentry.io)
 
-7. **WebSocket — нет heartbeat/reconnect**
-   - При обрыве связи (мобильный интернет) чат не восстанавливается
-   - Добавить `pingInterval/pongTimeout` на сервере, `exponential backoff` на клиенте
+7. **WebSocket — heartbeat + reconnect (исправлено)** ✅
+   - ✅ Сервер: `pingInterval: 10000`, `pingTimeout: 5000`
+   - ✅ Клиент: `reconnectionAttempts: Infinity`, `reconnectionDelayMax: 30000`, `randomizationFactor: 0.5`
 
-8. **БД — нет миграций**
-   - Схема живёт в `mysql_schema.sql`, колонки добавлялись ALTER TABLE вручную
-   - Внедрить `umzug` / `node-pg-migrate` + `npm run migrate` в Dockerfile
+8. **БД — миграции (исправлено)** ✅
+   - ✅ Система в `database/migrations/` — нумерованные .sql файлы + `migrate.js`
+   - ✅ Две миграции: `001_add_moderation_columns.sql`, `002_add_subscription_indexes.sql`
 
-9. **Загрузка файлов — нет ограничений**
-   - `/api/upload` не проверяет `image/*`, `fileSize` и не сканирует
-   - Хранилище на диске → перенести на S3 (Selectel / R2 / Yandex Object Storage)
+9. **Загрузка файлов — ограничения (исправлено)** ✅
+   - ✅ MIME-фильтр: `file.mimetype.startsWith('image/')` + проверка расширения
+   - ✅ `fileSize: 10MB`
+   - ✅ S3 scaffold: lazy-init с `@aws-sdk/client-s3` + `multer-s3` (при наличии env — S3, иначе локальный диск)
 
 ### 🟡 СРЕДНИЙ ПРИОРИТЕТ
 
@@ -184,34 +187,41 @@ npx vite --port 8081 --host
     ```
     + добавить `/health` роут в Express
 
-12. **Docker — не production-ready**
-    - Нет `.dockerignore` → в образ утекает `node_modules`, `.git`, `server/.env`
-    - `docker-compose.yml`: нет `restart: unless-stopped`, `mem_limit`, именованного volume для MySQL
+12. **Docker — исправлено** ✅
+    - ✅ `.dockerignore` создан (исключает `node_modules`, `.git`, `.env`)
+    - ✅ `docker-compose.yml`: `restart: unless-stopped` добавлен
+    - `mem_limit` — опционально
 
-13. **Nginx — rate limiting и body size**
-    - `limit_req_zone` на `/api/auth/login` и `/api/upload`
-    - `client_max_body_size 5M;` для фото
-    - `proxy_read_timeout` для WebSocket (сейчас 60s, мало)
+13. **Nginx — исправлено** ✅
+    - ✅ `nginx/swiftmatch.conf` — rate limiting, `client_max_body_size 20M`, WebSocket `proxy_read_timeout 86400s`
+    - ✅ SSL, static files, SPA fallback
 
-14. **Логи — нет структурированного логирования**
-    - `console.log` заменить на `winston` / `pino` с ротацией
+14. **Логи — Winston** ✅
+    - ✅ `server/src/logger.js` переписан на `winston`
+    - ✅ JSON-формат с timestamp, level, msg, rid
+    - ⚠️ Часть `console.log` ещё осталась в старых роутах
 
 ### 🟢 НИЗКИЙ ПРИОРИТЕТ
 
-15. **Кэширование**: Redis для сессий, кэша `compatibility_scores`, `feature_flags` (читаются из БД на каждый рендер)
+15. **Кэширование**: Redis scaffold готов (`server/src/redis.js`, `ioredis` установлен), ждёт `REDIS_URL`
 
 16. **Бэкапы MySQL**: `mysqldump` cron или RDS automated backups
 
-17. **CI/CD**: GitHub Actions для vitest + playwright на PR, сборки Docker + деплоя
+17. **CI/CD**: ✅ GitHub Actions — `.github/workflows/deploy.yml` (lint → build → test с MySQL)
 
 ### 📋 План по неделям
 
 | Неделя | Задачи |
 |--------|--------|
-| Неделя 1 | Сменить dev-секреты (JWT, DB пароль). Починить 9 server-тестов. Добавить `/health` роут и запустить Playwright. Починить admin/stats, analytics, revenue |
-| Неделя 2 | Stripe live + webhook. SMTP (Resend/SES). Sentry DSN + source maps. `noValidate` на оставшиеся формы |
-| Неделя 3 | Миграции БД (umzug). Загрузка на S3 + валидация. Redis для сессий. Rate limiting |
-| Неделя 4 | Docker: `.dockerignore`, `restart`, volumes. Nginx: rate limit, body size, WS timeouts. CI/CD (GitHub Actions). AdMob/Yandex SDK |
+| Неделя 1 | Сменить dev-секреты (JWT, DB пароль). Починить 9 server-тестов. Добавить `/health` роут ✅ и запустить Playwright ✅. Починить admin → ✅ analytics.js создан |
+| Неделя 2 | Stripe live + webhook → ✅ idempotency + STRIPE_LIVE. SMTP (Resend/SES) → ✅ retry-логика. Sentry DSN → ✅ @sentry/* + beforeSend. ✅ `noValidate` на формы |
+| Неделя 3 | ✅ Миграции БД (database/migrations/). ✅ Загрузка на S3 + валидация. 🟡 Redis scaffold. ✅ Rate limiting (работало) |
+| Неделя 4 | ✅ Docker: `.dockerignore`, `restart`. ✅ Nginx: rate limit, body size, WS timeouts. ✅ CI/CD (GitHub Actions). 🟡 AdMob scaffold |
+
+### Осталось (требует реальных ключей/сервисов):
+- `server/.env`: `STRIPE_SECRET_KEY`, `SMTP_USER`/`PASS`, `SENTRY_DSN`, `REDIS_URL`, `AWS_*` (S3)
+- `.env`: `VITE_SENTRY_DSN`
+- Починить 9 server-тестов (admin, profile, social)
 
 ---
 

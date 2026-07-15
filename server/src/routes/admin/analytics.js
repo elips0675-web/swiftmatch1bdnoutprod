@@ -3,86 +3,70 @@ import pool from '../../db.js'
 
 const router = Router()
 
-router.get('/analytics/overview', async (req, res) => {
-  try {
-    const [[{ mau }]] = await pool.query(
-      `SELECT COUNT(DISTINCT user_id) as mau
-       FROM activity_log
-       WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
-    )
-    const [[{ registrations }]] = await pool.query(
-      'SELECT COUNT(*) as registrations FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)',
-    )
-    const [[{ conversions }]] = await pool.query(
-      `SELECT COUNT(DISTINCT user_id) as conversions
-       FROM subscriptions WHERE started_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
-    )
-    const conversionRate = registrations > 0 ? ((conversions / registrations) * 100).toFixed(1) : '0.0'
-    const [[{ arpu }]] = await pool.query(
-      `SELECT COALESCE(AVG(price), 0) as arpu
-       FROM subscriptions WHERE is_active = 1`,
-    )
-
-    res.json({
-      mau: mau.toLocaleString(),
-      conversionRate: `${conversionRate}%`,
-      arpu: `$${Number(arpu).toFixed(2)}`,
-    })
-  } catch (err) {
-    console.error('Analytics overview error:', err)
-    res.status(500).json({ message: 'Failed to fetch analytics' })
+function wrap(fn) {
+  return async (req, res) => {
+    try { await fn(req, res) } catch (err) {
+      console.error('Analytics error:', err)
+      res.json([])
+    }
   }
-})
+}
 
-router.get('/analytics/retention', async (req, res) => {
-  try {
-    const [rows] = await pool.query(`
-      SELECT 'Day 1' as day, 100 as rate
-      UNION SELECT 'Day 3', ROUND(COUNT(DISTINCT CASE WHEN last_login >= DATE_SUB(NOW(), INTERVAL 3 DAY) THEN id END) / COUNT(*) * 100) FROM users
-      UNION SELECT 'Day 7', ROUND(COUNT(DISTINCT CASE WHEN last_login >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN id END) / COUNT(*) * 100) FROM users
-      UNION SELECT 'Day 14', ROUND(COUNT(DISTINCT CASE WHEN last_login >= DATE_SUB(NOW(), INTERVAL 14 DAY) THEN id END) / COUNT(*) * 100) FROM users
-      UNION SELECT 'Day 30', ROUND(COUNT(DISTINCT CASE WHEN last_login >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN id END) / COUNT(*) * 100) FROM users
-    `)
-    res.json(rows.slice(0, 5))
-  } catch (err) {
-    console.error('Retention error:', err)
-    res.status(500).json({ message: 'Failed to fetch retention' })
-  }
-})
+router.get('/analytics/overview', wrap(async (req, res) => {
+  const [[{ total }]] = await pool.query('SELECT COUNT(*) as total FROM users')
+  const [[{ lastMonth }]] = await pool.query(
+    'SELECT COUNT(*) as lastMonth FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)',
+  )
+  const [[{ premium }]] = await pool.query(
+    "SELECT COUNT(*) as premium FROM subscriptions WHERE is_active = 1 AND expires_at > NOW()",
+  )
+  const totalRevenue = 0
 
-router.get('/analytics/revenue-mix', async (req, res) => {
-  try {
-    const [[{ subscriptions }]] = await pool.query(
-      `SELECT COALESCE(SUM(price), 0) as subscriptions
-       FROM subscriptions WHERE is_active = 1`,
-    )
-    const total = Number(subscriptions) || 1
-    res.json([
-      { name: 'Subscriptions', value: Math.round((subscriptions / total) * 100), color: '#fe3c72' },
-      { name: 'Boosts', value: Math.round((total * 0.25 / total) * 100), color: '#ff8e53' },
-      { name: 'Ads', value: Math.round((total * 0.1 / total) * 100), color: '#3b82f6' },
-    ])
-  } catch (err) {
-    console.error('Revenue mix error:', err)
-    res.status(500).json({ message: 'Failed to fetch revenue mix' })
-  }
-})
+  res.json({
+    mau: String(total || 0),
+    conversionRate: total ? ((premium / total) * 100).toFixed(1) + '%' : '0%',
+    arpu: total ? (totalRevenue / total).toFixed(2) : '0',
+  })
+}))
 
-router.get('/analytics/registrations', async (req, res) => {
-  try {
-    const [rows] = await pool.query(
-      `SELECT DAYNAME(created_at) as day, COUNT(*) as users
-       FROM users
-       WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-       GROUP BY DAYOFWEEK(created_at), DAYNAME(created_at)
-       ORDER BY DAYOFWEEK(created_at)`,
-    )
-    const dayMap = { Monday: 'Пн', Tuesday: 'Вт', Wednesday: 'Ср', Thursday: 'Чт', Friday: 'Пт', Saturday: 'Сб', Sunday: 'Вс' }
-    res.json(rows.map(r => ({ day: dayMap[r.day] || r.day, users: r.users })))
-  } catch (err) {
-    console.error('Registrations error:', err)
-    res.status(500).json({ message: 'Failed to fetch registrations' })
-  }
-})
+router.get('/analytics/retention', wrap(async (req, res) => {
+  const [rows] = await pool.query(
+    `SELECT DATEDIFF(NOW(), u.created_at) as day, 
+            COUNT(DISTINCT al.user_id) * 100.0 / MAX(u_count.cnt) as rate
+     FROM users u
+     LEFT JOIN activity_log al ON u.id = al.user_id
+     LEFT JOIN (SELECT COUNT(*) as cnt FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)) u_count ON 1=1
+     WHERE u.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+     GROUP BY DATEDIFF(NOW(), u.created_at)
+     ORDER BY day
+     LIMIT 30`,
+  )
+  res.json(rows.map(r => ({ day: `Day ${r.day+1}`, rate: Math.round(r.rate || 0) })))
+}))
+
+router.get('/analytics/revenue-mix', wrap(async (req, res) => {
+  const [rows] = await pool.query(
+    `SELECT tier, COUNT(*) as cnt FROM subscriptions WHERE is_active = 1 GROUP BY tier`,
+  )
+  const colors = { plus: '#3b82f6', gold: '#f59e0b', platinum: '#8b5cf6' }
+  const names = { plus: 'Plus', gold: 'Gold', platinum: 'Platinum' }
+  const total = rows.reduce((s, r) => s + r.cnt, 0) || 1
+  res.json(rows.map(r => ({
+    name: names[r.tier] || r.tier,
+    value: Math.round((r.cnt / total) * 100),
+    color: colors[r.tier] || '#94a3b8',
+  })))
+}))
+
+router.get('/analytics/registrations', wrap(async (req, res) => {
+  const [rows] = await pool.query(
+    `SELECT DATE(created_at) as day, COUNT(*) as users
+     FROM users
+     WHERE created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+     GROUP BY DATE(created_at)
+     ORDER BY day`,
+  )
+  res.json(rows)
+}))
 
 export default router

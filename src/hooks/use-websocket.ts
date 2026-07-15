@@ -24,8 +24,10 @@ export function useWebSocket() {
     const socket = io(WS_URL, {
       auth: { token },
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 30000,
+      randomizationFactor: 0.5,
     })
 
     socket.on('connect', () => setConnected(true))

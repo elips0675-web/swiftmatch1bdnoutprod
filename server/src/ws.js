@@ -10,6 +10,8 @@ export function initIO(httpServer) {
       origin: process.env.CORS_ORIGIN || '*',
       methods: ['GET', 'POST'],
     },
+    pingInterval: 10000,
+    pingTimeout: 5000,
   })
 
   io.use((socket, next) => {
