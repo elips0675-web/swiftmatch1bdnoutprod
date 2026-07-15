@@ -255,7 +255,7 @@ export default function ContestPage() {
             )}
           </div>
           <div className="absolute top-4 right-4 z-50">
-            <Button 
+            <Button data-testid="close-photo-viewer"
               variant="outline" 
               size="icon" 
               onClick={() => setViewerPhoto(null)} 

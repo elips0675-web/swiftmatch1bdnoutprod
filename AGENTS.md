@@ -828,6 +828,11 @@ e2e/
 | chats-chatId.tsx | `[data-testid="message-input"]` | Поле ввода сообщения |
 | chats-chatId.tsx | `[data-testid="send-button"]` | Кнопка отправки |
 | chats-chatId.tsx | `[data-testid="message-list"]` | Контейнер сообщений |
+| chats.tsx | `[data-testid="message-input"]` | Поле ввода (десктопный чат) |
+| chats.tsx | `[data-testid="send-button"]` | Кнопка отправки (десктопный чат) |
+| chats.tsx | `[data-testid="chat-search"]` | Поиск чатов |
+| activity.tsx | `[data-testid="reveal-profile"]` | Кнопка раскрытия профиля |
+| contest.tsx | `[data-testid="close-photo-viewer"]` | Закрыть просмотр фото |
 
 ### Promt для DeepSeek: аудит через Playwright
 

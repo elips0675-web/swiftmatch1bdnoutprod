@@ -278,3 +278,71 @@ test.describe('9. Groups page', () => {
     audit.expectClean()
   })
 })
+
+// ============ 10. NEGATIVE TESTS ============
+test.describe('10. Negative & security tests', () => {
+  test('XSS in profile bio is escaped', async ({ page }) => {
+    const audit = createAudit(page)
+    await loginViaUI(page, 'demo@mail.ru', 'admin123')
+    await page.goto(`${BASE_URL}/profile/edit`)
+    await page.waitForLoadState('networkidle')
+
+    const bio = page.locator('[data-testid="profile-bio"]')
+    await bio.fill('<script>alert("xss")</script>')
+    await page.locator('[data-testid="save-profile"]').click()
+    await page.waitForTimeout(1500)
+
+    await page.reload()
+    await page.waitForLoadState('networkidle')
+    const bioValue = await page.locator('[data-testid="profile-bio"]').inputValue()
+    expect(bioValue).not.toContain('<script>')
+    audit.expectClean()
+  })
+
+  test('Wrong password stays on /login', async ({ page }) => {
+    await page.goto(`${BASE_URL}/login`)
+    await page.waitForLoadState('networkidle')
+    await page.fill('[data-testid="email"]', 'demo@mail.ru')
+    await page.fill('[data-testid="password"]', 'wrongpass123!')
+    await page.click('[data-testid="submit-login"]')
+    await page.waitForTimeout(2000)
+    expect(page.url()).toContain('/login')
+  })
+
+  test('Empty email shows browser validation', async ({ page }) => {
+    await page.goto(`${BASE_URL}/login`)
+    await page.waitForLoadState('networkidle')
+    await page.fill('[data-testid="password"]', 'test')
+    await page.click('[data-testid="submit-login"]')
+    await page.waitForTimeout(500)
+    const msg = await page.locator('[data-testid="email"]').evaluate((el: HTMLInputElement) => el.validationMessage)
+    expect(msg.length).toBeGreaterThan(0)
+  })
+})
+
+// ============ 11. WS REAL-TIME ============
+test.describe('11. WebSocket real-time', () => {
+  test('Message appears without page reload', async ({ page }) => {
+    const audit = createAudit(page)
+    await loginViaUI(page, 'demo@mail.ru', 'admin123')
+    await page.goto(`${BASE_URL}/chats`)
+    await page.waitForLoadState('networkidle')
+
+    const chatLink = page.locator('a[href*="/chats/"]').first()
+    if (await chatLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await chatLink.click()
+      await page.waitForLoadState('networkidle')
+
+      const input = page.locator('[data-testid="message-input"]')
+      if (await input.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await input.fill('E2E WS test message')
+        await page.locator('[data-testid="send-button"]').click()
+        await page.waitForTimeout(2000)
+
+        const msgList = page.locator('[data-testid="message-list"]')
+        await expect(msgList).toContainText('E2E WS test message', { timeout: 5000 })
+      }
+    }
+    audit.expectClean()
+  })
+})

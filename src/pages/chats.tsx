@@ -529,7 +529,7 @@ function ChatsContent() {
           <div className="flex flex-col min-h-full px-4 pt-4 pb-2 space-y-2">
             <div className="flex-1" />
             <div className="text-center my-2"><Badge variant="secondary" className="bg-white/50 text-[9px] text-muted-foreground border-0 font-black uppercase tracking-widest px-2.5 py-0.5">{t('chats.today')}</Badge></div>
-            <AnimatePresence>{messages.map((msg: any) => {
+            <div data-testid="message-list"><AnimatePresence>{messages.map((msg: any) => {
               const msgReactions = reactions[msg.id] || [];
               const reactionEmojis = [...new Set(msgReactions.map((r: any) => r.emoji))];
               const isReactionPickerOpen = reactionMsgId === msg.id;
@@ -576,7 +576,7 @@ function ChatsContent() {
         <div className="shrink-0 px-4 py-3 bg-white border-t border-border">
           <div className="flex items-center gap-3">
             <div className="flex-1 relative">
-              <Input value={inputValue} onChange={(e) => setInputValue(e.target.value)} onFocus={() => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 300)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder={t('chats.placeholder')} className="pr-12 h-11 bg-muted/50 border-0 rounded-2xl font-medium px-5 text-sm" />
+              <Input data-testid="message-input" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onFocus={() => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 300)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder={t('chats.placeholder')} className="pr-12 h-11 bg-muted/50 border-0 rounded-2xl font-medium px-5 text-sm" />
               <Popover>
                 <PopoverTrigger asChild><button className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"><Smile size={20} /></button></PopoverTrigger>
                 <PopoverContent className="w-full max-w-[280px] p-2 rounded-2xl border-0 shadow-2xl bg-white" side="top" align="end">
@@ -592,7 +592,7 @@ function ChatsContent() {
                 </>
               )}
             </div>
-            <Button size="icon" onClick={() => handleSendMessage()} disabled={!inputValue.trim()} className="h-11 w-11 rounded-2xl gradient-bg text-white shadow-xl shadow-primary/30 active:scale-95 transition-all shrink-0"><Send size={18} className="ml-0.5" /></Button>
+            <Button data-testid="send-button" size="icon" onClick={() => handleSendMessage()} disabled={!inputValue.trim()} className="h-11 w-11 rounded-2xl gradient-bg text-white shadow-xl shadow-primary/30 active:scale-95 transition-all shrink-0"><Send size={18} className="ml-0.5" /></Button>
           </div>
         </div>
         {selectedChat && !selectedChat.isGroup && isVideoCall && <VideoCallDialog open={isVideoCall} onOpenChange={setIsVideoCall} user={selectedChat} />}
@@ -640,7 +640,7 @@ function ChatsContent() {
 
         <div className="relative mb-8 px-1">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground/60" size={16} />
-          <Input 
+          <Input data-testid="chat-search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-12 h-12 bg-white border-0 rounded-2xl app-shadow text-sm font-medium" 

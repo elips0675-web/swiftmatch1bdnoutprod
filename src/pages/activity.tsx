@@ -337,7 +337,7 @@ function ActivityItem({ item, onUnlock }: { item: any, onUnlock: () => void }) {
         </p>
         
         {item.blurred && (
-          <button 
+          <button data-testid="reveal-profile"
             onClick={(e) => { e.stopPropagation(); onUnlock(); }}
             className="text-[10px] font-black text-primary flex items-center gap-1 mt-1 bg-primary/5 px-2 py-0.5 rounded-full w-fit hover:bg-primary/10 transition-all uppercase tracking-widest shadow-sm border border-primary/10"
           >
