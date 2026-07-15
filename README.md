@@ -236,7 +236,9 @@ WebSocket в `use-websocket.ts` использует `VITE_WS_URL` или `wss:/
 
 ## Настройка .env
 
-`server/.env` уже настроен для локальной работы (реальный `JWT_SECRET` сгенерирован, не показан в README):
+Быстрый старт: `powershell -File scripts\setup.ps1` — скопирует `.env.example` → `.env`, сгенерирует `JWT_SECRET`, установит зависимости.
+
+`server/.env` уже настроен для локальной работы:
 ```
 PORT=3002
 DB_HOST=localhost
@@ -244,7 +246,6 @@ DB_USER=root
 DB_PASSWORD=
 DB_NAME=swiftmatch
 CORS_ORIGIN=http://localhost:8081
-# JWT_SECRET=*** (256-bit, сгенерирован)
 VAPID_PUBLIC_KEY=BEygaffoNfy9XaaH0QqILW1Kzuf-7WoVL4oAvQpC1ebFkZ8X828d8Fv8TXcqBuykDK4IWJdZMA6TOkQfSBP8N8o
 VAPID_PRIVATE_KEY=b370faewrsuKX2yUXBZ-2-axZiScdesTmpXHPq0yJN4
 ```
