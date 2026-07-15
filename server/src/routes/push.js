@@ -2,6 +2,7 @@ import { Router } from 'express'
 import webpush from 'web-push'
 import pool from '../db.js'
 import { auth } from '../middleware.js'
+import logger from '../logger.js'
 
 const router = Router()
 
@@ -31,7 +32,7 @@ router.post('/api/push/subscribe', async (req, res) => {
     )
     res.status(201).json({ message: 'Subscribed' })
   } catch (err) {
-    console.error('Push subscribe error:', err)
+    logger.error('Push subscribe error:', err)
     res.status(500).json({ message: 'Failed to subscribe' })
   }
 })
@@ -45,14 +46,14 @@ router.delete('/api/push/subscribe', async (req, res) => {
     )
     res.json({ message: 'Unsubscribed' })
   } catch (err) {
-    console.error('Push unsubscribe error:', err)
+    logger.error('Push unsubscribe error:', err)
     res.status(500).json({ message: 'Failed to unsubscribe' })
   }
 })
 
 export async function sendPushToUser(userId, title, body, url = '/') {
   if (!vapidPublic || !vapidPrivate) {
-    console.log('VAPID not configured — push skipped')
+    logger.info('VAPID not configured — push skipped')
     return 0
   }
 
@@ -77,14 +78,14 @@ export async function sendPushToUser(userId, title, body, url = '/') {
     }
     return sent
   } catch (err) {
-    console.error('Send push error:', err)
+    logger.error('Send push error:', err)
     return 0
   }
 }
 
 export async function sendPushToAll(title, body, url = '/') {
   if (!vapidPublic || !vapidPrivate) {
-    console.log('VAPID not configured — push skipped')
+    logger.info('VAPID not configured — push skipped')
     return 0
   }
 
@@ -108,7 +109,7 @@ export async function sendPushToAll(title, body, url = '/') {
     }
     return sent
   } catch (err) {
-    console.error('Send push all error:', err)
+    logger.error('Send push all error:', err)
     return 0
   }
 }

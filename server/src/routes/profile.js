@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import pool from '../db.js'
 import { auth } from '../middleware.js'
+import logger from '../logger.js'
 
 const router = Router()
 
@@ -93,7 +94,7 @@ router.get('/api/profile/:id', async (req, res) => {
 
     res.json({ ...rows[0], photos, interests })
   } catch (err) {
-    console.error('Profile GET error:', err)
+    logger.error('Profile GET error:', err)
     res.status(500).json({ message: 'Failed to fetch profile' })
   }
 })
@@ -132,7 +133,7 @@ router.put('/api/profile/:id', async (req, res) => {
     const [rows] = await pool.query('SELECT * FROM user_profiles WHERE id = ?', [req.params.id])
     res.json(rows[0])
   } catch (err) {
-    console.error('Profile PUT error:', err)
+    logger.error('Profile PUT error:', err)
     res.status(500).json({ message: 'Failed to update profile' })
   }
 })
@@ -143,7 +144,7 @@ router.delete('/api/profile/me', auth, async (req, res) => {
     await pool.query('UPDATE users SET is_active = 0, email = CONCAT(email, \'.deleted\', UNIX_TIMESTAMP()) WHERE id = ?', [req.userId])
     res.json({ message: 'Account deleted' })
   } catch (err) {
-    console.error('Delete account error:', err)
+    logger.error('Delete account error:', err)
     res.status(500).json({ message: 'Failed to delete account' })
   }
 })

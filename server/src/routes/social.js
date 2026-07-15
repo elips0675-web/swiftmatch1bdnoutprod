@@ -5,6 +5,7 @@ import { getIO } from '../ws.js'
 import { getBannedWords, containsBannedWord } from '../banned-words.js'
 import { sendPushToUser } from './push.js'
 import { auth } from '../middleware.js'
+import logger from '../logger.js'
 
 const likeLimiter = rateLimit({ windowMs: 60_000, max: 30, message: { message: 'Too many likes' } })
 
@@ -155,7 +156,7 @@ router.get('/api/users/search', auth, async (req, res) => {
     const [rows] = await pool.query(sql, params)
     res.json(rows)
   } catch (err) {
-    console.error('Search error:', err)
+    logger.error('Search error:', err)
     res.status(500).json({ message: 'Search failed' })
   }
 })
@@ -225,7 +226,7 @@ router.post('/api/likes', auth, likeLimiter, async (req, res) => {
 
     res.status(201).json({ message: matched ? 'It\'s a match!' : 'Like sent', matched })
   } catch (err) {
-    console.error('Like error:', err)
+    logger.error('Like error:', err)
     res.status(500).json({ message: 'Failed to send like' })
   }
 })
@@ -243,7 +244,7 @@ router.get('/api/matches', auth, async (req, res) => {
     )
     res.json(rows)
   } catch (err) {
-    console.error('Matches error:', err)
+    logger.error('Matches error:', err)
     res.status(500).json({ message: 'Failed to fetch matches' })
   }
 })
@@ -271,7 +272,7 @@ router.post('/api/invites', auth, async (req, res) => {
 
     res.status(201).json({ message: 'Invite sent' })
   } catch (err) {
-    console.error('Invite error:', err)
+    logger.error('Invite error:', err)
     res.status(500).json({ message: 'Failed to send invite' })
   }
 })
@@ -289,7 +290,7 @@ router.get('/api/invites', auth, async (req, res) => {
     )
     res.json(rows)
   } catch (err) {
-    console.error('Invites fetch error:', err)
+    logger.error('Invites fetch error:', err)
     res.status(500).json({ message: 'Failed to fetch invites' })
   }
 })
@@ -305,7 +306,7 @@ router.put('/api/invites/:id/status', auth, async (req, res) => {
     )
     res.json({ message: `Invite ${status}` })
   } catch (err) {
-    console.error('Invite status error:', err)
+    logger.error('Invite status error:', err)
     res.status(500).json({ message: 'Failed to update invite' })
   }
 })
@@ -322,7 +323,7 @@ router.get('/api/groups/:groupId', auth, async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ message: 'Group not found' })
     res.json(rows[0])
   } catch (err) {
-    console.error('Group fetch error:', err)
+    logger.error('Group fetch error:', err)
     res.status(500).json({ message: 'Failed to fetch group' })
   }
 })
@@ -366,7 +367,7 @@ router.get('/api/groups/:groupId/chat', auth, async (req, res) => {
 
     res.json({ id: chatId, isGroup: true })
   } catch (err) {
-    console.error('Group chat error:', err)
+    logger.error('Group chat error:', err)
     res.status(500).json({ message: 'Failed to get group chat' })
   }
 })
@@ -418,7 +419,7 @@ router.get('/api/groups/:groupId/posts', auth, async (req, res) => {
     }
     res.json(posts)
   } catch (err) {
-    console.error('Group posts error:', err)
+    logger.error('Group posts error:', err)
     res.status(500).json({ message: 'Failed to fetch posts' })
   }
 })
@@ -448,7 +449,7 @@ router.post('/api/groups/:groupId/posts', auth, async (req, res) => {
       createdAt: post.created_at, author: post.display_name, avatar: post.avatar_url,
     })
   } catch (err) {
-    console.error('Group post create error:', err)
+    logger.error('Group post create error:', err)
     res.status(500).json({ message: 'Failed to create post' })
   }
 })
@@ -466,7 +467,7 @@ router.post('/api/groups/:groupId/posts/:postId/like', auth, async (req, res) =>
     await pool.query('INSERT INTO group_post_likes (post_id, user_id) VALUES (?, ?)', [req.params.postId, req.userId])
     res.json({ liked: true })
   } catch (err) {
-    console.error('Group post like error:', err)
+    logger.error('Group post like error:', err)
     res.status(500).json({ message: 'Failed to toggle like' })
   }
 })
@@ -493,7 +494,7 @@ router.post('/api/groups/:groupId/posts/:postId/comments', auth, async (req, res
       author: comment.display_name, avatar: comment.avatar_url,
     })
   } catch (err) {
-    console.error('Group post comment error:', err)
+    logger.error('Group post comment error:', err)
     res.status(500).json({ message: 'Failed to add comment' })
   }
 })
@@ -516,7 +517,7 @@ router.get('/api/chats', auth, async (req, res) => {
     )
     res.json(rows)
   } catch (err) {
-    console.error('Chats error:', err)
+    logger.error('Chats error:', err)
     res.status(500).json({ message: 'Failed to fetch chats' })
   }
 })
@@ -529,7 +530,7 @@ router.put('/api/chats/:chatId/read', auth, async (req, res) => {
     )
     res.json({ message: 'Chat marked as read' })
   } catch (err) {
-    console.error('Chat read error:', err)
+    logger.error('Chat read error:', err)
     res.status(500).json({ message: 'Failed to mark chat as read' })
   }
 })
@@ -554,7 +555,7 @@ router.post('/api/chats', auth, async (req, res) => {
     await pool.query('INSERT INTO chat_participants (chat_id, user_id) VALUES (?, ?), (?, ?)', [chatId, req.userId, chatId, participant_id])
     res.status(201).json({ id: chatId, existing: false })
   } catch (err) {
-    console.error('Chat create error:', err)
+    logger.error('Chat create error:', err)
     res.status(500).json({ message: 'Failed to create chat' })
   }
 })
@@ -606,7 +607,7 @@ router.get('/api/chats/:chatId/messages', auth, async (req, res) => {
     }))
     res.json(result)
   } catch (err) {
-    console.error('Messages error:', err)
+    logger.error('Messages error:', err)
     res.status(500).json({ message: 'Failed to fetch messages' })
   }
 })
@@ -667,7 +668,7 @@ router.post('/api/chats/:chatId/messages', auth, async (req, res) => {
 
     res.status(201).json(msg)
   } catch (err) {
-    console.error('Message send error:', err)
+    logger.error('Message send error:', err)
     res.status(500).json({ message: 'Failed to send message' })
   }
 })
@@ -684,7 +685,7 @@ router.delete('/api/chats/:chatId/messages/:msgId', auth, async (req, res) => {
     await pool.query('DELETE FROM messages WHERE id = ?', [req.params.msgId])
     res.json({ message: 'Message deleted' })
   } catch (err) {
-    console.error('Delete message error:', err)
+    logger.error('Delete message error:', err)
     res.status(500).json({ message: 'Failed to delete message' })
   }
 })
@@ -725,7 +726,7 @@ router.post('/api/chats/:chatId/messages/:msgId/reactions', auth, async (req, re
     )
     res.status(201).json(reaction)
   } catch (err) {
-    console.error('Reaction error:', err)
+    logger.error('Reaction error:', err)
     res.status(500).json({ message: 'Failed to add reaction' })
   }
 })
@@ -741,7 +742,7 @@ router.post('/api/block', auth, async (req, res) => {
     await pool.query('DELETE FROM matches WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)', [req.userId, blocked_id, blocked_id, req.userId])
     res.json({ message: 'User blocked' })
   } catch (err) {
-    console.error('Block error:', err)
+    logger.error('Block error:', err)
     res.status(500).json({ message: 'Failed to block user' })
   }
 })
@@ -751,7 +752,7 @@ router.delete('/api/block/:blocked_id', auth, async (req, res) => {
     await pool.query('DELETE FROM user_blocks WHERE blocker_id = ? AND blocked_id = ?', [req.userId, req.params.blocked_id])
     res.json({ message: 'User unblocked' })
   } catch (err) {
-    console.error('Unblock error:', err)
+    logger.error('Unblock error:', err)
     res.status(500).json({ message: 'Failed to unblock user' })
   }
 })
@@ -764,7 +765,7 @@ router.get('/api/block/list', auth, async (req, res) => {
     )
     res.json(rows)
   } catch (err) {
-    console.error('Block list error:', err)
+    logger.error('Block list error:', err)
     res.status(500).json({ message: 'Failed to fetch block list' })
   }
 })

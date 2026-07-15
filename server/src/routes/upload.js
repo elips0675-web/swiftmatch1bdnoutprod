@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url'
 import fs from 'fs'
 import pool from '../db.js'
 import { optionalAuth } from '../middleware.js'
+import logger from '../logger.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const UPLOAD_DIR = path.resolve(__dirname, '../../uploads')
@@ -97,7 +98,7 @@ router.post('/api/upload', optionalAuth, async (req, res) => {
       is_avatar: false,
     })
   } catch (err) {
-    console.error('Upload error:', err)
+    logger.error('Upload error:', err)
     res.status(500).json({ message: 'Upload failed' })
   }
 })
@@ -126,7 +127,7 @@ router.delete('/api/photos/:id', async (req, res) => {
     await pool.query('DELETE FROM user_photos WHERE id = ?', [req.params.id])
     res.json({ success: true })
   } catch (err) {
-    console.error('Delete photo error:', err)
+    logger.error('Delete photo error:', err)
     res.status(500).json({ message: 'Delete failed' })
   }
 })
@@ -139,7 +140,7 @@ router.get('/api/photos/:userId', async (req, res) => {
     )
     res.json(rows)
   } catch (err) {
-    console.error('Photos GET error:', err)
+    logger.error('Photos GET error:', err)
     res.status(500).json({ message: 'Failed to fetch photos' })
   }
 })

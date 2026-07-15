@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import pool from '../../db.js'
+import logger from '../../logger.js'
 
 const router = Router()
 
@@ -60,7 +61,7 @@ router.get('/users', async (req, res) => {
 
     res.json({ users: rows, total, cities: JSON.parse(cities || '[]') })
   } catch (err) {
-    console.error('Users list error:', err)
+    logger.error('Users list error:', err)
     res.status(500).json({ message: 'Failed to fetch users' })
   }
 })
@@ -85,7 +86,7 @@ router.get('/users/:id', async (req, res) => {
     }
     res.json(rows[0])
   } catch (err) {
-    console.error('User detail error:', err)
+    logger.error('User detail error:', err)
     res.status(500).json({ message: 'Failed to fetch user' })
   }
 })
@@ -99,7 +100,7 @@ router.post('/users/:id/ban', async (req, res) => {
     )
     res.json({ message: 'User banned' })
   } catch (err) {
-    console.error('Ban error:', err)
+    logger.error('Ban error:', err)
     res.status(500).json({ message: 'Failed to ban user' })
   }
 })
@@ -109,7 +110,7 @@ router.post('/users/:id/unban', async (req, res) => {
     await pool.query('UPDATE users SET is_active = 1 WHERE id = ?', [req.params.id])
     res.json({ message: 'User unbanned' })
   } catch (err) {
-    console.error('Unban error:', err)
+    logger.error('Unban error:', err)
     res.status(500).json({ message: 'Failed to unban user' })
   }
 })
@@ -119,7 +120,7 @@ router.delete('/users/:id', async (req, res) => {
     await pool.query('DELETE FROM users WHERE id = ?', [req.params.id])
     res.json({ message: 'User deleted' })
   } catch (err) {
-    console.error('Delete error:', err)
+    logger.error('Delete error:', err)
     res.status(500).json({ message: 'Failed to delete user' })
   }
 })
@@ -139,7 +140,7 @@ router.post('/users/bulk', async (req, res) => {
     }
     res.json({ message: `Bulk ${action} completed` })
   } catch (err) {
-    console.error('Bulk action error:', err)
+    logger.error('Bulk action error:', err)
     res.status(500).json({ message: 'Failed to perform bulk action' })
   }
 })

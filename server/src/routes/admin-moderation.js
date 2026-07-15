@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import pool from '../db.js'
+import logger from '../logger.js'
 
 const router = Router()
 
@@ -15,7 +16,7 @@ router.get('/photos', async (req, res) => {
     )
     res.json(rows)
   } catch (err) {
-    console.error('All photos error:', err)
+    logger.error('All photos error:', err)
     res.status(500).json({ message: 'Failed to fetch photos' })
   }
 })
@@ -33,7 +34,7 @@ router.get('/photos/pending', async (req, res) => {
     )
     res.json(rows)
   } catch (err) {
-    console.error('Pending photos error:', err)
+    logger.error('Pending photos error:', err)
     res.status(500).json({ message: 'Failed to fetch pending photos' })
   }
 })
@@ -46,7 +47,7 @@ router.post('/photos/:id/approve', async (req, res) => {
     )
     res.json({ message: 'Photo approved' })
   } catch (err) {
-    console.error('Approve photo error:', err)
+    logger.error('Approve photo error:', err)
     res.status(500).json({ message: 'Failed to approve photo' })
   }
 })
@@ -60,7 +61,7 @@ router.post('/photos/:id/reject', async (req, res) => {
     )
     res.json({ message: 'Photo rejected' })
   } catch (err) {
-    console.error('Reject photo error:', err)
+    logger.error('Reject photo error:', err)
     res.status(500).json({ message: 'Failed to reject photo' })
   }
 })

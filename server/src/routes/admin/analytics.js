@@ -1,12 +1,13 @@
 import { Router } from 'express'
 import pool from '../../db.js'
+import logger from '../../logger.js'
 
 const router = Router()
 
 function wrap(fn) {
   return async (req, res) => {
     try { await fn(req, res) } catch (err) {
-      console.error('Analytics error:', err)
+      logger.error('Analytics error:', err)
       res.json([])
     }
   }

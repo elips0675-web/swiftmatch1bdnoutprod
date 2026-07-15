@@ -53,6 +53,9 @@
 - **PUT /features:** добавлена валидация пустого body → 400
 - **Server-тесты:** **56/56 проходят (0 failures)** — исправлены admin(7), profile(1), social(1)
 - **logger.js:** добавлен `export default winstonLogger` для роутов
+- **console.log/error → winston:** заменены во всех 15 route-файлах (76 вхождений), добавлен `import logger`
+- **docker-compose.yml:** добавлен `mem_limit: 512m` для app, убран дублирующийся `restart`
+- **MySQL backup:** `scripts/backup-mysql.ps1` (Windows) и `scripts/backup-mysql.sh` (Linux)
 - **README:** профессиональный список фич, todo только с реально необходимым
 - **context.txt:** актуален
 
@@ -72,11 +75,10 @@
 
 ### 🟡 Нужно доработать
 1. **npm install @capacitor-community/admob** — для реальной рекламы в нативной сборке
-2. **console.log → winston** — часть старых роутов ещё не мигрирована
 
 ### 🟢 Опционально
-3. MySQL backups (mysqldump cron)
-4. Mem_limit в docker-compose.yml
+2. MySQL backups (готов скрипт `scripts/backup-mysql.ps1` / `backup-mysql.sh`)
+3. Запустить Redis (`REDIS_URL`) для кэширования
 
 ---
 ## Ключевые файлы

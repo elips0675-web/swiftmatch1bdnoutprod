@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import pool from '../../db.js'
+import logger from '../../logger.js'
 
 const router = Router()
 
@@ -18,7 +19,7 @@ router.get('/reports', async (req, res) => {
     )
     res.json(rows)
   } catch (err) {
-    console.error('Reports error:', err)
+    logger.error('Reports error:', err)
     res.status(500).json({ message: 'Failed to fetch reports' })
   }
 })
@@ -44,7 +45,7 @@ router.post('/reports/:id/status', async (req, res) => {
     }
     res.json({ message: `Report #${req.params.id} marked as ${status}` })
   } catch (err) {
-    console.error('Report status error:', err)
+    logger.error('Report status error:', err)
     res.status(500).json({ message: 'Failed to update report' })
   }
 })
@@ -63,7 +64,7 @@ router.get('/moderation-log', async (req, res) => {
     )
     res.json(rows)
   } catch (err) {
-    console.error('Moderation log error:', err)
+    logger.error('Moderation log error:', err)
     res.status(500).json({ message: 'Failed to fetch moderation log' })
   }
 })

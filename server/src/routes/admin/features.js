@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import pool from '../../db.js'
+import logger from '../../logger.js'
 
 const router = Router()
 
@@ -22,7 +23,7 @@ router.get('/features', async (req, res) => {
       autosearch: Boolean(row.autosearch_enabled),
     })
   } catch (err) {
-    console.error('Features fetch error:', err)
+    logger.error('Features fetch error:', err)
     res.status(500).json({ message: 'Failed to fetch features' })
   }
 })
@@ -48,7 +49,7 @@ router.put('/features', async (req, res) => {
     )
     res.json({ message: 'Feature flags updated' })
   } catch (err) {
-    console.error('Features update error:', err)
+    logger.error('Features update error:', err)
     res.status(500).json({ message: 'Failed to update features' })
   }
 })

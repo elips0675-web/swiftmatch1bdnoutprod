@@ -151,13 +151,11 @@ npx vite --port 8081 --host
 ### 🟡 Нужно доделать (код частично готов)
 
 - Установить `@capacitor-community/admob` для реальной рекламы в нативной сборке (`npm install`)
-- Заменить `console.log`/`console.error` на winston в старых роутах
-- `mem_limit` в `docker-compose.yml` (опционально)
 
 ### 🟢 Опционально
 
-- Настроить `mysqldump` cron для бэкапов MySQL
 - Включить Redis (`REDIS_URL`) для кэширования сессий и совместимости
+- Настроить `mysqldump` cron: `scripts/backup-mysql.ps1` (Windows) или `scripts/backup-mysql.sh` (Linux) с retention 7 дней
 
 ---
 

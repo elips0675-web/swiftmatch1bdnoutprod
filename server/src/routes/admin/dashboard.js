@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import pool from '../../db.js'
+import logger from '../../logger.js'
 
 const router = Router()
 
@@ -29,7 +30,7 @@ router.get('/stats', async (req, res) => {
       newToday,
     })
   } catch (err) {
-    console.error('Stats error:', err)
+    logger.error('Stats error:', err)
     res.status(500).json({ message: 'Failed to fetch stats' })
   }
 })
@@ -46,7 +47,7 @@ router.get('/revenue-by-month', async (req, res) => {
     )
     res.json(rows)
   } catch (err) {
-    console.error('Revenue by month error:', err)
+    logger.error('Revenue by month error:', err)
     res.status(500).json({ message: 'Failed to fetch revenue data' })
   }
 })
@@ -64,7 +65,7 @@ router.get('/registration-trend', async (req, res) => {
     )
     res.json(rows)
   } catch (err) {
-    console.error('Registration trend error:', err)
+    logger.error('Registration trend error:', err)
     res.status(500).json({ message: 'Failed to fetch trend' })
   }
 })
@@ -81,7 +82,7 @@ router.get('/city-distribution', async (req, res) => {
     )
     res.json(rows)
   } catch (err) {
-    console.error('City distribution error:', err)
+    logger.error('City distribution error:', err)
     res.status(500).json({ message: 'Failed to fetch city data' })
   }
 })
@@ -99,7 +100,7 @@ router.get('/recent-activity', async (req, res) => {
     )
     res.json(rows)
   } catch (err) {
-    console.error('Recent activity error:', err)
+    logger.error('Recent activity error:', err)
     res.status(500).json({ message: 'Failed to fetch activity' })
   }
 })

@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import pool from '../db.js'
 import { auth } from '../middleware.js'
+import logger from '../logger.js'
 
 const router = Router()
 
@@ -80,7 +81,7 @@ router.get('/api/premium/my', auth, async (req, res) => {
     if (rows.length === 0) return res.json(null)
     res.json(rows[0])
   } catch (err) {
-    console.error('Premium check error:', err)
+    logger.error('Premium check error:', err)
     res.status(500).json({ message: 'Failed to check premium status' })
   }
 })
@@ -152,7 +153,7 @@ router.post('/api/premium/cancel', auth, async (req, res) => {
     if (result.affectedRows === 0) return res.status(404).json({ message: 'No active subscription found' })
     res.json({ message: 'Subscription cancelled' })
   } catch (err) {
-    console.error('Cancel error:', err)
+    logger.error('Cancel error:', err)
     res.status(500).json({ message: 'Failed to cancel subscription' })
   }
 })
@@ -171,7 +172,7 @@ router.post('/api/premium/webhook', (req, res) => {
     const stripe = new Stripe(stripeKey)
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret)
   } catch (err) {
-    console.error('Webhook signature error:', err)
+    logger.error('Webhook signature error:', err)
     return res.status(400).json({ message: 'Invalid signature' })
   }
 
@@ -185,7 +186,7 @@ router.post('/api/premium/webhook', (req, res) => {
         `INSERT INTO subscriptions (user_id, tier, duration_months, price, expires_at, is_active)
          VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MONTH), 1)`,
         [Number(userId), tier, Number(duration_months || 1), price, Number(duration_months || 1)],
-      ).catch(err => console.error('Webhook insert error:', err))
+      ).catch(err => logger.error('Webhook insert error:', err))
     }
   }
 

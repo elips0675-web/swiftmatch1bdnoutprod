@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import pool from '../../db.js'
 import { sendPushToAll } from '../push.js'
+import logger from '../../logger.js'
 
 const router = Router()
 
@@ -15,7 +16,7 @@ router.get('/campaigns', async (req, res) => {
     )
     res.json(rows)
   } catch (err) {
-    console.error('Campaigns error:', err)
+    logger.error('Campaigns error:', err)
     res.status(500).json({ message: 'Failed to fetch campaigns' })
   }
 })
@@ -34,13 +35,13 @@ router.post('/campaigns', async (req, res) => {
 
     if (channel === 'push') {
       sendPushToAll(title, body, '/').catch(err => {
-        console.error('Campaign push send failed:', err)
+        logger.error('Campaign push send failed:', err)
       })
     }
 
     res.status(201).json({ id: result.insertId, message: 'Campaign sent' })
   } catch (err) {
-    console.error('Create campaign error:', err)
+    logger.error('Create campaign error:', err)
     res.status(500).json({ message: 'Failed to create campaign' })
   }
 })

@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import pool from '../../db.js'
+import logger from '../../logger.js'
 
 const router = Router()
 
@@ -31,7 +32,7 @@ router.get('/monetization/pricing', async (req, res) => {
     }))
     res.json(result)
   } catch (err) {
-    console.error('Pricing error:', err)
+    logger.error('Pricing error:', err)
     res.status(500).json({ message: 'Failed to fetch pricing' })
   }
 })
@@ -49,7 +50,7 @@ router.get('/monetization/revenue', async (req, res) => {
     )
     res.json(rows)
   } catch (err) {
-    console.error('Revenue error:', err)
+    logger.error('Revenue error:', err)
     res.status(500).json({ message: 'Failed to fetch revenue' })
   }
 })
@@ -65,7 +66,7 @@ router.put('/monetization/pricing', async (req, res) => {
     )
     res.json({ message: 'Pricing saved' })
   } catch (err) {
-    console.error('Save pricing error:', err)
+    logger.error('Save pricing error:', err)
     res.status(500).json({ message: 'Failed to save pricing' })
   }
 })
@@ -79,7 +80,7 @@ router.get('/monetization/ads', async (req, res) => {
     const config = JSON.parse(row.config_value)
     res.json(config)
   } catch (err) {
-    console.error('Get ads error:', err)
+    logger.error('Get ads error:', err)
     res.status(500).json({ message: 'Failed to fetch ad config' })
   }
 })
@@ -94,7 +95,7 @@ router.put('/monetization/ads', async (req, res) => {
     )
     res.json({ message: 'Ad config saved' })
   } catch (err) {
-    console.error('Save ads error:', err)
+    logger.error('Save ads error:', err)
     res.status(500).json({ message: 'Failed to save ad config' })
   }
 })
@@ -115,7 +116,7 @@ router.get('/monetization/funnel', async (req, res) => {
       { stage: 'Premium', count: premium },
     ])
   } catch (err) {
-    console.error('Funnel error:', err)
+    logger.error('Funnel error:', err)
     res.status(500).json({ message: 'Failed to fetch funnel' })
   }
 })

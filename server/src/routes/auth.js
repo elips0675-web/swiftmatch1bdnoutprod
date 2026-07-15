@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import pool from '../db.js'
 import { JWT_SECRET } from '../middleware.js'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../mail.js'
+import logger from '../logger.js'
 
 const router = Router()
 
@@ -155,7 +156,7 @@ router.post('/api/auth/register', async (req, res) => {
     sendVerificationEmail(email, verification_token)
     res.status(201).json({ token, refresh_token, userId, message: 'Account created' })
   } catch (err) {
-    console.error('Register error:', err)
+    logger.error('Register error:', err)
     res.status(500).json({ message: 'Failed to create account' })
   }
 })
@@ -177,7 +178,7 @@ router.post('/api/auth/forgot-password', async (req, res) => {
     sendPasswordResetEmail(email, token)
     res.json({ message: 'If the email exists, a reset link has been sent' })
   } catch (err) {
-    console.error('Forgot password error:', err)
+    logger.error('Forgot password error:', err)
     res.status(500).json({ message: 'Failed to process request' })
   }
 })
@@ -203,7 +204,7 @@ router.post('/api/auth/reset-password', async (req, res) => {
 
     res.json({ message: 'Password reset successful' })
   } catch (err) {
-    console.error('Reset password error:', err)
+    logger.error('Reset password error:', err)
     res.status(500).json({ message: 'Failed to reset password' })
   }
 })
@@ -229,7 +230,7 @@ router.post('/api/auth/resend-verification', async (req, res) => {
     sendVerificationEmail(email, verification_token)
     res.json({ message: 'Verification email sent' })
   } catch (err) {
-    console.error('Resend verification error:', err)
+    logger.error('Resend verification error:', err)
     res.status(500).json({ message: 'Failed to resend verification' })
   }
 })
@@ -252,7 +253,7 @@ router.post('/api/auth/verify-email', async (req, res) => {
 
     res.json({ message: 'Email verified' })
   } catch (err) {
-    console.error('Verify email error:', err)
+    logger.error('Verify email error:', err)
     res.status(500).json({ message: 'Failed to verify email' })
   }
 })
@@ -275,7 +276,7 @@ router.post('/api/auth/refresh', async (req, res) => {
     const new_refresh_token = await createRefreshToken(userId)
     res.json({ token, refresh_token: new_refresh_token })
   } catch (err) {
-    console.error('Refresh error:', err)
+    logger.error('Refresh error:', err)
     res.status(500).json({ message: 'Failed to refresh token' })
   }
 })

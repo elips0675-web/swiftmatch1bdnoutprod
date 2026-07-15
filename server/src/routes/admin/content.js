@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import pool from '../../db.js'
+import logger from '../../logger.js'
 
 const router = Router()
 
@@ -26,7 +27,7 @@ router.get('/content', async (req, res) => {
 
     res.json({ ...config, cities: cities.map(c => c.city) })
   } catch (err) {
-    console.error('Content fetch error:', err)
+    logger.error('Content fetch error:', err)
     res.status(500).json({ message: 'Failed to fetch content' })
   }
 })
@@ -55,7 +56,7 @@ router.put('/content/:section', async (req, res) => {
     )
     res.json({ message: `${section} updated`, items: config[section] })
   } catch (err) {
-    console.error('Content update error:', err)
+    logger.error('Content update error:', err)
     res.status(500).json({ message: 'Failed to update content' })
   }
 })
