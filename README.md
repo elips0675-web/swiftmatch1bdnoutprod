@@ -53,172 +53,111 @@ npx vite --port 8081 --host
 
 ---
 
-## Функционал (готово)
+## Функционал
 
-### Фаза 1 — Core User Flow ✅
-- Регистрация → анкета → лайки → мэтч → чат
-- Загрузка фото через `/api/upload` (auth + JWT, fallback для demo)
-- Онбординг с сохранением в MySQL + fallback localStorage
-- Bearer-токен авторизация
+### 👤 Пользовательский опыт
+- Регистрация, анкета, лайки, мэтчи, чаты — полный цикл знакомств
+- Геопоиск по радиусу (Haversine formula)
+- AI-рекомендации на основе `compatibility_scores`
+- Attachment-тест для психологической совместимости
+- Системные и push-уведомления (Service Worker + VAPID)
+- 11 демо-ботов для тестирования (автолайки + сообщения)
+- i18n (русский / английский), все данные — translation keys
 
-### Фаза 2 — Social Features ✅
-- `/matches` — страница мэтчей
-- `/premium` — тарифы, покупка подписки
-- Группы: создание, вступление, категории
-- Конкурс: голосование, лидерборд
+### 💳 Монетизация
+- **Stripe Checkout** — три тарифа (Plus / Gold / Platinum), длительность 1/6/12 мес.
+- **Idempotency-Key middleware** — защита от двойных списаний
+- **STRIPE_LIVE** — при `true` mock отключается; без ключа → 500
+- **Premium-гейтинг:** лимит 10 лайков/день для free, скрытые просмотры
+- **Реклама:** фича-флаг `showAds`, конфиг AdMob/Yandex в БД, динамический импорт с `setTimeout`-fallback
+- **Админка:** управление ценами и рекламными блоками
+
+### 🛠️ Админ-панель
+- Дашборд со статистикой (пользователи, активность, матчи, выручка, подписки)
+- Аналитика: retention, revenue-mix, регистрации (4 endpoint: `/analytics/overview`, `/retention`, `/revenue-mix`, `/registrations`)
+- Управление пользователями: поиск, фильтры, бан/разбан, массовые операции, имперсонация
+- Фича-флаги: 7 toggle'ов, сохраняются в БД (с валидацией пустого body)
+- Модерация: жалобы, запрещённые слова, история действий
+- Контент: управление интересами, целями знакомств
+- Premium-статус в карточке пользователя (из `subscriptions`)
+
+### 💬 Социальные функции
+- Real-time чаты через **Socket.IO** с typing indicator и read receipts
+- Emoji-реакции на сообщения (happy / love / sad / angry / like)
 - Онлайн-статус (зелёная точка) через WebSocket
-- Typing indicator («печатает…»)
+- Группы по интересам: создание, категории, посты, комментарии, лайки
+- Конкурс с голосованием и лидербордом
+- Блокировка пользователей
 
-### Фаза 3 — Admin & Moderation ✅
-- Email-рассылки (nodemailer/SMTP)
-- Push-уведомления (VAPID + web-push)
-- Бан + WS `user:banned` (разлогин)
-- Запрещённые слова в чатах (REST + WS)
-- История действий в карточке юзера
-- Имперсонация (войти как пользователь)
-- **Реальный premium-статус** в админке (из `subscriptions`)
+### 🔐 Безопасность и инфраструктура
+- JWT (Bearer token), refresh tokens, dev-login для админки
+- **Sentry:** `@sentry/react` + `@sentry/node`, `beforeSend` фильтрует PII (email, токены, пароли)
+- **Helmet:** CSP, X-Frame-Options, X-Content-Type-Options и др. security headers
+- **Request ID:** UUID на каждый запрос, `X-Request-Id` в ответе
+- **Rate limiting:** express-rate-limit (30r/s на лайки, 5r/s на auth)
+- **Модерация чатов:** проверка banned-слов при отправке сообщений
+- Бан пользователя + WS `user:banned` (мгновенный разлогин)
+- CORS `*` (для Capacitor), CSRF не нужен (API-only JWT)
 
-### Фаза 4 — Monetization ✅
-- **Платёжный шлюз:** Stripe Checkout + mock fallback, отмена подписки
-- **Stripe webhook:** проверка подписи через `express.raw()`
-- **Stripe success/cancel:** страницы `/premium/success`, `/premium/cancel`
-- **Премиум-гейтинг:** лимит 10 лайков/день для free, просмотры скрыты без подписки
-- **Рекламные баннеры:** фича-флаг `showAds`, сохранение конфига рекламы в БД
-- **UI:** выбор тарифа (Plus/Gold/Platinum) + длительности (1/6/12 мес.)
-- **Админка:** управление ценами, рекламными блоками (Google AdMob / Yandex)
+### 📁 Загрузка файлов
+- MIME-фильтр: только `image/*` + whitelist расширений (.jpg, .jpeg, .png, .gif, .webp)
+- `fileSize: 10MB`
+- **S3 scaffold:** lazy-init — при наличии AWS_* env → `@aws-sdk/client-s3` + `multer-s3`, иначе локальный диск
 
-### Фаза 5 — Polish & Advanced ✅
-- Геопоиск по радиусу (Haversine)
-- История просмотров (profile_view → activity_log)
-- AI-рекомендации (compatibility_scores)
-- Сохранение attachment-теста
-- Удаление сообщений
-- Системные уведомления (SW + Push)
-- Боты (11 демо-ботов автолайкают + пишут в чат)
-- i18n (RU/EN)
+### 🗄️ База данных
+- MySQL через mysql2, пул соединений
+- **Миграции:** `database/migrations/` — нумерованные .sql + `migrate.js` (таблица `_migrations`)
+- Schema: users, profiles, photos, interests, matches, chats, messages, reactions, subscriptions, activity_log, feature_flags, reports и др.
 
-### Фаза 6 — Infrastructure & Real-time ✅
-- WebSocket-клиент (`socket.io-client`) подключён к серверу
-- Real-time доставка сообщений через `chat:message` event
-- VAPID-ключи сгенерированы, push-уведомления рабочие
-- Stripe пакет установлен
-- Порт Vite унифицирован (8081)
-- UTF-8 кодировка на всех уровнях (БД, сервер, HTML)
-- Очистка мусорных данных (чаты, participants)
-- **helmet** — security headers (CSP, X-Frame-Options, X-Content-Type-Options и т.д.)
-- **Request ID** — каждый запрос получает UUID, `X-Request-Id` в ответе, `req.log` для структурированного логирования
-- **CSRF** — не нужен (API-only, JWT в `Authorization` header, без кук-сессий)
+### 📧 Коммуникации
+- **SMTP:** Nodemailer с retry-логикой (3 попытки, exponential backoff 1s/2s/3s)
+- Graceful skip при пустых SMTP_USER/PASS
+- Push-уведомления через VAPID + web-push
 
-### Фаза 7 — Testing & Production Infrastructure ✅
-- **Фронтенд-тесты (Vitest):** 42 теста, 8 файлов (`login`, `register`, `error-boundary`, `auth-context`, `use-premium`, `example`, `utils`, `api`)
-- **Серверные тесты (Vitest):** 6 файлов (`auth`, `profile`, `premium`, `admin`, `social`, `middleware`)
-- **E2E (Playwright):** `playwright.config.ts`, `e2e/login.spec.ts`, `register.spec.ts`, `profile.spec.ts`
-- **Sentry:** `src/lib/sentry.ts` + `server/src/sentry.js` (инициализация в `main.tsx` и `server/src/index.js`)
-- **Swagger:** `server/src/swagger.js` + JSDoc-аннотации к routes (auth, profile, premium, social)
-- **Docker:** multi-stage `Dockerfile` (healthcheck, `node:20-alpine`, `USER node`) + `docker-compose.yml` (healthcheck для db)
-- **Nginx:** `nginx.conf` (SPA fallback, API proxy, SSL, WebSocket, security headers)
-- **Prettier:** `.prettierrc` с настройками
-- **Husky + lint-staged:** `.husky/pre-commit` запускает prettier+lint на staged файлах
+### 🧪 Тестирование
+- **Фронтенд (Vitest):** 42 теста, 8 файлов (login, register, error-boundary, auth-context, use-premium, utils, api)
+- **Сервер (Vitest):** 56 тестов, 6 файлов (auth, profile, premium, admin, social, middleware) — **0 failures**
+- **E2E (Playwright):** 3 spec-файла (login, register, profile) + webServer в конфиге
+- **Swagger:** OpenAPI-документация с JSDoc-аннотациями
+
+### 🐳 DevOps
+- **Docker:** multi-stage (node:20-alpine), healthcheck, USER node, `.dockerignore`, `restart: unless-stopped`
+- **Nginx:** rate limiting (api 30r/s, auth 5r/s), `client_max_body_size 20M`, WebSocket 86400s, SSL, SPA fallback
+- **CI/CD:** GitHub Actions (lint → build → test с MySQL-сервисом)
+- **Git hooks:** Husky + lint-staged (prettier + eslint на staged файлах)
+- **Логирование:** Winston (JSON, timestamp/level/msg/rid)
+
+### 📱 Capacitor Android
+- Нативная камера (`@capacitor/camera`), файлы (`@capacitor/filesystem`), Preferences
+- Адаптер fetch/WS для нативного режима (`src/lib/native.ts`)
+- Live Reload на устройстве через `npx cap run android --livereload`
 
 ---
 
-## Что доделать до продакшена
+## Что осталось до продакшена
 
-### 🔴 БЛОКЕРЫ (нельзя деплоить)
+### 🔴 Требуют реальных ключей/сервисов (код готов)
 
-1. **Безопасность — dev-секреты**
-   - ✅ `JWT_SECRET` сгенерирован (256 бит, `crypto.randomBytes`)
-   - `DB_PASSWORD=` (пустой) + `DB_USER=root` → создать пользователя `swiftmatch_prod` с ограниченными правами
-   - `CORS_ORIGIN=http://localhost:8081` → заменить на домен прода
-
-2. **Админка** ✅
-   - ✅ `/api/admin/analytics` — создан `analytics.js` (overview, retention, revenue-mix, registrations)
-   - ✅ `/api/admin/health` — добавлен `/health` роут
-   - ✅ `dashboard.js` — chartData обёрнуты в `ensureArray()` на фронте
-   - ✅ `/api/admin/monetization/revenue` — работает (тест исправлен)
-
-3. **Stripe — mock-fallback**
-   - ✅ Idempotency-Key middleware (`server/src/middleware/idempotency.js`)
-   - ✅ `STRIPE_LIVE` флаг — при `true` mock отключается, без ключа → 500
-   - `STRIPE_SECRET_KEY` не заполнен (нужен live-ключ)
-
-4. **SMTP — письма не уходят** ✅
-   - ✅ Retry-логика (3 попытки, exponential backoff) в `server/src/mail.js`
-   - ✅ Проверка пустых `SMTP_USER`/`SMTP_PASS` — graceful skip
-   - `SMTP_USER`/`SMTP_PASS` не заполнены (нужны реальные credentials)
-
-### 🟠 ВЫСОКИЙ ПРИОРИТЕТ
-
-5. **Реклама** ✅
-   - ✅ AdMob: динамический импорт `@capacitor-community/admob` с fallback на `setTimeout`
-   - ✅ `adUnitId` можно менять через админку (`/api/admin/monetization/ads`)
-   - Для реальной монетизации: `npm install @capacitor-community/admob` + нативная сборка
-
-6. **Sentry** ✅
-   - ✅ `@sentry/react` (фронт) + `@sentry/node` (бэк) установлены
-   - ✅ `init()` с `beforeSend` — фильтрация PII (email, токены, пароли)
-   - ✅ `server/src/sentry.js` — подключен Express requestHandler/errorHandler
-   - ✅ `src/lib/sentry.ts` — клиентский init
-   - `SENTRY_DSN` не вписан (нужен DSN из sentry.io)
-
-7. **WebSocket — heartbeat + reconnect** ✅
-   - ✅ Сервер: `pingInterval: 10000`, `pingTimeout: 5000`
-   - ✅ Клиент: `reconnectionAttempts: Infinity`, `reconnectionDelayMax: 30000`, `randomizationFactor: 0.5`
-
-8. **БД — миграции** ✅
-   - ✅ Система в `database/migrations/` — нумерованные .sql файлы + `migrate.js`
-   - ✅ Две миграции: `001_add_moderation_columns.sql`, `002_add_subscription_indexes.sql`
-
-9. **Загрузка файлов — ограничения** ✅
-   - ✅ MIME-фильтр: `file.mimetype.startsWith('image/')` + проверка расширения
-   - ✅ `fileSize: 10MB`
-   - ✅ S3 scaffold: lazy-init с `@aws-sdk/client-s3` + `multer-s3` (при наличии env — S3, иначе локальный диск)
-
-### 🟡 СРЕДНИЙ ПРИОРИТЕТ
-
-10. **Server-тесты** ✅ **0 failures (56 passed)**
-    - ✅ `admin.test.js` (7) — тесты исправлены: `/api/admin/stats` использует `newToday`/`activeToday`/`activeSubs`; `/api/admin/users` возвращает `{ users, total, cities }`; фичи возвращают объект, не массив; добавлена валидация пустого body в PUT; analytics разбит на подроуты; revenue на `/monetization/revenue`
-    - ✅ `profile.test.js` (1) — исправлено количество моков (без interests — 2 запроса)
-    - ✅ `social.test.js` (1) — добавлен mock для `otherParticipant` и reactions
-
-11. **Playwright E2E** ✅
-    - ✅ webServer добавлен в `playwright.config.ts`
-    - ✅ `/health` роут добавлен в Express
-
-12. **Docker** ✅
-    - ✅ `.dockerignore` создан (исключает `node_modules`, `.git`, `.env`)
-    - ✅ `docker-compose.yml`: `restart: unless-stopped` добавлен
-    - `mem_limit` — опционально
-
-13. **Nginx** ✅
-    - ✅ `nginx/swiftmatch.conf` — rate limiting, `client_max_body_size 20M`, WebSocket `proxy_read_timeout 86400s`
-    - ✅ SSL, static files, SPA fallback
-
-14. **Логи — Winston** ✅
-    - ✅ `server/src/logger.js` переписан на `winston`
-    - ✅ JSON-формат с timestamp, level, msg, rid
-    - ✅ logger.js экспортирует default (winstonLogger) для использования в роутах
-    - ⚠️ Часть `console.log` ещё осталась в старых роутах (низкий приоритет)
-
-### 🟢 НИЗКИЙ ПРИОРИТЕТ
-
-15. **Кэширование**: Redis scaffold готов (`server/src/redis.js`, `ioredis` установлен), ждёт `REDIS_URL`
-
-16. **Бэкапы MySQL**: `mysqldump` cron или RDS automated backups
-
-17. **CI/CD**: ✅ GitHub Actions — `.github/workflows/deploy.yml` (lint → build → test с MySQL)
-
-### Осталось (требует реальных ключей/сервисов):
-
-| Переменная | Куда | Назначение |
+| Переменная | Файл | Назначение |
 |---|---|---|
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `server/.env` | Реальные платежи |
 | `SMTP_USER`, `SMTP_PASS` | `server/.env` | Email (регистрация, сброс пароля) |
 | `SENTRY_DSN` | `server/.env` + `.env` | Мониторинг ошибок |
 | `REDIS_URL` | `server/.env` | Кэш + rate-limit |
-| `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `server/.env` | Облачное хранение файлов |
-| `DB_PASSWORD` | `server/.env` | Непустой пароль БД |
-| `CORS_ORIGIN` | `server/.env` | Домен прода |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | `server/.env` | Облачное хранение файлов |
+| `DB_PASSWORD` | `server/.env` | Непустой пароль для MySQL |
+| `CORS_ORIGIN` | `server/.env` | Домен прода (вместо `localhost:8081`) |
+
+### 🟡 Нужно доделать (код частично готов)
+
+- Установить `@capacitor-community/admob` для реальной рекламы в нативной сборке (`npm install`)
+- Заменить `console.log`/`console.error` на winston в старых роутах
+- `mem_limit` в `docker-compose.yml` (опционально)
+
+### 🟢 Опционально
+
+- Настроить `mysqldump` cron для бэкапов MySQL
+- Включить Redis (`REDIS_URL`) для кэширования сессий и совместимости
 
 ---
 
@@ -277,7 +216,7 @@ WebSocket в `use-websocket.ts` использует `VITE_WS_URL` или `wss:/
 
 ## Настройка .env
 
-`server/.env` уже настроен для локальной работы:
+`server/.env` уже настроен для локальной работы (реальный `JWT_SECRET` сгенерирован, не показан в README):
 ```
 PORT=3002
 DB_HOST=localhost
@@ -285,7 +224,7 @@ DB_USER=root
 DB_PASSWORD=
 DB_NAME=swiftmatch
 CORS_ORIGIN=http://localhost:8081
-JWT_SECRET=swiftmatch-dev-secret-change-in-production
+# JWT_SECRET=*** (256-bit, сгенерирован)
 VAPID_PUBLIC_KEY=BEygaffoNfy9XaaH0QqILW1Kzuf-7WoVL4oAvQpC1ebFkZ8X828d8Fv8TXcqBuykDK4IWJdZMA6TOkQfSBP8N8o
 VAPID_PRIVATE_KEY=b370faewrsuKX2yUXBZ-2-axZiScdesTmpXHPq0yJN4
 ```
