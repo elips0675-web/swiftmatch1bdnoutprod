@@ -55,7 +55,6 @@ describe('PUT /api/profile/:id', () => {
   it('updates profile fields', async () => {
     pool.query
       .mockResolvedValueOnce([[], []])
-      .mockResolvedValueOnce([[], []])
       .mockResolvedValueOnce([[{ id: 1, display_name: 'Updated', bio: 'New bio' }], []])
 
     const res = await request(app)

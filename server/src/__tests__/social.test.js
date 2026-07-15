@@ -77,6 +77,7 @@ describe('GET /api/chats/:chatId/messages', () => {
     pool.query
       .mockResolvedValueOnce([[{ chat_id: 1 }], []])
       .mockResolvedValueOnce([[{ id: 1, sender_id: 1, text: 'Hello', created_at: new Date().toISOString() }], []])
+      .mockResolvedValueOnce([[{ user_id: 2, last_read_at: new Date().toISOString() }], []])
       .mockResolvedValueOnce([[{ id: 10, message_id: 1, user_id: 2, emoji: '❤️', created_at: new Date().toISOString(), user_name: 'User2' }], []])
     const app = createApp()
     const res = await request(app).get('/api/chats/1/messages').set('Authorization', `Bearer ${authToken()}`)

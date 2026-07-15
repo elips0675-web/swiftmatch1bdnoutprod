@@ -30,6 +30,10 @@ router.get('/features', async (req, res) => {
 router.put('/features', async (req, res) => {
   try {
     const flags = req.body
+    const knownKeys = ['videoCalls', 'aiIcebreakers', 'aiCompatibility', 'groupsPage', 'contest', 'showAds', 'autosearch']
+    if (!flags || Object.keys(flags).length === 0 || !knownKeys.some(k => k in flags)) {
+      return res.status(400).json({ message: 'At least one known flag key required' })
+    }
     await pool.query(
       `UPDATE feature_flags SET
         video_calls_enabled = ?, ai_icebreakers_enabled = ?,

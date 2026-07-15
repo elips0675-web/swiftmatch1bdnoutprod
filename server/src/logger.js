@@ -25,3 +25,4 @@ export function createLogger(rid) {
 }
 
 export const rootLogger = createLogger('bootstrap')
+export default winstonLogger

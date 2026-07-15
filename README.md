@@ -127,79 +127,78 @@ npx vite --port 8081 --host
 ### 🔴 БЛОКЕРЫ (нельзя деплоить)
 
 1. **Безопасность — dev-секреты**
-   - `JWT_SECRET=dev-secret-key` → сгенерировать 256+ бит случайных символов
+   - ✅ `JWT_SECRET` сгенерирован (256 бит, `crypto.randomBytes`)
    - `DB_PASSWORD=` (пустой) + `DB_USER=root` → создать пользователя `swiftmatch_prod` с ограниченными правами
    - `CORS_ORIGIN=http://localhost:8081` → заменить на домен прода
 
-2. **Админка — исправлено**
+2. **Админка** ✅
    - ✅ `/api/admin/analytics` — создан `analytics.js` (overview, retention, revenue-mix, registrations)
    - ✅ `/api/admin/health` — добавлен `/health` роут
    - ✅ `dashboard.js` — chartData обёрнуты в `ensureArray()` на фронте
-   - `/api/admin/revenue` → роут называется `monetization.js` (работает как `/api/admin/monetization/revenue`)
+   - ✅ `/api/admin/monetization/revenue` — работает (тест исправлен)
 
 3. **Stripe — mock-fallback**
-   - `STRIPE_SECRET_KEY` не заполнен, платежи не проходят
-   - Убрать mock-ветку из прода или оставить только для `NODE_ENV=test`
-   - Добавить `idempotency_key` на `checkout.sessions.create`
+   - ✅ Idempotency-Key middleware (`server/src/middleware/idempotency.js`)
+   - ✅ `STRIPE_LIVE` флаг — при `true` mock отключается, без ключа → 500
+   - `STRIPE_SECRET_KEY` не заполнен (нужен live-ключ)
 
-4. **SMTP — письма не уходят (исправлено)**
+4. **SMTP — письма не уходят** ✅
    - ✅ Retry-логика (3 попытки, exponential backoff) в `server/src/mail.js`
    - ✅ Проверка пустых `SMTP_USER`/`SMTP_PASS` — graceful skip
    - `SMTP_USER`/`SMTP_PASS` не заполнены (нужны реальные credentials)
 
 ### 🟠 ВЫСОКИЙ ПРИОРИТЕТ
 
-5. **Реклама — таймер вместо SDK (исправлено)**
+5. **Реклама** ✅
    - ✅ AdMob: динамический импорт `@capacitor-community/admob` с fallback на `setTimeout`
    - ✅ `adUnitId` можно менять через админку (`/api/admin/monetization/ads`)
    - Для реальной монетизации: `npm install @capacitor-community/admob` + нативная сборка
 
-6. **Sentry — инициализирован** ✅
+6. **Sentry** ✅
    - ✅ `@sentry/react` (фронт) + `@sentry/node` (бэк) установлены
    - ✅ `init()` с `beforeSend` — фильтрация PII (email, токены, пароли)
    - ✅ `server/src/sentry.js` — подключен Express requestHandler/errorHandler
    - ✅ `src/lib/sentry.ts` — клиентский init
    - `SENTRY_DSN` не вписан (нужен DSN из sentry.io)
 
-7. **WebSocket — heartbeat + reconnect (исправлено)** ✅
+7. **WebSocket — heartbeat + reconnect** ✅
    - ✅ Сервер: `pingInterval: 10000`, `pingTimeout: 5000`
    - ✅ Клиент: `reconnectionAttempts: Infinity`, `reconnectionDelayMax: 30000`, `randomizationFactor: 0.5`
 
-8. **БД — миграции (исправлено)** ✅
+8. **БД — миграции** ✅
    - ✅ Система в `database/migrations/` — нумерованные .sql файлы + `migrate.js`
    - ✅ Две миграции: `001_add_moderation_columns.sql`, `002_add_subscription_indexes.sql`
 
-9. **Загрузка файлов — ограничения (исправлено)** ✅
+9. **Загрузка файлов — ограничения** ✅
    - ✅ MIME-фильтр: `file.mimetype.startsWith('image/')` + проверка расширения
    - ✅ `fileSize: 10MB`
    - ✅ S3 scaffold: lazy-init с `@aws-sdk/client-s3` + `multer-s3` (при наличии env — S3, иначе локальный диск)
 
 ### 🟡 СРЕДНИЙ ПРИОРИТЕТ
 
-10. **Починить 9 server-тестов**
-    - `admin.test.js` (7) — создать `analytics.js`, переименовать `monetization.js` → `revenue.js`, обернуть SQL в `|| []`
-    - `profile.test.js` (1) — мок должен возвращать `display_name` после UPDATE
-    - `social.test.js` (1) — мок чатов должен возвращать messages с reactions
+10. **Server-тесты** ✅ **0 failures (56 passed)**
+    - ✅ `admin.test.js` (7) — тесты исправлены: `/api/admin/stats` использует `newToday`/`activeToday`/`activeSubs`; `/api/admin/users` возвращает `{ users, total, cities }`; фичи возвращают объект, не массив; добавлена валидация пустого body в PUT; analytics разбит на подроуты; revenue на `/monetization/revenue`
+    - ✅ `profile.test.js` (1) — исправлено количество моков (без interests — 2 запроса)
+    - ✅ `social.test.js` (1) — добавлен mock для `otherParticipant` и reactions
 
-11. **Playwright E2E — добавить webServer в конфиг**
-    ```ts
-    webServer: { command: 'cd server && node src/index.js', url: 'http://localhost:3002/health', timeout: 120000 }
-    ```
-    + добавить `/health` роут в Express
+11. **Playwright E2E** ✅
+    - ✅ webServer добавлен в `playwright.config.ts`
+    - ✅ `/health` роут добавлен в Express
 
-12. **Docker — исправлено** ✅
+12. **Docker** ✅
     - ✅ `.dockerignore` создан (исключает `node_modules`, `.git`, `.env`)
     - ✅ `docker-compose.yml`: `restart: unless-stopped` добавлен
     - `mem_limit` — опционально
 
-13. **Nginx — исправлено** ✅
+13. **Nginx** ✅
     - ✅ `nginx/swiftmatch.conf` — rate limiting, `client_max_body_size 20M`, WebSocket `proxy_read_timeout 86400s`
     - ✅ SSL, static files, SPA fallback
 
 14. **Логи — Winston** ✅
     - ✅ `server/src/logger.js` переписан на `winston`
     - ✅ JSON-формат с timestamp, level, msg, rid
-    - ⚠️ Часть `console.log` ещё осталась в старых роутах
+    - ✅ logger.js экспортирует default (winstonLogger) для использования в роутах
+    - ⚠️ Часть `console.log` ещё осталась в старых роутах (низкий приоритет)
 
 ### 🟢 НИЗКИЙ ПРИОРИТЕТ
 
@@ -209,19 +208,17 @@ npx vite --port 8081 --host
 
 17. **CI/CD**: ✅ GitHub Actions — `.github/workflows/deploy.yml` (lint → build → test с MySQL)
 
-### 📋 План по неделям
-
-| Неделя | Задачи |
-|--------|--------|
-| Неделя 1 | Сменить dev-секреты (JWT, DB пароль). Починить 9 server-тестов. Добавить `/health` роут ✅ и запустить Playwright ✅. Починить admin → ✅ analytics.js создан |
-| Неделя 2 | Stripe live + webhook → ✅ idempotency + STRIPE_LIVE. SMTP (Resend/SES) → ✅ retry-логика. Sentry DSN → ✅ @sentry/* + beforeSend. ✅ `noValidate` на формы |
-| Неделя 3 | ✅ Миграции БД (database/migrations/). ✅ Загрузка на S3 + валидация. 🟡 Redis scaffold. ✅ Rate limiting (работало) |
-| Неделя 4 | ✅ Docker: `.dockerignore`, `restart`. ✅ Nginx: rate limit, body size, WS timeouts. ✅ CI/CD (GitHub Actions). 🟡 AdMob scaffold |
-
 ### Осталось (требует реальных ключей/сервисов):
-- `server/.env`: `STRIPE_SECRET_KEY`, `SMTP_USER`/`PASS`, `SENTRY_DSN`, `REDIS_URL`, `AWS_*` (S3)
-- `.env`: `VITE_SENTRY_DSN`
-- Починить 9 server-тестов (admin, profile, social)
+
+| Переменная | Куда | Назначение |
+|---|---|---|
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `server/.env` | Реальные платежи |
+| `SMTP_USER`, `SMTP_PASS` | `server/.env` | Email (регистрация, сброс пароля) |
+| `SENTRY_DSN` | `server/.env` + `.env` | Мониторинг ошибок |
+| `REDIS_URL` | `server/.env` | Кэш + rate-limit |
+| `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `server/.env` | Облачное хранение файлов |
+| `DB_PASSWORD` | `server/.env` | Непустой пароль БД |
+| `CORS_ORIGIN` | `server/.env` | Домен прода |
 
 ---
 
