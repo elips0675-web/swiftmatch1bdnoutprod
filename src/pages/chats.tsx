@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Search, ChevronLeft, Send, MoveVertical as MoreVertical, Smile, Heart, Laugh, Zap, Flame, Star, Ghost, Rocket, Crown, Music, Phone, Video, Flag, Info, ChevronRight, Trash2, ThumbsUp, PartyPopper, Eye, Frown, Award, Compass, Coffee, MessageSquareQuote, PawPrint, Globe, Film, BookOpen, Baby, Sun } from "lucide-react";
 import Image from "@/shims/next-image";
 import { useSearchParams, useRouter } from "@/shims/next-navigation";
@@ -183,6 +183,7 @@ function ChatsContent() {
   const [isVoiceCall, setIsVoiceCall] = useState(false);  
   const [currentPage, setCurrentPage] = useState(1);
   const [apiChats, setApiChats] = useState<any[]>([]);
+  const [isChatsLoading, setIsChatsLoading] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
   const msgContainerRef = useAntiScreenshot<HTMLDivElement>();
 
@@ -309,10 +310,12 @@ function ChatsContent() {
 
   useEffect(() => {
     if (!authToken) return;
+    setIsChatsLoading(true);
     fetch('/api/chats', { headers: { Authorization: `Bearer ${authToken}` } })
       .then(res => res.ok ? res.json() : [])
       .then(data => { if (Array.isArray(data)) setApiChats(data); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setIsChatsLoading(false));
   }, [authToken]);
 
   useEffect(() => {
@@ -434,10 +437,10 @@ function ChatsContent() {
     fetch(`/api/chats/${chat.id}/read`, { method: 'PUT', headers: authH }).catch(() => {});
   };
 
-  const handleThemeClick = useCallback((themeId: string) => {
+  const handleThemeClick = (themeId: string) => {
     setInputValue(t(`chats.theme_prompt.${themeId}`));
     setShowTopicsDialog(false);
-  }, [t]);
+  };
 
   const toggleReaction = async (msgId: number, emoji: string) => {
     try {
@@ -646,7 +649,11 @@ function ChatsContent() {
         </div>
 
         <div className="space-y-1 px-1">
-          {paginatedItems.length > 0 ? (
+          {isChatsLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+            </div>
+          ) : paginatedItems.length > 0 ? (
             paginatedItems.map((item) => {
               const hasUnread = (item.unread_count || 0) > 0;
               return (

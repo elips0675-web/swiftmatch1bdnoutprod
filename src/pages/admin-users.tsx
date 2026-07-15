@@ -117,7 +117,7 @@ export default function AdminUsersPage() {
     else { setSortField(field); setSortDir('asc'); }
   };
 
-  const toggleSelect = (id: number) => setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const toggleSelect = (id: number) => setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s; });
   const toggleAll = () => {
     if (selected.size === users.length) setSelected(new Set());
     else setSelected(new Set(users.map(u => u.id)));

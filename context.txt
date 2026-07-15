@@ -62,6 +62,11 @@
 - **.env.example:** обновлён (Sentry DSN, WS URL 3002)
 - **README:** профессиональный список фич, todo только с реально необходимым, секция backup
 - **context.txt:** актуален
+- **console.log → rootLogger:** заменены в ws.js (2), mail.js (4), sentry.js (2)
+- **Docker healthcheck:** добавлен в docker-compose.yml для app (curl /health)
+- **JWT_SECRET:** `change-me-in-production` → `${JWT_SECRET:-change-me-in-production}` (через env)
+- **Loading states:** добавлены в activity.tsx (isActivityLoading + spinner), chats.tsx (isChatsLoading + spinner)
+- **Unused imports:** удалены `Skeleton` из profile.tsx, `useCallback` из chats.tsx
 
 ---
 ## Что осталось

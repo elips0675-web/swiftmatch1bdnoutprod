@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer'
+import { rootLogger } from './logger.js'
 
 let transporter = null
 
@@ -18,7 +19,7 @@ function getTransporter() {
   const user = process.env.SMTP_USER
   const pass = process.env.SMTP_PASS
   if (!user || !pass) {
-    console.log('[mail] SMTP_USER or SMTP_PASS not set, emails disabled')
+    rootLogger.warn('[mail] SMTP_USER or SMTP_PASS not set, emails disabled')
     return null
   }
 
@@ -36,7 +37,7 @@ const FROM = process.env.SMTP_FROM || 'noreply@swiftmatch.app'
 async function sendWithRetry(mailOptions) {
   const transport = getTransporter()
   if (!transport) {
-    console.log(`[mail] SMTP not configured. Would send to ${mailOptions.to}: "${mailOptions.subject}"`)
+    rootLogger.info(`[mail] SMTP not configured. Would send to ${mailOptions.to}: "${mailOptions.subject}"`)
     return
   }
 
@@ -44,11 +45,11 @@ async function sendWithRetry(mailOptions) {
   for (let attempt = 1; attempt <= RETRY_MAX; attempt++) {
     try {
       await transport.sendMail(mailOptions)
-      console.log(`[mail] Sent to ${mailOptions.to}: "${mailOptions.subject}"`)
+      rootLogger.info(`[mail] Sent to ${mailOptions.to}: "${mailOptions.subject}"`)
       return
     } catch (err) {
       lastError = err
-      console.error(`[mail] Attempt ${attempt}/${RETRY_MAX} failed for ${mailOptions.to}:`, err.message)
+      rootLogger.error(`[mail] Attempt ${attempt}/${RETRY_MAX} failed for ${mailOptions.to}: ${err.message}`)
       if (attempt < RETRY_MAX) await sleep(RETRY_DELAY_MS * attempt)
     }
   }

@@ -1,10 +1,11 @@
 import * as Sentry from '@sentry/node'
+import { rootLogger } from './logger.js'
 
 const SENTRY_DSN = process.env.SENTRY_DSN
 
 export function initSentry(app) {
   if (!SENTRY_DSN) {
-    console.log('[sentry] SENTRY_DSN not set, skipping')
+    rootLogger.warn('[sentry] SENTRY_DSN not set, skipping')
     return false
   }
 
@@ -36,6 +37,6 @@ export function initSentry(app) {
   app.use(Sentry.Handlers.requestHandler())
   app.use(Sentry.Handlers.errorHandler())
 
-  console.log('[sentry] initialized')
+  rootLogger.info('[sentry] initialized')
   return true
 }

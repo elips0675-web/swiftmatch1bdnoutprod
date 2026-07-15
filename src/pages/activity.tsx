@@ -59,6 +59,7 @@ export default function ActivityPage() {
   const [isClient, setIsClient] = useState(false);
   const [invites, setInvites] = useState<any[]>([]);
   const [activity, setActivity] = useState<any[]>([]);
+  const [isActivityLoading, setIsActivityLoading] = useState(true);
 
   useEffect(() => {
     setIsClient(true);
@@ -67,23 +68,22 @@ export default function ActivityPage() {
       setIsIncognito(JSON.parse(savedIncognito));
     }
     const token = getToken();
-    if (!token) return;
-    fetch('/api/activity', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(data => setActivity(data.map((a: any) => ({
+    if (!token) { setIsActivityLoading(false); return; }
+    Promise.all([
+      fetch('/api/activity', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      fetch('/api/invites', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+    ]).then(([activityData, invitesData]) => {
+      setActivity(activityData.map((a: any) => ({
         id: a.id, userId: a.user_id, user: a.user_name, img: a.user_avatar || '',
         type: a.action_type === 'profile_view' ? 'visit' : a.action_type,
         time: timeAgo(a.created_at), seen: false,
         blurred: a.action_type === 'profile_view',
-      }))))
-      .catch(() => {});
-    fetch('/api/invites', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(data => setInvites(data.map((i: any) => ({
+      })));
+      setInvites(invitesData.map((i: any) => ({
         id: i.id, userId: i.sender_id, user: i.sender_name, img: i.sender_avatar || '',
         type: i.type, time: timeAgo(i.created_at), seen: i.status !== 'pending',
-      }))))
-      .catch(() => {});
+      })));
+    }).catch(() => {}).finally(() => setIsActivityLoading(false));
   }, []);
 
   const filteredActivity = activity.filter(item => {
@@ -157,7 +157,11 @@ export default function ActivityPage() {
             )}
 
             <div className="space-y-2">
-              {activeTab === 'invites' ? (
+              {isActivityLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                </div>
+              ) : activeTab === 'invites' ? (
                 <AnimatePresence mode="popLayout">
                   {invites.length > 0 ? (
                     invites.map((item) => (

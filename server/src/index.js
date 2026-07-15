@@ -31,8 +31,6 @@ import authRoutes, { createRefreshToken } from './routes/auth.js'
 import adminModerationRoutes from './routes/admin-moderation.js'
 import { JWT_SECRET } from './middleware.js'
 import { setupSwagger } from './swagger.js'
-import { initSentry } from './sentry.js'
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()

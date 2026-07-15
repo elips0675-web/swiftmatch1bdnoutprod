@@ -1,6 +1,7 @@
 import { Server } from 'socket.io'
 import jwt from 'jsonwebtoken'
 import { JWT_SECRET } from './middleware.js'
+import { rootLogger } from './logger.js'
 
 let io = null
 
@@ -29,10 +30,10 @@ export function initIO(httpServer) {
   io.on('connection', (socket) => {
     const userId = socket.userId
     socket.join(`user:${userId}`)
-    console.log(`WS user:${userId} connected`)
+    rootLogger.info(`WS user:${userId} connected`)
 
     socket.on('disconnect', () => {
-      console.log(`WS user:${userId} disconnected`)
+      rootLogger.info(`WS user:${userId} disconnected`)
     })
   })
 
