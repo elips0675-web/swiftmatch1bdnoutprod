@@ -147,7 +147,7 @@ router.post('/api/auth/register', async (req, res) => {
     const userId = result.insertId
 
     await pool.query(
-      'INSERT INTO user_profiles (id, display_name, name) VALUES (?, ?, ?)',
+      'INSERT INTO user_profiles (id, display_name, name, age) VALUES (?, ?, ?, 18)',
       [userId, displayName || email.split('@')[0], displayName || email.split('@')[0]],
     )
 

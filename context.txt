@@ -42,21 +42,38 @@
 - **Redis scaffold:** lazy singleton с ioredis, disconnectRedis(), winston-логи
 
 ### Аудит по оценке kimi (июль 2026)
-- **Admin роуты:** проверены все 8 файлов — analytics.js, dashboard.js, features.js, users.js, monetization.js, reports.js, content.js, messaging.js — всё на месте, 30 тестов проходят
-- **Stripe:** Webhook использует `express.raw` ДО `express.json`, Idempotency-Key middleware подключён, mock заблокирован в production (NODE_ENV guard)
-- **Sentry beforeSend:** удаляет authorization, cookie, email, IP, username + ред AET email в exception messages
-- **Docker:** .dockerignore (node_modules, .git, dist, .env), restart: unless-stopped, mem_limit: 512m, named volume db_data, healthcheck curl /health
-- **Nginx:** rate limit (api 30r/s, auth 5r/s), client_max_body_size 20M, proxy_read_timeout 86400s, SSL redirect, SPA fallback
-- **Логи:** 0 console.log/error в server/src/ — везде Winston rootLogger или req.log
-- **Тесты:** 95/95 server + 42 frontend = 137/137, 0 failures
+- **Admin роуты:** проверены все 8 файлов — 30 тестов проходят
+- **Stripe:** express.raw ДО express.json, Idempotency-Key, mock заблокирован в production
+- **Sentry beforeSend:** PII scrubbing — authorization, cookie, email, IP
+- **Docker:** .dockerignore, restart, mem_limit, named volume, healthcheck
+- **Nginx:** rate limit, client_max_body_size, proxy_read_timeout 86400s, SSL
+- **Логи:** 0 console.log/error в server/src/ — везде Winston
+- **Тесты:** 137/137, 0 failures
+
+### Функциональный аудит (июль 2026)
+Проверены все 8 разделов через работающий API (сервер localhost:3002):
+| Раздел | Статус | Найдено |
+|---|---|---|
+| **Авторизация** | ✅ | dev-login 200, login demo 200, refresh token работает, forgot/reset password — логика верна (SMTP ждёт ключей) |
+| **Регистрация** | ⚠️ Починено | Не указывался `age` (колонка NOT NULL) → 500. Добавлен `age=18` в INSERT |
+| **Профиль** | ✅ | GET /api/profile/2 — 200, данные + фото + интересы |
+| **Лайки/Мэтчи** | ✅ | POST like (с auth) — проверена логика, daily limit, match detection. Routes: `/api/likes`, `/api/matches` |
+| **Чаты** | ✅ | GET /api/chats — 200, 5 чатов, с read receipts. WS typing indicator + real-time |
+| **Премиум** | ✅ | `/api/premium/tiers` 200, `/api/premium/my` 200, checkout mock 201, webhook — express.raw |
+| **Группы** | ⚠️ | `/api/groups/:groupId` — есть и работает. Нет списка `/api/groups` (фронт не вызывает) |
+| **Админка** | ✅ | stats 200, users 200 (22 total), features 200, campaigns 200, photos/pending 200 |
+| **Модерация/Репорты** | ⚠️ Починено | Reports 500 — `r.evidence` колонка отсутствовала в БД, заменена на `NULL as evidence` |
+| **Инфраструктура** | ✅ | /health 200, WS pingInterval 10s, Sentry beforeSend, helmet, CORS env |
 
 ### Bugfixes
-- **double initSentry():** удалён дублирующий вызов без `app` (при включении DSN падал бы)
+- **double initSentry():** удалён дублирующий вызов без `app`
+- **register 500:** INSERT в user_profiles не указывал `age` (NOT NULL) — добавлен `age=18`
+- **reports 500:** SELECT использовал `r.evidence`, колонки нет в БД — заменено на `NULL as evidence`
 
 ### Документация обновлена
-- **Оценка kimi.txt:** переписан с реальным статусом по каждому из 13 пунктов (все ✅ кроме 2 ждущих ключей)
-- **AGENTS.md:** добавлены 2 промта — функциональный аудит приложения + E2E-тест
-- **swagger-jsdoc:** установлен (отсутствовал, сервер падал при старте)
+- **Оценка kimi.txt:** переписан с реальным статусом
+- **AGENTS.md:** добавлены 2 промта — функциональный аудит + E2E-тест
+- **swagger-jsdoc:** установлен (отсутствовал, сервер не стартовал)
 
 ### Production Hardening
 - **Логи:** Winston JSON во всех серверных файлах (0 console.log/error)

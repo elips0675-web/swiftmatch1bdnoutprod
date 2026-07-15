@@ -8,10 +8,10 @@ router.get('/reports', async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT r.id, r.reason, r.description, r.status,
-              DATE_FORMAT(r.created_at, '%Y-%m-%d') as date,
-              reporter.display_name as reporterName,
-              reported.display_name as reportedUserName,
-              r.evidence
+               DATE_FORMAT(r.created_at, '%Y-%m-%d') as date,
+               reporter.display_name as reporterName,
+               reported.display_name as reportedUserName,
+               NULL as evidence
        FROM reports r
        LEFT JOIN user_profiles reporter ON r.reporter_id = reporter.id
        LEFT JOIN user_profiles reported ON r.reported_id = reported.id
