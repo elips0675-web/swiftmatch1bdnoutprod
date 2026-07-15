@@ -55,6 +55,8 @@
 
 ### Документация обновлена
 - **Оценка kimi.txt:** переписан с реальным статусом по каждому из 13 пунктов (все ✅ кроме 2 ждущих ключей)
+- **AGENTS.md:** добавлены 2 промта — функциональный аудит приложения + E2E-тест
+- **swagger-jsdoc:** установлен (отсутствовал, сервер падал при старте)
 
 ### Production Hardening
 - **Логи:** Winston JSON во всех серверных файлах (0 console.log/error)
@@ -67,6 +69,7 @@
 - **no-empty / unused expressions:** исправлены в admin-users.tsx, profile.tsx, chats.tsx
 
 ### Админка
+- **admin/messaging:** страница работает (200, API GET/POST /api/admin/campaigns)
 - **admin/analytics.js:** overview, retention, revenue-mix, registrations
 - **PUT /features:** валидация пустого body → 400
 - **Admin routes:** все покрыты тестами
