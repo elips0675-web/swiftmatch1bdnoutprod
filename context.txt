@@ -139,6 +139,8 @@
 | `/profile/:id` | ✅ 200 | Редиректит на /user?id=:id |
 | `/api/settings` | ❌ 404 | Роут не существует на бэкенде. **Починено:** settings-privacy.tsx переписан на localStorage |
 | `/api/groups` (list all) | ❌ 404 | Роут не существует. Группы используют demo-data локально
+| `/admin/messaging` | ✅ Починено | Падал с Vite SyntaxError из-за отсутствующего `</div>` в chats.tsx. Добавлен закрывающий тег |
+| **Сборка** | ✅ `vite build` | 2.09s, 3580 modules, 0 errors |
 
 ### 🟢 Опционально
 1. Запустить Redis (`REDIS_URL`) для кэширования
@@ -178,6 +180,7 @@
 - **WS real-time:** тест сообщения без перезагрузки + двухбраузерный тест
 - **Unit-тесты:** use-websocket, language-context, feature-flags-context
 - **Новые роуты:** /matches, /premium, /settings/privacy, /profile/:id добавлены в App.tsx
+- **Vite сборка:** 2.09s, 3580 modules, 0 errors (после фикса chats.tsx)
 
 Для прода: вписать 7 ключей в `server/.env` (см. таблицу выше).
 
