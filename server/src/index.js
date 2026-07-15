@@ -112,7 +112,7 @@ app.post('/api/auth/login', async (req, res) => {
     const refresh_token = await createRefreshToken(user.id)
     res.json({ token, refresh_token, role: user.role, email_verified: !!user.email_verified_at })
   } catch (err) {
-    console.error('Login error:', err)
+    rootLogger.error('Login error: ' + err.message)
     res.status(500).json({ message: 'Internal server error' })
   }
 })
@@ -138,7 +138,7 @@ app.get('/api/content', async (req, res) => {
       cities: cities.map(c => c.city),
     })
   } catch (err) {
-    console.error('Public content error:', err)
+    rootLogger.error('Public content error: ' + err.message)
     res.status(500).json({ message: 'Failed to fetch content' })
   }
 })

@@ -19,6 +19,9 @@ import adminUsers from '../routes/admin/users.js'
 import adminFeatures from '../routes/admin/features.js'
 import adminAnalytics from '../routes/admin/analytics.js'
 import adminMonetization from '../routes/admin/monetization.js'
+import adminContent from '../routes/admin/content.js'
+import adminReports from '../routes/admin/reports.js'
+import adminMessaging from '../routes/admin/messaging.js'
 
 const JWT_SECRET = 'change-me-in-production'
 
@@ -39,7 +42,7 @@ function createAdminApp(router) {
 }
 
 function adminToken() {
-  return jwt.sign({ userId: 1, role: 'admin' }, JWT_SECRET, { expiresIn: '1h' })
+  return jwt.sign({ userId: 1, id: 1, role: 'admin' }, JWT_SECRET, { expiresIn: '1h' })
 }
 
 beforeEach(() => {
@@ -201,5 +204,198 @@ describe('GET /api/admin/monetization/revenue', () => {
       .get('/api/admin/monetization/revenue')
       .set('Authorization', `Bearer ${adminToken()}`)
     expect(res.status).toBe(200)
+  })
+})
+
+describe('GET /api/admin/content', () => {
+  const app = createAdminApp(adminContent)
+
+  it('returns content config', async () => {
+    pool.query.mockResolvedValueOnce([[{
+      id: 1, interests: '["interest.sport","interest.music"]',
+      dating_goals: '["goal.serious_relationship"]',
+      education: '["education.higher"]',
+      banned_words: '["badword"]',
+    }], []])
+      .mockResolvedValueOnce([[{ city: 'Moscow' }, { city: 'SPb' }], []])
+
+    const res = await request(app).get('/api/admin/content')
+    expect(res.status).toBe(200)
+    expect(res.body).toHaveProperty('interests')
+    expect(res.body).toHaveProperty('cities')
+    expect(res.body.cities).toContain('Moscow')
+  })
+
+  it('handles database error', async () => {
+    pool.query.mockRejectedValue(new Error('DB error'))
+    const res = await request(app).get('/api/admin/content')
+    expect(res.status).toBe(500)
+  })
+})
+
+describe('PUT /api/admin/content/:section', () => {
+  const app = createAdminApp(adminContent)
+
+  it('validates section param', async () => {
+    const res = await request(app)
+      .put('/api/admin/content/invalid')
+      .set('Authorization', `Bearer ${adminToken()}`)
+    expect(res.status).toBe(400)
+  })
+
+  it('requires items in body', async () => {
+    pool.query.mockResolvedValue([[{ id: 1, interests: '[]', dating_goals: '[]', education: '[]', banned_words: '[]' }], []])
+    const res = await request(app)
+      .put('/api/admin/content/interests')
+      .set('Authorization', `Bearer ${adminToken()}`)
+      .send({ items: ['interest.sport'] })
+    expect(res.status).toBe(200)
+  })
+
+  it('handles database error', async () => {
+    pool.query.mockRejectedValue(new Error('DB error'))
+    const res = await request(app)
+      .put('/api/admin/content/interests')
+      .set('Authorization', `Bearer ${adminToken()}`)
+      .send({ items: [] })
+    expect(res.status).toBe(500)
+  })
+})
+
+describe('GET /api/admin/reports', () => {
+  const app = createAdminApp(adminReports)
+
+  it('returns reports list', async () => {
+    pool.query.mockResolvedValueOnce([[{
+      id: 1, reason: 'spam', description: 'Spammy', status: 'pending',
+      date: '2024-01-01', reporterName: 'Alice', reportedUserName: 'Bob', evidence: null,
+    }], []])
+
+    const res = await request(app).get('/api/admin/reports')
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body)).toBe(true)
+    expect(res.body[0]).toHaveProperty('reporterName')
+  })
+
+  it('handles database error', async () => {
+    pool.query.mockRejectedValue(new Error('DB error'))
+    const res = await request(app).get('/api/admin/reports')
+    expect(res.status).toBe(500)
+  })
+})
+
+describe('POST /api/admin/reports/:id/status', () => {
+  const app = createAdminApp(adminReports)
+
+  it('validates status', async () => {
+    const res = await request(app)
+      .post('/api/admin/reports/1/status')
+      .set('Authorization', `Bearer ${adminToken()}`)
+      .send({ status: 'invalid' })
+    expect(res.status).toBe(400)
+  })
+
+  it('updates report status to reviewed', async () => {
+    pool.query.mockResolvedValueOnce([[], []])
+    const res = await request(app)
+      .post('/api/admin/reports/1/status')
+      .set('Authorization', `Bearer ${adminToken()}`)
+      .send({ status: 'reviewed' })
+    expect(res.status).toBe(200)
+  })
+
+  it('bans user when action_taken', async () => {
+    pool.query
+      .mockResolvedValueOnce([[], []])         // UPDATE reports
+      .mockResolvedValueOnce([[{ reported_id: 5 }], []]) // SELECT reported_id
+      .mockResolvedValueOnce([[], []])          // UPDATE users
+      .mockResolvedValueOnce([[], []])          // INSERT moderation_log
+
+    const res = await request(app)
+      .post('/api/admin/reports/1/status')
+      .set('Authorization', `Bearer ${adminToken()}`)
+      .send({ status: 'action_taken' })
+    expect(res.status).toBe(200)
+  })
+
+  it('handles database error', async () => {
+    pool.query.mockRejectedValue(new Error('DB error'))
+    const res = await request(app)
+      .post('/api/admin/reports/1/status')
+      .set('Authorization', `Bearer ${adminToken()}`)
+      .send({ status: 'reviewed' })
+    expect(res.status).toBe(500)
+  })
+})
+
+describe('GET /api/admin/moderation-log', () => {
+  const app = createAdminApp(adminReports)
+
+  it('returns moderation log', async () => {
+    pool.query.mockResolvedValueOnce([[{
+      id: 1, date: '2024-01-01', admin: 'Admin', action: 'banned', targetUser: 'Bob', reason: 'Spam',
+    }], []])
+
+    const res = await request(app).get('/api/admin/moderation-log')
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body)).toBe(true)
+  })
+
+  it('handles database error', async () => {
+    pool.query.mockRejectedValue(new Error('DB error'))
+    const res = await request(app).get('/api/admin/moderation-log')
+    expect(res.status).toBe(500)
+  })
+})
+
+describe('GET /api/admin/campaigns', () => {
+  const app = createAdminApp(adminMessaging)
+
+  it('returns campaign list', async () => {
+    pool.query.mockResolvedValueOnce([[{
+      id: 1, title: 'Welcome', body: 'Hello!', target: 'all', channel: 'push',
+      status: 'sent', sentAt: '2024-01-01', delivered: 10, opened: 5, clicked: 2,
+    }], []])
+
+    const res = await request(app).get('/api/admin/campaigns')
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body)).toBe(true)
+  })
+
+  it('handles database error', async () => {
+    pool.query.mockRejectedValue(new Error('DB error'))
+    const res = await request(app).get('/api/admin/campaigns')
+    expect(res.status).toBe(500)
+  })
+})
+
+describe('POST /api/admin/campaigns', () => {
+  const app = createAdminApp(adminMessaging)
+
+  it('validates title and body', async () => {
+    const res = await request(app)
+      .post('/api/admin/campaigns')
+      .set('Authorization', `Bearer ${adminToken()}`)
+      .send({ title: '' })
+    expect(res.status).toBe(400)
+  })
+
+  it('creates campaign', async () => {
+    pool.query.mockResolvedValueOnce([{ insertId: 42 }, []])
+    const res = await request(app)
+      .post('/api/admin/campaigns')
+      .set('Authorization', `Bearer ${adminToken()}`)
+      .send({ title: 'Sale', body: 'Big sale!' })
+    expect(res.status).toBe(201)
+    expect(res.body.id).toBe(42)
+  })
+
+  it('handles database error', async () => {
+    pool.query.mockRejectedValue(new Error('DB error'))
+    const res = await request(app)
+      .post('/api/admin/campaigns')
+      .set('Authorization', `Bearer ${adminToken()}`)
+      .send({ title: 'Sale', body: 'Big sale!' })
+    expect(res.status).toBe(500)
   })
 })

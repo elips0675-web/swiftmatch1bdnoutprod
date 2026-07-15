@@ -33,7 +33,7 @@ if (isNative()) {
     return origFetch.call(window, input as RequestInfo | URL, init)
   } as typeof window.fetch
 
-  console.log(`[Native] Capacitor detected, API → ${base}, WS → ${getWsUrl()}`)
+  if (import.meta.env.DEV) console.log(`[Native] Capacitor detected, API → ${base}, WS → ${getWsUrl()}`)
 }
 
 export { isNative, getApiBase, getWsUrl }

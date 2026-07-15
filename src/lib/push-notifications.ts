@@ -16,7 +16,7 @@ export async function requestNotificationPermission() {
 
 export async function subscribeToPush() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    console.log('Push API not supported')
+    if (import.meta.env.DEV) console.log('Push API not supported')
     return false
   }
 
@@ -28,7 +28,7 @@ export async function subscribeToPush() {
     const vapidRes = await fetch('/api/push/vapid-public-key')
     const { publicKey } = await vapidRes.json()
     if (!publicKey) {
-      console.log('VAPID key not configured on server')
+      if (import.meta.env.DEV) console.log('VAPID key not configured on server')
       return false
     }
 

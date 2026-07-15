@@ -107,7 +107,11 @@ function DocumentTitle() {
 }
 
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<PageLoading />}>{children}</Suspense>
+  return (
+    <ErrorBoundary>
+      <Suspense fallback={<PageLoading />}>{children}</Suspense>
+    </ErrorBoundary>
+  )
 }
 
 const App = () => (

@@ -62,11 +62,14 @@
 - **.env.example:** обновлён (Sentry DSN, WS URL 3002)
 - **README:** профессиональный список фич, todo только с реально необходимым, секция backup
 - **context.txt:** актуален
-- **console.log → rootLogger:** заменены в ws.js (2), mail.js (4), sentry.js (2)
+- **console.log → rootLogger:** заменены в ws.js (2), mail.js (4), sentry.js (2), index.js (2)
 - **Docker healthcheck:** добавлен в docker-compose.yml для app (curl /health)
 - **JWT_SECRET:** `change-me-in-production` → `${JWT_SECRET:-change-me-in-production}` (через env)
 - **Loading states:** добавлены в activity.tsx (isActivityLoading + spinner), chats.tsx (isChatsLoading + spinner)
 - **Unused imports:** удалены `Skeleton` из profile.tsx, `useCallback` из chats.tsx
+- **Per-page ErrorBoundary:** SuspenseWrapper обёрнут в ErrorBoundary (каждый lazy-роут имеет свою границу ошибок)
+- **Тесты: 137/137 проходят** — добавлены upload.test.js (6), push.test.js (6), admin-moderation.test.js (9), content/reports/messaging в admin.test.js (20). Всего: 42 фронт + 95 сервер
+- **Frontend console.log:** обёрнуты в `import.meta.env.DEV` (native.ts, push-notifications.ts)
 
 ---
 ## Что осталось
@@ -110,7 +113,7 @@ _(нет — всё, что можно было сделать кодом, сд�
 - **Тесты:** 98/98 проходят (42 фронт + 56 сервер) — 0 failures
 - **Сборка:** `vite build` успешно
 - **AdMob:** установлен v6.0.0, `cap sync android` выполнен
-- **Логи:** Winston во всех 15 route-файлах
+- **Логи:** Winston во всех серверных файлах (0 console.log/error)
 - **Backup:** скрипты + инструкция в README
 - **Setup:** `scripts/setup.ps1` — автоматическая настройка dev-окружения
 - **.env.example:** оба файла содержат все переменные с комментариями
