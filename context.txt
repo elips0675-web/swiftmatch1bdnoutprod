@@ -41,8 +41,20 @@
 - **S3 scaffold:** lazy-init (AWS env → multer-s3, иначе локальный диск)
 - **Redis scaffold:** lazy singleton с ioredis, disconnectRedis(), winston-логи
 
+### Аудит по оценке kimi (июль 2026)
+- **Admin роуты:** проверены все 8 файлов — analytics.js, dashboard.js, features.js, users.js, monetization.js, reports.js, content.js, messaging.js — всё на месте, 30 тестов проходят
+- **Stripe:** Webhook использует `express.raw` ДО `express.json`, Idempotency-Key middleware подключён, mock заблокирован в production (NODE_ENV guard)
+- **Sentry beforeSend:** удаляет authorization, cookie, email, IP, username + ред AET email в exception messages
+- **Docker:** .dockerignore (node_modules, .git, dist, .env), restart: unless-stopped, mem_limit: 512m, named volume db_data, healthcheck curl /health
+- **Nginx:** rate limit (api 30r/s, auth 5r/s), client_max_body_size 20M, proxy_read_timeout 86400s, SSL redirect, SPA fallback
+- **Логи:** 0 console.log/error в server/src/ — везде Winston rootLogger или req.log
+- **Тесты:** 95/95 server + 42 frontend = 137/137, 0 failures
+
 ### Bugfixes
 - **double initSentry():** удалён дублирующий вызов без `app` (при включении DSN падал бы)
+
+### Документация обновлена
+- **Оценка kimi.txt:** переписан с реальным статусом по каждому из 13 пунктов (все ✅ кроме 2 ждущих ключей)
 
 ### Production Hardening
 - **Логи:** Winston JSON во всех серверных файлах (0 console.log/error)
