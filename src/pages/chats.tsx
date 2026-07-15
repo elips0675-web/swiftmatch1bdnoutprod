@@ -568,7 +568,7 @@ function ChatsContent() {
                 )}
                 <span className="text-[9px] text-muted-foreground mt-1 px-1 font-bold uppercase tracking-tighter opacity-60">{msg.time}</span>
               </motion.div>
-            )})}</AnimatePresence>
+            )})}</AnimatePresence></div>
             {isTyping && (<motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-1.5 text-muted-foreground"><div className="flex gap-1 bg-white px-3 py-2.5 rounded-lg border border-border/40 shadow-sm rounded-bl-none"><span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce"></span><span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce [animation-delay:0.2s]"></span><span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce [animation-delay:0.4s]"></span></div><span className="text-[9px] font-bold uppercase tracking-widest">{t('chats.typing')}</span></motion.div>)}
             <div ref={messagesEndRef} />
           </div>

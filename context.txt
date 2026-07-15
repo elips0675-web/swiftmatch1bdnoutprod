@@ -73,6 +73,7 @@
 - **Activity 404/500:** Route `/api/activity` полностью отсутствовал — создан в `social.js`
 - **Activity SQL:** колонка `target_user_id` не существует (правильно: `target_id`), JOIN был на неправильное поле
 - **Rate-limiter auth:** поднят с 10→30 req/min для `/api/auth/` (слишком жёсткий для E2E тестов)
+- **chats.tsx Vite SyntaxError:** не хватало `</div>` для `<div data-testid="message-list">`, из-за чего Vite выдавал `Expected '</', got 'jsx text'` при компиляции chats.tsx. Ломало любую страницу, которая триггерила его lazy-загрузку (в т.ч. `/admin/messaging`)
 
 ### Документация обновлена
 - **Оценка kimi.txt:** переписан с реальным статусом
