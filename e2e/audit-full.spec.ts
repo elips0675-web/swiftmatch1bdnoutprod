@@ -6,7 +6,7 @@ const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:8081'
 const ADMIN_EMAIL = 'admin@mail.ru'
 const ADMIN_PASS = 'admin123'
 
-async function loginViaUI(page: { goto: (url: string) => Promise<void>; fill: (selector: string, value: string) => Promise<void>; click: (selector: string) => Promise<void>; waitForURL: (regex: RegExp, opts?: { timeout: number }) => Promise<void> }, email: string, password: string) {
+async function loginViaUI(page: { goto: (url: string) => Promise<void>; waitForLoadState: (state: string) => Promise<void>; fill: (selector: string, value: string) => Promise<void>; click: (selector: string) => Promise<void>; waitForURL: (regex: RegExp, opts?: { timeout: number }) => Promise<void> }, email: string, password: string) {
   await page.goto(`${BASE_URL}/login`)
   await page.waitForLoadState('networkidle')
   await page.fill('[data-testid="email"]', email)
@@ -31,14 +31,13 @@ test.describe('1. Health & Infrastructure', () => {
   })
 })
 
-// ============ 2. AUTH — Registration → Questionnaire ============
+// ============ 2. AUTH — Registration ============
 test.describe('2. Registration flow', () => {
   const uniqueEmail = `e2e_test_${Date.now()}@mail.ru`
 
   test('Register new user via UI then login', async ({ page, request }) => {
     const audit = createAudit(page)
 
-    // Register
     await page.goto(`${BASE_URL}/register`)
     await page.waitForLoadState('networkidle')
     await page.fill('[data-testid="name"]', 'E2E Test User')
@@ -46,12 +45,10 @@ test.describe('2. Registration flow', () => {
     await page.fill('[data-testid="password"]', 'TestPass123')
     await page.click('[data-testid="submit-register"]')
 
-    // Should redirect away from /register
     await page.waitForURL(/^((?!\/register).)*$/, { timeout: 10000 }).catch(() => {})
     const url = page.url()
     expect(url).not.toContain('/register')
 
-    // Now login with the new account
     await loginViaUI(page, uniqueEmail, 'TestPass123')
     await page.goto(`${BASE_URL}/profile/edit`)
     await page.waitForLoadState('networkidle')
@@ -69,7 +66,6 @@ test.describe('3. Negative auth tests', () => {
     await page.fill('[data-testid="password"]', 'wrongpassword')
     await page.click('[data-testid="submit-login"]')
 
-    // Should stay on /login and show error toast
     await page.waitForTimeout(1500)
     expect(page.url()).toContain('/login')
   })
@@ -80,7 +76,6 @@ test.describe('3. Negative auth tests', () => {
     await page.fill('[data-testid="password"]', 'test123')
     await page.click('[data-testid="submit-login"]')
 
-    // Browser-native validation for required field
     await page.waitForTimeout(500)
     const emailInput = page.locator('[data-testid="email"]')
     const validity = await emailInput.evaluate((el: HTMLInputElement) => el.validationMessage)
@@ -90,57 +85,46 @@ test.describe('3. Negative auth tests', () => {
 
 // ============ 4. SEARCH → LIKE → MATCH → CHAT ============
 test.describe('4. Like → Match → Chat (two users)', () => {
-  test('User A likes User B, creates match, sends message', async ({ browser, request }) => {
-    // Login both users via API to get tokens
+  test.use({ storageState: 'e2e/.auth/user4.json' })
+
+  test('User A likes User B, creates match, sends message', async ({ browser, page, request }) => {
     const tokenA = await loginViaApi(request, 'user4@demo.ru', 'admin123')
     const tokenB = await loginViaApi(request, 'user5@demo.ru', 'admin123')
     expect(tokenA).toBeTruthy()
     expect(tokenB).toBeTruthy()
 
-    // User A likes User B
     const likeA = await apiCall(request, 'POST', '/api/likes', { liked_user_id: 5 })
     expect(likeA.ok).toBe(true)
 
-    // User B likes User A (creates match)
     const likeB = await apiCall(request, 'POST', '/api/likes', { liked_user_id: 4 })
     expect(likeB.ok).toBe(true)
 
-    // Open User A's chat page
-    const pageA = await browser.newPage()
-    const auditA = createAudit(pageA)
-    await pageA.goto(`${BASE_URL}/login`)
-    await pageA.fill('[data-testid="email"]', 'user4@demo.ru')
-    await pageA.fill('[data-testid="password"]', 'admin123')
-    await pageA.click('[data-testid="submit-login"]')
-    await pageA.waitForTimeout(2000)
+    const audit = createAudit(page)
+    await page.goto(`${BASE_URL}/chats`)
+    await page.waitForLoadState('networkidle')
 
-    await pageA.goto(`${BASE_URL}/chats`)
-    await pageA.waitForLoadState('networkidle')
-
-    // Find a chat link and click it
-    const chatLink = pageA.locator('a[href*="/chats/"]').first()
+    const chatLink = page.locator('a[href*="/chats/"]').first()
     if (await chatLink.isVisible({ timeout: 3000 }).catch(() => false)) {
       await chatLink.click()
-      await pageA.waitForLoadState('networkidle')
+      await page.waitForLoadState('networkidle')
 
-      // Send a message
-      const msgInput = pageA.locator('[data-testid="message-input"]')
+      const msgInput = page.locator('[data-testid="message-input"]')
       if (await msgInput.isVisible({ timeout: 3000 }).catch(() => false)) {
         await msgInput.fill('Hello from E2E test!')
-        await pageA.locator('[data-testid="send-button"]').click()
-        await pageA.waitForTimeout(1000)
+        await page.locator('[data-testid="send-button"]').click()
+        await page.waitForTimeout(1000)
 
-        // Verify message appears in the list
-        await expect(pageA.locator('[data-testid="message-list"]')).toContainText('Hello from E2E test!')
+        await expect(page.locator('[data-testid="message-list"]')).toContainText('Hello from E2E test!')
       }
     }
-    auditA.expectClean()
-    await pageA.close()
+    audit.expectClean()
   })
 })
 
 // ============ 5. ADMIN FLOW ============
 test.describe('5. Admin flow', () => {
+  test.use({ storageState: 'e2e/.auth/admin.json' })
+
   let adminToken = ''
 
   test.beforeAll(async ({ request }) => {
@@ -149,7 +133,6 @@ test.describe('5. Admin flow', () => {
 
   test('Admin dashboard loads', async ({ page }) => {
     const audit = createAudit(page)
-    await loginViaUI(page, ADMIN_EMAIL, ADMIN_PASS)
     await page.goto(`${BASE_URL}/admin`)
     await page.waitForLoadState('networkidle')
     expect(page.url()).not.toContain('/login')
@@ -159,19 +142,16 @@ test.describe('5. Admin flow', () => {
   test('Toggle a feature flag via API', async ({ request }) => {
     if (!adminToken) test.skip()
 
-    // Get current flags
     const { body: flags } = await apiCall(request, 'GET', '/api/admin/features')
     expect(Array.isArray(flags)).toBe(true)
     if (flags.length === 0) return
 
-    // Toggle first flag
     const first = flags[0]
     const updated = await apiCall(request, 'PUT', '/api/admin/features', {
       [first.name || first.feature]: !(first.enabled ?? first.active),
     })
     expect(updated.ok).toBe(true)
 
-    // Toggle back
     const restored = await apiCall(request, 'PUT', '/api/admin/features', {
       [first.name || first.feature]: first.enabled ?? first.active,
     })
@@ -179,25 +159,17 @@ test.describe('5. Admin flow', () => {
   })
 
   test('Feature flags page has save/reset buttons', async ({ page }) => {
-    await loginViaUI(page, ADMIN_EMAIL, ADMIN_PASS)
     await page.goto(`${BASE_URL}/admin`)
-
-    const saveBtn = page.locator('[data-testid="save-features"]')
-    const resetBtn = page.locator('[data-testid="reset-features"]')
-
-    await expect(saveBtn).toBeVisible()
-    await expect(resetBtn).toBeVisible()
+    await expect(page.locator('[data-testid="save-features"]')).toBeVisible()
+    await expect(page.locator('[data-testid="reset-features"]')).toBeVisible()
   })
 
   test('Search users in admin panel', async ({ page }) => {
-    await loginViaUI(page, ADMIN_EMAIL, ADMIN_PASS)
     await page.goto(`${BASE_URL}/admin`)
-
     const searchInput = page.locator('[data-testid="search-users"]')
     if (await searchInput.isVisible({ timeout: 3000 }).catch(() => false)) {
       await searchInput.fill('demo')
       await page.waitForTimeout(1000)
-      // Verify results appear
       await expect(page.locator('table')).toBeVisible()
     }
   })
@@ -220,9 +192,10 @@ test.describe('6. Public pages load without errors', () => {
 
 // ============ 7. SETTINGS ============
 test.describe('7. Settings page', () => {
+  test.use({ storageState: 'e2e/.auth/demo.json' })
+
   test('Settings switches are interactive', async ({ page }) => {
     const audit = createAudit(page)
-    await loginViaUI(page, 'demo@mail.ru', 'admin123')
     await page.goto(`${BASE_URL}/settings`)
     await page.waitForLoadState('networkidle')
 
@@ -241,9 +214,10 @@ test.describe('7. Settings page', () => {
 
 // ============ 8. CHAT ============
 test.describe('8. Chat functionality', () => {
+  test.use({ storageState: 'e2e/.auth/demo.json' })
+
   test('Chat page opens and shows message input', async ({ page }) => {
     const audit = createAudit(page)
-    await loginViaUI(page, 'demo@mail.ru', 'admin123')
     await page.goto(`${BASE_URL}/chats`)
     await page.waitForLoadState('networkidle')
 
@@ -261,9 +235,10 @@ test.describe('8. Chat functionality', () => {
 
 // ============ 9. GROUPS ============
 test.describe('9. Groups page', () => {
+  test.use({ storageState: 'e2e/.auth/demo.json' })
+
   test('Groups create dialog opens', async ({ page }) => {
     const audit = createAudit(page)
-    await loginViaUI(page, 'demo@mail.ru', 'admin123')
     await page.goto(`${BASE_URL}/groups`)
     await page.waitForLoadState('networkidle')
 
@@ -281,9 +256,10 @@ test.describe('9. Groups page', () => {
 
 // ============ 10. NEGATIVE TESTS ============
 test.describe('10. Negative & security tests', () => {
+  test.use({ storageState: 'e2e/.auth/demo.json' })
+
   test('XSS in profile bio is escaped', async ({ page }) => {
     const audit = createAudit(page)
-    await loginViaUI(page, 'demo@mail.ru', 'admin123')
     await page.goto(`${BASE_URL}/profile/edit`)
     await page.waitForLoadState('networkidle')
 
@@ -322,9 +298,10 @@ test.describe('10. Negative & security tests', () => {
 
 // ============ 11. WS REAL-TIME ============
 test.describe('11. WebSocket real-time', () => {
+  test.use({ storageState: 'e2e/.auth/demo.json' })
+
   test('Message appears without page reload', async ({ page }) => {
     const audit = createAudit(page)
-    await loginViaUI(page, 'demo@mail.ru', 'admin123')
     await page.goto(`${BASE_URL}/chats`)
     await page.waitForLoadState('networkidle')
 
@@ -344,5 +321,59 @@ test.describe('11. WebSocket real-time', () => {
       }
     }
     audit.expectClean()
+  })
+})
+
+// ============ 12. WS TWO-BROWSER ============
+test.describe('12. WebSocket two-browser real-time', () => {
+  test('User A sends, User B receives without reload', async ({ browser, request }) => {
+    const tokenA = await loginViaApi(request, 'user4@demo.ru', 'admin123')
+    const tokenB = await loginViaApi(request, 'user5@demo.ru', 'admin123')
+    expect(tokenA).toBeTruthy()
+    expect(tokenB).toBeTruthy()
+
+    // Ensure match exists
+    await apiCall(request, 'POST', '/api/likes', { liked_user_id: 5 })
+    await apiCall(request, 'POST', '/api/likes', { liked_user_id: 4 })
+
+    const ctxA = await browser.newContext({ storageState: 'e2e/.auth/user4.json' })
+    const ctxB = await browser.newContext({ storageState: 'e2e/.auth/user5.json' })
+    const pageA = await ctxA.newPage()
+    const pageB = await ctxB.newPage()
+    const auditA = createAudit(pageA)
+    const auditB = createAudit(pageB)
+
+    await pageA.goto(`${BASE_URL}/chats`)
+    await pageA.waitForLoadState('networkidle')
+    await pageB.goto(`${BASE_URL}/chats`)
+    await pageB.waitForLoadState('networkidle')
+
+    const linkA = pageA.locator('a[href*="/chats/"]').first()
+    const linkB = pageB.locator('a[href*="/chats/"]').first()
+
+    if (await linkA.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await linkA.click()
+      await pageA.waitForLoadState('networkidle')
+
+      const inputA = pageA.locator('[data-testid="message-input"]')
+      if (await inputA.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await inputA.fill('Two-browser WS test')
+        await pageA.locator('[data-testid="send-button"]').click()
+        await pageA.waitForTimeout(1000)
+
+        if (await linkB.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await linkB.click()
+          await pageB.waitForLoadState('networkidle')
+
+          const msgListB = pageB.locator('[data-testid="message-list"]')
+          await expect(msgListB).toContainText('Two-browser WS test', { timeout: 8000 })
+        }
+      }
+    }
+
+    auditA.expectClean()
+    auditB.expectClean()
+    await ctxA.close()
+    await ctxB.close()
   })
 })

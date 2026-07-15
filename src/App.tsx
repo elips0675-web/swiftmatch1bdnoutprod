@@ -34,6 +34,10 @@ const ChatId = lazy(() => import("./pages/_chats-chatId-adapter"))
 const Contest = lazy(() => import("./pages/contest"))
 const Faq = lazy(() => import("./pages/faq"))
 const Groups = lazy(() => import("./pages/groups"))
+const Matches = lazy(() => import("./pages/matches"))
+const Premium = lazy(() => import("./pages/premium"))
+const SettingsPrivacy = lazy(() => import("./pages/settings-privacy"))
+const ProfileById = lazy(() => import("./pages/profile-[id]"))
 const GroupCategory = lazy(() => import("./pages/groups-category"))
 const LegalDataProcessing = lazy(() => import("./pages/legal-data-processing"))
 const LegalPrivacy = lazy(() => import("./pages/legal-privacy"))
@@ -96,6 +100,9 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/reports": "Жалобы — SwiftMatch",
   "/premium/success": "Оплата успешна — SwiftMatch",
   "/premium/cancel": "Оплата отменена — SwiftMatch",
+  "/matches": "Мои совпадения — SwiftMatch",
+  "/premium": "Премиум — SwiftMatch",
+  "/settings/privacy": "Конфиденциальность — SwiftMatch",
 }
 
 function DocumentTitle() {
@@ -135,6 +142,7 @@ const App = () => (
                     <Route path="/admin/reports" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminReports /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/photos" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminPhotos /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/users" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminUsers /></SuspenseWrapper></AdminLayout></AdminGuard>} />
+                    <Route path="/premium" element={<SuspenseWrapper><Premium /></SuspenseWrapper>} />
                     <Route path="/premium/success" element={<SuspenseWrapper><PremiumSuccess /></SuspenseWrapper>} />
                     <Route path="/premium/cancel" element={<SuspenseWrapper><PremiumCancel /></SuspenseWrapper>} />
                     <Route path="*" element={
@@ -159,12 +167,16 @@ const App = () => (
                             <Route path="/verify-email" element={<VerifyEmail />} />
                             <Route path="/onboarding" element={<Onboarding />} />
                             <Route path="/profile" element={<Profile />} />
+                            <Route path="/matches" element={<Matches />} />
+                            <Route path="/premium" element={<Premium />} />
                             <Route path="/profile/edit" element={<ProfileEdit />} />
+                            <Route path="/profile/:id" element={<ProfileById />} />
                             <Route path="/profile/attachment-test" element={<ProfileAttachmentTest />} />
                             <Route path="/register" element={<Register />} />
                             <Route path="/search" element={<Search />} />
                             <Route path="/search/filters" element={<SearchFilters />} />
                             <Route path="/settings" element={<Settings />} />
+                            <Route path="/settings/privacy" element={<SettingsPrivacy />} />
                             <Route path="/support-chat" element={<SupportChat />} />
                             <Route path="/user" element={<User />} />
                             <Route path="*" element={<NotFound />} />

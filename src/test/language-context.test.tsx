@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { renderHook, act } from "@testing-library/react"
+import { renderHook } from "@testing-library/react"
 
 const mockTranslations = {
   RU: {
@@ -18,11 +18,7 @@ vi.mock("@/context/language-context", () => ({
   useLanguage: () => ({
     language: 'RU' as const,
     setLanguage: vi.fn(),
-    t: (key: string) => {
-      const lang = 'RU' as const
-      // @ts-expect-error - dynamic lookup
-      return mockTranslations[lang]?.[key] || key
-    },
+    t: (key: string) => (mockTranslations['RU'] as Record<string, string>)[key] || key,
   }),
 }))
 
@@ -36,12 +32,8 @@ describe("useLanguage", () => {
     const { result } = renderHook(() => useLanguage())
 
     expect(result.current.language).toBe('RU')
-  })
-
-  it("translates known keys", () => {
-    const { t } = mockTranslations.RU
-    expect(t('interest.sport')).toBe('Спорт')
-    expect(t('common.zodiac.leo')).toBe('Лев')
+    expect(result.current.t('interest.sport')).toBe('Спорт')
+    expect(result.current.t('common.zodiac.leo')).toBe('Лев')
   })
 })
 

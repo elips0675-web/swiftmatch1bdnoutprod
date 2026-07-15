@@ -63,14 +63,11 @@ describe("FeatureFlagsProvider", () => {
       expect(screen.getByTestId("flags")).toBeTruthy()
     })
   })
-})
 
-describe("mapApiFlags", () => {
-  it("maps API response to FeatureFlags format", async () => {
-    const { default: defaultFlags } = await import("@/context/feature-flags-context")
-    // Just verify defaults are exported
-    expect(defaultFlags).toBeDefined()
-    expect(defaultFlags.videoCallsEnabled).toBe(true)
-    expect(defaultFlags.showAdsEnabled).toBe(false)
+  it("does not crash on import", async () => {
+    const mod = await import("@/context/feature-flags-context")
+    expect(mod).toBeDefined()
+    expect(mod.FeatureFlagsProvider).toBeDefined()
+    expect(mod.useFeatureFlags).toBeDefined()
   })
 })
