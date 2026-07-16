@@ -39,7 +39,9 @@
 - **MySQL backup:** `scripts/backup-mysql.ps1` + `.sh`, retention 7 дней
 - **Setup:** `scripts/setup.ps1` — авто-копирование .env + генерация JWT_SECRET + npm install
 - **S3 scaffold:** lazy-init (AWS env → multer-s3, иначе локальный диск)
-- **Redis scaffold:** lazy singleton с ioredis, disconnectRedis(), winston-логи
+- **Redis scaffold:** lazy singleton с ioredis, getRedis()/withRedis()/disconnectRedis(), winston-логи
+- **Redis cache module:** `cache.js` — `cacheRoute()`, `cacheRoutePerUser()`, `setCached()`/`getCached()`, `invalidate()`. Кэширует GET /api/profile/:id (60s) и GET /api/matches (30s per-user), сбрасывается при PUT profile и POST like→match
+- **CACHE_TTL:** env-переменная (`server/.env.example`), по умолчанию 60s
 
 ### Аудит по оценке kimi (июль 2026)
 - **Admin роуты:** проверены все 8 файлов — 30 тестов проходят
@@ -142,9 +144,10 @@
 | `/admin/messaging` | ✅ Починено | Падал с Vite SyntaxError из-за отсутствующего `</div>` в chats.tsx. Добавлен закрывающий тег |
 | **Сборка** | ✅ `vite build` | 2.09s, 3580 modules, 0 errors |
 
-### 🟢 Опционально
-1. Запустить Redis (`REDIS_URL`) для кэширования
-2. MySQL backup по cron — скрипты готовы, README содержит инструкцию
+### 🟢 Опционально (готово)
+1. **Redis** — lazy singleton, `cache.js` с `cacheRoute()`/`cacheRoutePerUser()`/`invalidate()`. Кэш на profile GET (60s) + matches GET (30s). Включить — раскомментировать `REDIS_URL` в `server/.env`
+2. **MySQL backup** — `scripts/backup-mysql.ps1` (авто-детект mysqldump, retention 7 дней). Task Scheduler создан: ежедневно в 03:00
+3. **S3 scaffold** — `scripts/setup.ps1` — авто-копирование .env + генерация JWT_SECRET + npm install
 
 ---
 ## Ключевые файлы
@@ -167,7 +170,7 @@
 - **Тесты:** 177 total — 52 фронт (11 файлов) + 95 сервер (9 файлов) + 30 E2E — 0 failures
 - **Сборка:** `vite build` успешно
 - **Логи:** Winston во всех серверных файлах (0 console.log/error)
-- **Backup:** скрипты + инструкция в README
+- **Backup:** `scripts/backup-mysql.ps1` (auto-detect mysqldump, retention 7d) + Task Scheduler (ежедневно 03:00)
 - **Setup:** `scripts/setup.ps1` — автоматическая настройка dev-окружения
 - **.env.example:** оба файла содержат все переменные с комментариями
 - **SEO:** sitemap.xml, расширенный robots.txt, улучшенный manifest.json

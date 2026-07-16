@@ -2,6 +2,7 @@ import { Router } from 'express'
 import pool from '../db.js'
 import { auth } from '../middleware.js'
 import logger from '../logger.js'
+import { cacheRoute, invalidate } from '../cache.js'
 
 const router = Router()
 
@@ -71,7 +72,7 @@ function parseJsonField(val, fallback) {
   return fallback || []
 }
 
-router.get('/api/profile/:id', async (req, res) => {
+router.get('/api/profile/:id', cacheRoute(60), async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT up.*, u.email FROM user_profiles up
@@ -129,6 +130,8 @@ router.put('/api/profile/:id', async (req, res) => {
         await pool.query('INSERT IGNORE INTO user_interests (user_id, interest_id) VALUES (?, ?)', [req.params.id, interestId])
       }
     }
+
+    invalidate(`route:/api/profile/${req.params.id}*`).catch(() => {})
 
     const [rows] = await pool.query('SELECT * FROM user_profiles WHERE id = ?', [req.params.id])
     res.json(rows[0])

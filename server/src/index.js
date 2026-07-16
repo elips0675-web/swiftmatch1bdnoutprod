@@ -13,6 +13,7 @@ import { initIO } from './ws.js'
 import { createLogger, rootLogger } from './logger.js'
 import { idempotency } from './middleware/idempotency.js'
 import { initSentry } from './sentry.js'
+import { getRedis, disconnectRedis } from './redis.js'
 
 import adminDashboard from './routes/admin/dashboard.js'
 import adminUsers from './routes/admin/users.js'
@@ -203,4 +204,12 @@ const httpServer = createServer(app)
 initIO(httpServer)
 httpServer.listen(PORT, () => {
   rootLogger.info(`SwiftMatch API running on port ${PORT}`)
+  getRedis() // lazy connect
+})
+
+process.on('SIGTERM', async () => {
+  rootLogger.info('SIGTERM received — shutting down')
+  await disconnectRedis()
+  await pool.end().catch(() => {})
+  httpServer.close(() => process.exit(0))
 })

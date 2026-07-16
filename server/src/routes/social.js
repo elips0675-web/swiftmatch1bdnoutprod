@@ -6,6 +6,7 @@ import { getBannedWords, containsBannedWord } from '../banned-words.js'
 import { sendPushToUser } from './push.js'
 import { auth } from '../middleware.js'
 import logger from '../logger.js'
+import { cacheRoutePerUser, invalidate } from '../cache.js'
 
 const likeLimiter = rateLimit({ windowMs: 60_000, max: 30, message: { message: 'Too many likes' } })
 
@@ -207,6 +208,8 @@ router.post('/api/likes', auth, likeLimiter, async (req, res) => {
         )
       }
       matched = true
+      invalidate(`user:${req.userId}:/api/matches*`).catch(() => {})
+      invalidate(`user:${liked_user_id}:/api/matches*`).catch(() => {})
     }
 
     const [notifResult] = await pool.query(
@@ -232,7 +235,7 @@ router.post('/api/likes', auth, likeLimiter, async (req, res) => {
 })
 
 // ─── Matches ───────────────────────────────────────────────────
-router.get('/api/matches', auth, async (req, res) => {
+router.get('/api/matches', auth, cacheRoutePerUser(30), async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT m.id, m.created_at as matched_at, up.id as user_id, up.display_name, up.name, up.age, up.avatar_url, up.city, up.online
