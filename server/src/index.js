@@ -33,6 +33,8 @@ import authRoutes, { createRefreshToken } from './routes/auth.js'
 import adminModerationRoutes from './routes/admin-moderation.js'
 import smsRoutes from './routes/sms.js'
 import moderationRoutes from './routes/moderation.js'
+import reportRoutes from './routes/report.js'
+import referralRoutes from './routes/referral.js'
 import { JWT_SECRET } from './middleware.js'
 import { setupSwagger } from './swagger.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -157,6 +159,8 @@ app.use(socialRoutes)
 app.use(authRoutes)
 app.use(smsRoutes)
 app.use(moderationRoutes)
+app.use(reportRoutes)
+app.use(referralRoutes)
 
 app.use('/api/admin', adminAuth)
 
@@ -207,6 +211,34 @@ initSentry(app)
 
 initQueues()
 
+// Health checks
+app.get('/health/live', (req, res) => {
+  res.json({ status: 'ok' })
+})
+
+app.get('/health/ready', async (req, res) => {
+  const checks = { db: false, redis: false }
+  try {
+    await pool.query('SELECT 1')
+    checks.db = true
+  } catch {}
+  try {
+    const r = getRedis()
+    if (r) { await r.ping(); checks.redis = true }
+  } catch {}
+  const allOk = checks.db
+  res.status(allOk ? 200 : 503).json({ status: allOk ? 'ok' : 'error', checks })
+})
+
+app.get('/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1')
+    res.json({ status: 'ok', db: 'connected' })
+  } catch {
+    res.status(503).json({ status: 'error', db: 'disconnected' })
+  }
+})
+
 const httpServer = createServer(app)
 initIO(httpServer)
 httpServer.listen(PORT, () => {
@@ -214,10 +246,21 @@ httpServer.listen(PORT, () => {
   getRedis() // lazy connect
 })
 
-process.on('SIGTERM', async () => {
-  rootLogger.info('SIGTERM received — shutting down')
+const SHUTDOWN_TIMEOUT = 10_000
+
+async function shutdown(signal) {
+  rootLogger.info(`${signal} received — shutting down`)
+  const forceExit = setTimeout(() => {
+    rootLogger.error('Shutdown timeout — force exit')
+    process.exit(1)
+  }, SHUTDOWN_TIMEOUT)
+  httpServer.close(() => {})
   await closeQueues()
   await disconnectRedis()
   await pool.end().catch(() => {})
-  httpServer.close(() => process.exit(0))
-})
+  clearTimeout(forceExit)
+  process.exit(0)
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))

@@ -836,14 +836,18 @@ swiftmatch1bddomadm/
 │       │   ├── push.job.js
 │       │   └── image.job.js
 │       ├── banned-words.js       # Фильтр запрещённых слов
+│       ├── audit.js              # Soft delete + audit log helpers
+│       ├── seed.js               # Database seeder (50 users, matches, msgs)
 │       ├── middleware/           # auth.js, idempotency.js, adminAuth.js
 │       └── routes/
 │           ├── admin/            # dashboard, users, features, content, reports...
+│           ├── report.js         # POST /api/reports + auto-ban
+│           ├── referral.js       # GET /api/referral/code + apply + stats
 │           └── *.js              # auth, profile, social, premium, upload...
 ├── database/
 │   ├── mysql_schema.sql          # Полная схема БД
 │   ├── demo_data.sql             # Тестовые данные
-│   └── migrations/               # Нумерованные миграции (005 = spatial)
+│   └── migrations/               # Нумерованные миграции (006 = audit, 007 = referral)
 ├── android/                      # Capacitor нативный проект
 ├── scripts/                      # setup.ps1, backup-mysql, migrate
 ├── nginx/                        # swiftmatch.conf

@@ -94,7 +94,10 @@ const router = Router()
 router.get('/api/users/search', auth, async (req, res) => {
   const { gender, looking_for, age_min, age_max, city, interest, lat, lng, radius } = req.query
   try {
-    const [[self]] = await pool.query('SELECT attachment_style, lat, lng FROM user_profiles WHERE id = ?', [req.userId])
+    const [[self]] = await pool.query(
+      'SELECT attachment_style, lat, lng, age FROM user_profiles WHERE id = ?',
+      [req.userId],
+    )
     const userStyle = self?.attachment_style
 
     let compJoin = ''
@@ -126,7 +129,7 @@ router.get('/api/users/search', auth, async (req, res) => {
     const blockJoin = ' LEFT JOIN user_blocks bl ON (bl.blocker_id = ? AND bl.blocked_id = up.id) OR (bl.blocker_id = up.id AND bl.blocked_id = ?)'
     const blockWhere = ' AND bl.blocker_id IS NULL'
 
-    const whereClauses = ['up.id != ?']
+    const whereClauses = ['up.id != ?', 'up.deleted_at IS NULL']
     const whereParams = [req.userId]
 
     if (interest) {

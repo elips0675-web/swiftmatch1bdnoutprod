@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import pool from '../../db.js'
 import logger from '../../logger.js'
+import { softDelete, softDeleteWhere } from '../../audit.js'
 
 const router = Router()
 
@@ -117,7 +118,8 @@ router.post('/users/:id/unban', async (req, res) => {
 
 router.delete('/users/:id', async (req, res) => {
   try {
-    await pool.query('DELETE FROM users WHERE id = ?', [req.params.id])
+    await softDelete('users', req.params.id, req.admin?.id, req.ip)
+    await pool.query('UPDATE users SET is_active = 0 WHERE id = ?', [req.params.id])
     res.json({ message: 'User deleted' })
   } catch (err) {
     logger.error('Delete error:', err)
@@ -132,7 +134,8 @@ router.post('/users/bulk', async (req, res) => {
   }
   try {
     if (action === 'delete') {
-      await pool.query(`DELETE FROM users WHERE id IN (?)`, [ids])
+      await softDeleteWhere('users', `id IN (?)`, [ids], req.admin?.id, req.ip)
+      await pool.query(`UPDATE users SET is_active = 0 WHERE id IN (?)`, [ids])
     } else if (action === 'ban') {
       await pool.query(`UPDATE users SET is_active = 0 WHERE id IN (?)`, [ids])
     } else if (action === 'suspend') {

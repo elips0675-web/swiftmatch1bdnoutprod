@@ -4,7 +4,7 @@
 
 Отличается от оригинала:
 - **Бэкенд:** Node.js/Express + MySQL (Laragon), а не Supabase
-- **Данные:** демо-данные (3 пользователя, чаты, сообщения, группы, посты)
+- **Данные:** демо-данные (50 пользователей, 30 мэтчей, 200 сообщений)
 - **Порт API:** 3002 (чтобы не конфликтовать с оригиналом на 3001)
 - **Порт фронта:** 8081
 
@@ -57,11 +57,11 @@ npx vite --port 8081 --host
 
 ### 👤 Пользовательский опыт
 - Регистрация, анкета, лайки, мэтчи, чаты — полный цикл знакомств
-- Геопоиск по радиусу (Haversine formula)
-- AI-рекомендации на основе `compatibility_scores`
+- Геопоиск по радиусу (MySQL Spatial ST_Distance_Sphere)
+- Smart Matching: interest overlap + age distance + compatibility + activity
 - Attachment-тест для психологической совместимости
 - Системные и push-уведомления (Service Worker + VAPID)
-- 11 демо-ботов для тестирования (автолайки + сообщения)
+- 50 демо-пользователей для тестирования (npm run db:seed)
 - i18n (русский / английский), все данные — translation keys
 
 ### 💳 Монетизация
@@ -113,6 +113,19 @@ npx vite --port 8081 --host
 - **SMTP:** Nodemailer с retry-логикой (3 попытки, exponential backoff 1s/2s/3s)
 - Graceful skip при пустых SMTP_USER/PASS
 - Push-уведомления через VAPID + web-push
+
+### 🛡️ Модерация и репорты
+- **AI Moderation:** OpenAI Moderation + AWS Rekognition + эвристика (regex banned-words)
+- **Auto-escalation:** 1 report → pending, 3+ → temp ban, 5+ → permanent ban
+- Severe categories (nudity, violence) → мгновенный бан
+
+### 📋 Аудит и soft delete
+- **Soft Deletes:** `deleted_at` на 11 основных таблицах
+- **Audit Log:** `audit_log` таблица со всеми мутациями (кто, что, когда)
+
+### 🎁 Реферальная система
+- Уникальный referral_code для каждого пользователя
+- Отслеживание приглашённых друзей и премиум-конверсий
 
 ### 🧪 Тестирование
 - **Фронтенд (Vitest):** 52 теста, 11 файлов
@@ -171,6 +184,7 @@ npx vite --port 8081 --host
   - Socket.IO Redis Adapter (горизонтальное масштабирование WS)
 - Настроить `mysqldump` cron: `scripts/backup-mysql.ps1` (Windows) или `scripts/backup-mysql.sh` (Linux) с retention 7 дней (инструкция ниже)
 - Включить геопоиск: запустить `node database/migrations/migrate.js`
+- Сгенерировать тестовые данные: `cd server && npm run db:seed`
 
 ---
 

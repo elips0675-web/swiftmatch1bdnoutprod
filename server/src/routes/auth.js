@@ -128,7 +128,7 @@ async function createRefreshToken(userId) {
 }
 
 router.post('/api/auth/register', async (req, res) => {
-  const { email, password, displayName } = req.body
+  const { email, password, displayName, referralCode } = req.body
   if (!email || !password) return res.status(400).json({ message: 'Email and password required' })
   if (password.length < 6) return res.status(400).json({ message: 'Password must be at least 6 characters' })
 
@@ -140,9 +140,15 @@ router.post('/api/auth/register', async (req, res) => {
     const password_hash = await bcrypt.hash(password, 10)
     const verification_token = crypto.randomBytes(32).toString('hex')
 
+    let referredBy = null
+    if (referralCode) {
+      const [[ref]] = await pool.query('SELECT id FROM users WHERE referral_code = ?', [referralCode])
+      if (ref) referredBy = ref.id
+    }
+
     const [result] = await pool.query(
-      'INSERT INTO users (email, password_hash, role, verification_token) VALUES (?, ?, ?, ?)',
-      [email, password_hash, 'user', verification_token],
+      'INSERT INTO users (email, password_hash, role, verification_token, referral_code, referred_by) VALUES (?, ?, ?, ?, ?, ?)',
+      [email, password_hash, 'user', verification_token, crypto.randomBytes(3).toString('hex'), referredBy],
     )
     const userId = result.insertId
 

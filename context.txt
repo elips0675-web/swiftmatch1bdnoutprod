@@ -162,6 +162,7 @@
 ### Тесты
 - **177 тестов, 0 failures:** 52 фронт (11 файлов) + 95 сервер (9 файлов) + 30 E2E (2 spec-файла)
 - **Июль 2026 — 3-я итерация:** Bull Queue (3 очереди), Redis Socket.IO Adapter, Geospatial Search (MySQL Spatial)
+- **Июль 2026 — 4-я итерация (Laragon):** Health Checks+Graceful Shutdown, Database Seeding, Soft Deletes+Audit Log, Report Escalation Flow, Referral System, Smart Matching
 
 ### Документация
 - **server/.env.example:** все переменные с комментариями (Stripe, SMTP, Sentry, Redis, S3)
@@ -313,19 +314,19 @@
 | # | Раздел | Статус |
 |---|--------|--------|
 | 21 | LOCAL_SETUP.md + .nvmrc + engines | ❌ |
-| 22 | Database Seeding (npm run db:seed/reset) | ❌ |
+| 22 | Database Seeding (npm run db:seed/reset) | ✅ server/src/seed.js |
 | 23 | State Management Decision Tree | ❌ |
 | 24 | Error Handling Strategy (единый формат ошибок) | ❌ |
 | 25 | Request Validation (Zod shared между фронтом/бэком) | ❌ |
 | 26 | Performance Budget + PWA + Image Strategy | ❌ |
 | 27 | a11y Checklist + Loading States (Skeleton) | ❌ |
-| 28 | Database Query Optimization + Soft Deletes + Audit Log | ❌ |
+| 28 | Database Query Optimization + Soft Deletes + Audit Log | ✅ миграция 006 + audit.js |
 | 29 | Idempotency Keys + Circuit Breaker | ❌ |
 | 30 | CSP Strict + Webhook Signature + Secrets Rotation | ❌ |
-| 31 | Graceful Shutdown + Readiness/Liveness Health Checks | ❌ |
+| 31 | Graceful Shutdown + Readiness/Liveness Health Checks | ✅ /health/live + /health/ready |
 | 32 | Testing Pyramid + Visual Regression + Contract Tests | ❌ |
 | 33 | Infrastructure as Code + Blue-Green Deploy + Migration Safety | ❌ |
-| 34 | Subscription Lifecycle + Referral System + Granular Rate Limits | ❌ |
+| 34 | Subscription Lifecycle + Referral System + Granular Rate Limits | ✅ referral + auto-ban |
 | 35 | Outbox Pattern (релиабельные события) + Dead Letter Queue | ❌ |
 | 36 | Distributed Tracing (OpenTelemetry + Jaeger) | ❌ |
 | 37 | Cache Strategy (Cache-Aside, Write-Through, Invalidation) | ❌ |

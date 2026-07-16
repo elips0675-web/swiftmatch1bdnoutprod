@@ -73,6 +73,45 @@
 | Безопасность: больше нет конкатенации координат в SQL (была SQL-инъекция) | `social.js` — все параметры через prepared statements |
 | **Тесты** | server 117/117 ✅, Vite build 3581 modules 0 errors ✅ |
 
+## 4-я итерация (Laragon) — Health Checks + Seeding + Soft Deletes + Report + Referral
+
+### 28.2+28.3 — Health Checks + Graceful Shutdown
+| Изменение | Файл |
+|-----------|------|
+| `/health/live` — always 200 (сервер жив) | `server/src/index.js` |
+| `/health/ready` — DB + Redis check (200/503) | `server/src/index.js` |
+| SIGINT handler (Ctrl+C на Windows) | `server/src/index.js` |
+| Shutdown timeout 10s | `server/src/index.js` |
+
+### 22.2 — Database Seeding
+| Изменение | Файл |
+|-----------|------|
+| Seed script (50 users, 30 matches, 200 msgs, admin/banned/premium) | `server/src/seed.js` |
+| npm scripts: `db:seed`, `db:reset` | `server/package.json` |
+
+### 26.2 — Soft Deletes + Audit Log
+| Изменение | Файл |
+|-----------|------|
+| Миграция: deleted_at на 11 таблиц + audit_log | `database/migrations/006_add_soft_delete_audit.sql` |
+| Audit helper (auditLog, softDelete, softDeleteWhere) | `server/src/audit.js` |
+| Soft delete в DELETE /api/profile/me | `server/src/routes/profile.js` |
+| Soft delete в admin DELETE /users/:id + bulk | `server/src/routes/admin/users.js` |
+
+### 34.9 — Report Escalation Flow
+| Изменение | Файл |
+|-----------|------|
+| POST /api/reports (user-facing report endpoint) | `server/src/routes/report.js` |
+| Auto-ban: 3 reports → temp ban, 5+ → permanent | `server/src/routes/report.js` |
+| Severe categories (nudity, violence) → instant ban | `server/src/routes/report.js` |
+
+### 31.2 — Referral / Invite System
+| Изменение | Файл |
+|-----------|------|
+| Миграция: referral_code + referred_by на users | `database/migrations/007_add_referral.sql` |
+| GET /api/referral/code, POST /api/referral/apply, GET /api/referral/stats | `server/src/routes/referral.js` |
+| referralCode при регистрации | `server/src/routes/auth.js` |
+| **Тесты** | server 117/117 ✅ |
+
 ## Запланировано / не сделано
 - .env секреты (Stripe, SMTP, Sentry, S3, Redis) — ждём реальные credentials
 - **Push FCM для Android** — Firebase Cloud Messaging для Capacitor

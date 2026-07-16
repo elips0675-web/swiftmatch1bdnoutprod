@@ -4,6 +4,8 @@ import { auth } from '../middleware.js'
 import logger from '../logger.js'
 import { cacheRoute, invalidate } from '../cache.js'
 
+import { softDelete } from '../audit.js'
+
 const router = Router()
 
 /**
@@ -153,6 +155,7 @@ router.put('/api/profile/:id', async (req, res) => {
 // ─── Account deletion ──────────────────────────────────────────
 router.delete('/api/profile/me', auth, async (req, res) => {
   try {
+    await softDelete('users', req.userId, req.userId, req.ip)
     await pool.query('UPDATE users SET is_active = 0, email = CONCAT(email, \'.deleted\', UNIX_TIMESTAMP()) WHERE id = ?', [req.userId])
     res.json({ message: 'Account deleted' })
   } catch (err) {
