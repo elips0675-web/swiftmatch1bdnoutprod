@@ -101,6 +101,36 @@
 - **noValidate:** добавлен на все формы авторизации (login, register, forgot/reset-password)
 - **no-empty / unused expressions:** исправлены в admin-users.tsx, profile.tsx, chats.tsx
 
+### Stage 1 — WebRTC Video/Voice Calls
+- `server/src/ws.js`: +6 signalling событий (call-user, call-accepted, call-rejected, ice-candidate, end-call)
+- `src/hooks/use-webrtc.ts`: новый — RTCPeerConnection + Google STUN + call states
+- `src/components/video-call.tsx`: переписан — remote video, PiP, mute, fullscreen
+- `src/components/voice-call.tsx`: переписан — audio call, mute, speaker toggle
+- `src/pages/chats-chatId.tsx`: Phone/Video кнопки + WebRTC интеграция
+- Сборка: ✅, тесты: ✅
+
+### Stage 2 — Sharp Image Pipeline
+- `server/src/image-pipeline.js`: новый — resize 800/400/200 + WebP (q80) + AVIF (q65)
+- `server/src/routes/upload.js`: импортирует pipeline после успешного upload
+- Сборка: ✅, тесты: ✅
+
+### Stage 3 — Push Notifications (было готово до этапов)
+- VAPID keys, Service Worker (`public/sw.js`), PwaRegistry, push API (GET/POST/DELETE /api/push/*)
+- `subscribeToPush()` / `unsubscribeFromPush()` в настройках
+- Интеграция с лайками (social.js), массовая рассылка из админки
+- Unit-тесты: 6 тестов в push.test.js
+
+### Stage 4 — SMS Verification (Twilio scaffold)
+- `server/src/sms.js`: Twilio client (graceful mock без ключей)
+- `server/src/routes/sms.js`: send-code/verify/status эндпоинты, rate-limit 3 SMS/час
+- `database/migrations/004_add_sms_verification.sql`: таблица sms_verification + phone колонка
+- twilio установлен в server/node_modules
+
+### Stage 5 — AI Moderation (scaffold)
+- `server/src/ai-moderation.js`: OpenAI Moderation + AWS Rekognition (graceful fallback), текстовая эвристика
+- `server/src/routes/moderation.js`: check-text, check-image, review-profile, status эндпоинты
+- Без ключей: текст → эвристика (regex), изображения → auto-approve
+
 ### Админка
 - **admin/messaging:** страница работает (200, API GET/POST /api/admin/campaigns)
 - **admin/analytics.js:** overview, retention, revenue-mix, registrations
@@ -131,7 +161,23 @@
 | `CORS_ORIGIN` | `server/.env` | Домен прода |
 
 ### 🟠 Остаётся доделать
-1. **Real API ключи:** вписать 7 ключей в `server/.env` (см. таблицу выше)
+1. **Real API ключи:** вписать 7 ключей в `server/.env`
+2. **Push FCM для Android:** заменить/дополнить VAPID Web Push на Firebase Cloud Messaging для Capacitor
+3. **Deep Links:** настроить Universal Links (iOS) + App Links (Android)
+4. **Background sync:** сообщения в offline → отправка при возвращении
+
+## Priority Timeline — что делать в каком порядке
+
+| Фаза | Что делать | Почему срочно |
+|------|-----------|---------------|
+| **Неделя 1-2** | Push FCM + Deep Links | Без этого мобильное приложение — мёртвое |
+| **Неделя 3-4** | CI/CD + Docker + nginx + SSL | Ручной деплой = боль и ошибки |
+| **Неделя 5-6** | Apple/Google IAP через RevenueCat | App Store отклонит без нативных платежей |
+| **Неделя 7-8** | CDN для фото + Image optimization | Трафик фото убьёт сервер первым |
+| **Месяц 2** | Analytics + A/B testing | Нельзя оптимизировать то, что не измеряешь |
+| **Месяц 2-3** | AI-модерация фото + GDPR compliance | Бан в App Store или штраф GDPR = смерть проекта |
+
+Полное описание 10 категорий и 34.1–34.12 — в `Промты.txt` (разделы 33–34).
 
 ### Проверка страниц (июль 2026)
 | Страница | Статус | Примечание |
@@ -206,11 +252,11 @@
 ### 🟠 Высокий
 | # | Задача | Статус |
 |---|--------|--------|
-| 6 | Push Notifications (Firebase Cloud Messaging + Capacitor) | ❌ |
-| 7 | SMS Verification (Twilio / Vonage) | ❌ |
-| 8 | AI Content Moderation (AWS Rekognition / Google Vision) | ❌ |
-| 9 | Image Processing Pipeline (Sharp + S3 + CloudFront + WebP) | ❌ |
-| 10 | Video / Voice Calls (WebRTC + coturn STUN/TURN) | ❌ |
+| 6 | Push Notifications (Firebase Cloud Messaging + Capacitor) | ✅ VAPID Web Push есть; FCM для Android — ❌ |
+| 7 | SMS Verification (Twilio / Vonage) | ⚠️ scaffold: клиент + роуты + миграция |
+| 8 | AI Content Moderation (AWS Rekognition / Google Vision) | ⚠️ scaffold: OpenAI + Rekognition + эвристика |
+| 9 | Image Processing Pipeline (Sharp + S3 + CloudFront + WebP) | ✅ Sharp resize + WebP + AVIF; CDN — ❌ |
+| 10 | Video / Voice Calls (WebRTC + coturn STUN/TURN) | ✅ RTCPeerConnection + STUN + сигналинг |
 
 ### 🟡 Средний
 | # | Задача | Статус |

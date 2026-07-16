@@ -628,11 +628,11 @@ app.use('/api/v1', v1Routes);
 | 21.3 | Background Jobs (Bull Queue) | 🔴 | ❌ |
 | 21.4 | Redis Socket.IO Adapter | 🔴 | ❌ |
 | 21.5 | Geospatial Search (MySQL Spatial) | 🔴 | ❌ |
-| 21.6 | Push Notifications (FCM) | 🟠 | ❌ |
-| 21.7 | SMS Verification (Twilio) | 🟠 | ❌ |
-| 21.8 | AI Moderation (Rekognition) | 🟠 | ❌ |
-| 21.9 | Image Pipeline (Sharp + CDN) | 🟠 | ❌ |
-| 21.10 | WebRTC Video/Voice | 🟠 | ❌ |
+| 21.6 | Push Notifications (FCM) | 🟠 | ✅ (VAPID + SW + API) |
+| 21.7 | SMS Verification (Twilio) | 🟠 | ⚠️ (scaffold: клиент + роуты + миграция) |
+| 21.8 | AI Moderation (Rekognition) | 🟠 | ⚠️ (scaffold: OpenAI + Rekognition + эвристика) |
+| 21.9 | Image Pipeline (Sharp + CDN) | 🟠 | ✅ (Sharp resize + WebP + AVIF) |
+| 21.10 | WebRTC Video/Voice | 🟠 | ✅ (RTCPeerConnection + STUN + сигналинг) |
 | 21.11 | Feature Flags (Unleash) | 🟡 | ❌ |
 | 21.12 | Product Analytics (PostHog) | 🟡 | ❌ |
 | 21.13 | Monitoring (Grafana) | 🟡 | ❌ |
@@ -998,3 +998,259 @@ const { NodeTracerProvider } = require('@opentelemetry/sdk-trace-node');
 4. Fix: deploy + verify
 5. Post-mortem: что произошло, почему, что делаем, чтобы не повторилось
 Фиксит: «Одна и та же ошибка — каждый месяц». Без post-mortem команда не учится.
+
+---
+
+## 33. Production Launch Playbook
+
+### Проблема: код написан — продукт не готов
+
+Текущий план (разделы 1–32) отлично покрывает **разработку**: код, тесты, архитектура. Но не покрывает **эксплуатацию** (как это работает под нагрузкой), **рост** (как привлекать и удерживать) и **комплаенс** (как не получить штраф).
+
+Ниже — 10 категорий, которые превращают прототип в полноценный продукт.
+
+---
+
+### 33.1 DevOps & Инфраструктура
+
+| Что | Детали | Статус |
+|-----|--------|--------|
+| **CI/CD Pipeline** | GitHub Actions: lint → test → build → deploy на staging/prod | `.github/workflows/deploy.yml` — есть, расширить |
+| **Docker Compose** | `docker-compose.yml` для локальной разработки (MySQL + Redis + Server + Client) | ❌ |
+| **Dockerfile** | Multi-stage: deps → build → prod, healthcheck | Есть, но нужен compose |
+| **Nginx prod** | gzip/brotli, rate limiting на уровне nginx, WebSocket proxy_pass, SSL (Let's Encrypt) | `nginx/swiftmatch.conf` — есть |
+| **Health checks** | `/health` есть. `/ready` для Kubernetes (DB+Redis+S3 доступны) | ❌ `/ready` |
+| **Blue-green deploy** | Zero-downtime обновления, rollback за 30s | ❌ |
+
+### 33.2 Мониторинг и Алертинг
+
+| Что | Детали | Статус |
+|-----|--------|--------|
+| **APM** | New Relic / Datadog / Sentry Performance — не только ошибки, но и slow queries | ❌ |
+| **Логи** | Centralized logging: ELK / Grafana Loki / CloudWatch | Winston JSON есть, агрегации нет |
+| **Метрики** | Prometheus + Grafana: мэтчи/мин, WS latency, failed payments, banned rate | ❌ |
+| **Алерты** | PagerDuty/Opsgenie: /health падает, Stripe webhook 500, Redis/MySQL offline | ❌ |
+
+### 33.3 Мобильный опыт (Capacitor)
+
+| Что | Детали | Статус |
+|-----|--------|--------|
+| **Push (FCM)** | Firebase Cloud Messaging для мэтчей, сообщений, лайков. Без пушей — 60% уходят | ✅ VAPID (Web Push). FCM для Android — ❌ |
+| **Deep Links** | `https://swiftmatch.app/chat/123` → открывается сразу в чате | ❌ |
+| **Background sync** | Загрузка сообщений при возвращении из background | ❌ |
+| **App Store / Play Store** | Скриншоты, описание, privacy policy, age rating (17+ для дейтинга) | ❌ |
+
+### 33.4 Безопасность и Compliance
+
+| Что | Детали | Статус |
+|-----|--------|--------|
+| **GDPR / CCPA** | «Delete my account» физически удаляет данные. Экспорт данных пользователя | ❌ |
+| **Privacy Policy + ToS** | Обязательны для App Store и Stripe | ❌ |
+| **Age verification** | Дейтинг 18+. Флаг при регистрации + модерация | ❌ |
+| **AI moderation** | AWS Rekognition / Google Vision на nudity/violence + ручная очередь | ⚠️ scaffold |
+| **Report escalation** | Auto-ban при N репортах, очередь для модератора, приоритеты | ❌ |
+
+### 33.5 Аналитика и Рост
+
+| Что | Детали | Статус |
+|-----|--------|--------|
+| **Product Analytics** | Amplitude / Mixpanel / PostHog: funnel (регистрация → первый лайк → первый мэтч → первое сообщение) | ❌ |
+| **A/B Testing** | Optimizely / GrowthBook: цвета кнопок, порядок фото, цены премиума | ❌ |
+| **Crashlytics** | Firebase Crashlytics для мобильного приложения | ❌ |
+| **SEO** | SSR или prerender для публичных профилей (если «поделиться профилем») | ❌ |
+
+### 33.6 Платежи и Монетизация
+
+| Что | Детали | Статус |
+|-----|--------|--------|
+| **Subscription management** | Upgrade/downgrade/cancel, grace period, proration | ⚠️ частично |
+| **In-app purchases** | Для iOS/Android обязательны Apple Pay / Google Pay. Stripe внутри приложения — нарушение правил Apple | ❌ |
+| **Promo codes / Referrals** | «Пригласи друга — 7 дней премиума» | ❌ (раздел 31.2 не реализован) |
+| **RevenueCat** | Абстракция над Stripe + Apple IAP + Google IAP. Рекомендуется для мобильного дейтинга | ❌ |
+
+### 33.7 Производительность и Масштабирование
+
+| Что | Детали | Статус |
+|-----|--------|--------|
+| **CDN** | Cloudflare / AWS CloudFront для фото (не гонять 5MB аватарки через сервер) | ❌ |
+| **Image optimization** | WebP/AVIF, responsive sizes. Sharp pipeline есть, CDN нет | ⚠️ Sharp есть, CDN нет |
+| **DB optimization** | Индексы, read replicas, SPATIAL INDEX для geo | ⚠️ частично |
+| **Connection pooling** | Pool max = 20+ для нагрузки. Мониторинг пула | ⚠️ scaffold |
+| **Load balancing** | >1 инстанс сервера → Socket.IO Redis Adapter | ❌ |
+
+### 33.8 UX / Продуктовые фичи
+
+| Что | Детали | Статус |
+|-----|--------|--------|
+| **Onboarding flow** | Интерактивный туториал: «Свайпни вправо», «Напиши приветствие» | ❌ |
+| **Smart matching** | Score на основе интересов, активности, ELO-подобный рейтинг | ❌ (сейчас просто geo + gender) |
+| **Icebreakers** | Подсказки первого сообщения («Спроси про фото с собакой») | ❌ |
+| **Stories / Moments** | Ephemeral content (как Tinder/Bumble) — повышает retention | ❌ |
+| **Video chat UX** | WebRTC есть (Stage 1), но нет UI для инициирования, очереди звонков | ⚠️ базовая интеграция |
+
+### 33.9 Тестирование (дополнение)
+
+| Что | Детали | Статус |
+|-----|--------|--------|
+| **Load Testing** | k6/Artillery: 1000 concurrent WS, 100 лайков/сек | ❌ |
+| **Chaos Engineering** | Что если Redis упадёт? Graceful fallback к DB | ❌ |
+| **Visual Regression** | Percy/Chromatic для UI-компонентов shadcn/ui | ❌ |
+
+### 33.10 Документация и API
+
+| Что | Детали | Статус |
+|-----|--------|--------|
+| **OpenAPI (Swagger)** | Полный coverage всех роутов + примеры ответов | ⚠️ начат, не полный |
+| **API Versioning** | `/api/v1/...` — обязательно до первого релиза, иначе сломаешь мобильные клиенты | ❌ |
+| **Postman Collection** | Для тестирования и onboarding новых разработчиков | ❌ |
+
+---
+
+### 33.11 Priority Timeline (что делать в каком порядке)
+
+| Фаза | Что делать | Почему срочно |
+|------|-----------|---------------|
+| **Неделя 1-2** | Push-уведомления (FCM) + Deep Links | Без этого мобильное приложение — мёртвое |
+| **Неделя 3-4** | CI/CD + Docker + nginx + SSL | Ручной деплой = боль и ошибки |
+| **Неделя 5-6** | Apple/Google IAP через RevenueCat | App Store отклонит без нативных платежей |
+| **Неделя 7-8** | CDN для фото + Image optimization | Трафик фото убьёт сервер первым |
+| **Месяц 2** | Analytics + A/B testing | Нельзя оптимизировать то, что не измеряешь |
+| **Месяц 2-3** | AI-модерация фото + GDPR compliance | Бан в App Store или штраф GDPR = смерть проекта |
+
+---
+
+## 34. Product & Infrastructure Concepts (дополнения к существующим разделам)
+
+### 34.1 Deep Links (универсальные ссылки)
+
+```ts
+// Пример: https://swiftmatch.app/chat/123
+// Настройка:
+// 1. Apple App Site Association: /.well-known/apple-app-site-association
+// 2. Android: assetlinks.json в корне
+// 3. Capacitor: @capacitor/app-launcher
+// 4. Route: /chat/:chatId → openChat(chatId) (React Router)
+// 5. Web: history.pushState → navigator.serviceWorker → focus window
+```
+Фиксит: пользователь кликает ссылку из пуша — попадает на главную, а не в чат.
+
+### 34.2 In-App Purchases (Apple/Google IAP)
+
+**Правило Apple:** любое цифровое преимущество (Premium, лайки, суперлайки) должно оплачиваться через Apple IAP, иначе App Store отклоняет приложение.
+
+```ts
+// Стратегия:
+// 1. RevenueCat как абстракция (один SDK для Stripe + Apple + Google)
+// 2. Сервер верифицирует receipt через RevenueCat REST API
+// 3. В iOS: только IAP. В Android: IAP + Google Pay. В Web: Stripe.
+// 4. Проверка entitlement на сервере при каждом запросе
+```
+Фиксит: App Store rejection + loss of 30% revenue если использовать Stripe внутри iOS приложения.
+
+### 34.3 Stories / Moments (Ephemeral Content)
+
+```ts
+// Таблица: user_stories (id, user_id, media_url, created_at, expires_at)
+// - 24 часа живут, потом DELETE или archive
+// - View tracking: story_views (user_id, story_id, viewed_at)
+// - UI: горизонтальный ряд кругов сверху, тап → переключение
+```
+Фиксит: Tinder и Bumble имеют stories — повышают DAU на 20%. Без них приложение выглядит устаревшим.
+
+### 34.4 Smart Matching Algorithm
+
+```ts
+// matching_score = 
+//   w1 * interest_overlap     (0-1, общие интересы / всего интересов)
+//   + w2 * age_distance       (обратная разница: 1 - |age1-age2|/50)
+//   + w3 * location_proximity (0-1, чем ближе тем выше)
+//   + w4 * activity_score     (0-1, когда последний раз был онлайн)
+//   + w5 * elo_rating         (0-1, нормализованный ELO)
+```
+Фиксит: «Почему мне показывают людей, с которыми у меня 0 общего?». Случайный порядок убивает конверсию в мэтч.
+
+### 34.5 Crashlytics (Mobile)
+
+```ts
+// Capacitor: @capacitor/crashlytics (Firebase)
+// Или Sentry: @sentry/capacitor
+// - symbolication для JS stacktraces
+// - Breadcrumbs перед крашем
+// - User ID в контексте (чтобы знать, кто падает)
+```
+Фиксит: краши на мобильном устройстве невидимы в Sentry на вебе. JS ошибки ≠ нативные краши.
+
+### 34.6 SEO для публичных профилей
+
+```html
+<!-- Если планируется «поделиться профилем» -->
+<meta property="og:title" content="Анна, 25" />
+<meta property="og:description" content="Люблю собак и путешествия" />
+<meta property="og:image" content="https://cdn.swiftmatch.app/avatars/user_123.jpg" />
+```
+Если нет SSR — использовать prerender.io или `@prerenderer/express` для статической генерации страниц профилей.
+
+### 34.7 Age Verification / Age Rating (17+)
+
+**Требования App Store:**
+- Дейтинг = 17+ (без parental gate)
+- При регистрации: обязательное поле возраста (select date)
+- Модерация: фото с детьми запрещены (даже если это ваш ребёнок)
+- Бан: пользователи младше 18 (если обнаружено)
+
+### 34.8 Privacy Policy + Terms of Service
+
+**Обязательны для:**
+- App Store / Google Play
+- Stripe (без Privacy Policy не активируют live режим)
+- GDPR (штраф до 4% оборота)
+
+**Минимальное содержание:**
+- Какие данные собираем (email, фото, геолокация, интересы)
+- Как используем (мэтчи, подборки, реклама)
+- Cookie policy (есть ли трекеры)
+- Как удалить аккаунт
+- Контакты DPO
+
+### 34.9 Report Escalation Flow
+
+```sql
+-- Автоматическая эскалация репортов:
+-- 1 репорт → помечается, фото скрывается (pending)
+-- 3+ репорта на пользователя → авто-бан на 24ч
+-- 5+ репортов → перманентный бан, уведомление админу
+-- Тяжёлые категории (nudity, violence) → мгновенный бан
+```
+Фиксит: модератор не успевает обрабатывать репорты вручную. Нужен авто-pilot.
+
+### 34.10 Apple Pay / Google Pay (Native Mobile Payments)
+
+```ts
+// Capacitor: @capacitor/pay
+// - Только для физических товаров / услуг (дейтинг = цифровой продукт → IAP)
+// - Для пожертвований / «кофе» = можно Apple Pay
+// - Иначе: только IAP через RevenueCat
+```
+
+### 34.11 Chaos Engineering (Resilience Testing)
+
+```ts
+// Тесты на отказ компонентов:
+// 1. Redis недоступен → сервер работает (без кэша), fallback на DB
+// 2. SMTP недоступен → письма в очередь, ретрай через 5 мин
+// 3. S3 недоступен → загрузка на локальный диск (временный fallback)
+// 4. Stripe недоступен → покупки отклоняются с понятной ошибкой
+// 5. MySQL read replica недоступен → все запросы на master (degraded)
+```
+Фиксит: «Мы не знали, что без Redis всё падает» — должно деградировать gracefully.
+
+### 34.12 APM (Application Performance Monitoring)
+
+```ts
+// Sentry Performance:
+// Sentry.startTransaction({ name: 'GET /api/search', op: 'http.server' })
+// → traceId в ответе
+// → custom metrics: db.query time, external API calls
+// → Slow query tracking (mysql2 + Sentry integrations)
+```
+Фиксит: Sentry ловит ошибки, но не ловит «сайт тормозит». Нужны traces + spans.
