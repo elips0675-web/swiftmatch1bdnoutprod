@@ -82,7 +82,8 @@
 - **Оценка kimi.txt:** переписан с реальным статусом
 - **AGENTS.md:** структурирован System Prompt (Core Rules, Code Quality, Data Rules, Git, Response Format). Добавлены: Project Structure, CI/CD Pipeline, Git Workflow, Testing Strategy, Security Rules, Production Deployment
 - **AGENTS.md prompt templates:** добавлены 3 промта — функциональный аудит, аудит связки Админка-БД-Приложение, E2E-тест
-- **AGENTS.md (июль 2026):** добавлены секции из Промты.txt — Итеративный подход (5 этапов), Redis + Backup, DB Migrations, расширенные Code Style и Security Rules
+- **AGENTS.md (июль 2026, 1-я итерация):** добавлены секции из Промты.txt — Итеративный подход (5 этапов), Redis + Backup, DB Migrations, расширенные Code Style и Security Rules
+- **AGENTS.md (июль 2026, 2-я итерация):** добавлены 9 pitfall'ов (баланс скобок, сборка Vite, развод не баним, INTEREST_KEY_TO_ID и др.), 8 Past Mistakes (Register 500, Reports 500, chats.tsx SyntaxError и др.), 5 ключевых unit-тестов, 12 сценариев Playwright, 3 новых промпта (Unit-тесты, chats.tsx fix, settings-privacy fix), VITE_WS_URL/SMTP_FROM/VITE_API_URL в конфигурационную консистентность
 - **persona.md:** исправлен порт API (3001 → 3002)
 - **swagger-jsdoc:** установлен (отсутствовал, сервер не стартовал)
 - **Playwright-тестирование:** `e2e/audit-full.spec.ts` — 11 сьюитов: health, registration, negative auth, like→match→chat (два браузера), admin flow, public pages, settings, chat, groups, негативные тесты, WS real-time
@@ -149,7 +150,7 @@
 1. **Redis** — lazy singleton, `cache.js` с `cacheRoute()`/`cacheRoutePerUser()`/`invalidate()`. Кэш на profile GET (60s) + matches GET (30s). Включить — раскомментировать `REDIS_URL` в `server/.env`
 2. **MySQL backup** — `scripts/backup-mysql.ps1` (авто-детект mysqldump, retention 7 дней). Task Scheduler создан: ежедневно в 03:00
 3. **S3 scaffold** — `scripts/setup.ps1` — авто-копирование .env + генерация JWT_SECRET + npm install
-4. **Документация из Промты.txt** — все 20 секций перенесены в AGENTS.md (итеративный подход, unit-тесты, Redis, кэш, миграции, code style, security)
+4. **Документация из Промты.txt** — все 20 секций полностью перенесены в AGENTS.md. Добавлены: итеративный подход, 9 pitfall'ов, 20 past mistakes, 12 сценариев Playwright, 5 ключевых unit-тестов, 3 новых промпта, Redis+Backup, DB Migrations, расширенные Code Style и Security Rules, конфигурационная консистентность
 
 ---
 ## Ключевые файлы
