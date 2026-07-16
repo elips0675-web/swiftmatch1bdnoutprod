@@ -26,3 +26,15 @@ dist-ssr
 *.sln
 *.sw?
 *.hex
+
+# Local artifacts
+backups/
+test-results/
+e2e/.auth/
+_check_servers.ps1
+test_final.mjs
+.git_commit_msg
+server/uploads/*.jpg
+server/uploads/*.png
+server/uploads/*.webp
+server/uploads/*.avif
