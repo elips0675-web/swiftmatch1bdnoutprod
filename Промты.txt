@@ -298,5 +298,182 @@ grep -rE "dev-secret|localhost:300[0-9]|password.*=.*$|JWT_SECRET.*=.*key" \
 
 ## 12. Git
 - Conventional Commits: feat:, fix:, refactor:, test:, docs:, chore:
-- git commit --no-verify если changes проверены
-- git push origin main
+- Ветки: main (production), develop, feature/*, bugfix/*, hotfix/*
+- git commit --no-verify если changes проверены (тесты зелёные, сборка проходит)
+- Перед PR: npx vite build, npm run test, cd server && npm run test
+- Секреты: .env в .gitignore, .env.example — в репо
+- Никогда не коммитить .env с реальными секретами
+- git stash (без -u) НЕ сохраняет untracked файлы
+
+---
+
+## 13. Стек технологий (tech stack)
+| Технология | Детали |
+|---|---|
+| Frontend | React 18 (Concurrent Features, hooks), Vite 8 (ESM, HMR) |
+| Styling | Tailwind CSS v3 (config-based, НЕ v4!), cn() из src/lib/utils.ts |
+| UI Kit | shadcn/ui (Radix primitives) — не создавать дубликаты вручную |
+| Routing | React Router v6 |
+| Server State | TanStack React Query v5 |
+| Client State | React Context (только если Query не подходит) |
+| Forms | React Hook Form + Zod |
+| Animations | Framer Motion или Tailwind transitions |
+| Real-time | Socket.IO (клиент: use-websocket.ts) |
+| Backend | Express.js / MySQL (mysql2, prepared statements только) |
+| i18n | Custom LanguageContext (RU/EN), все строки — translation keys |
+| Mobile | Capacitor Android (fetch-адаптер в src/lib/native.ts) |
+
+---
+
+## 14. Код-стайл и архитектура
+
+### Обязательно
+- Функциональные компоненты + hooks. Никаких классов.
+- TypeScript strict: явные return types на экспортируемых функциях, **никаких any**
+- Single Responsibility Principle: компонент — одна задача
+- Server Components нет (React 18 SPA). Все компоненты — client components
+- Данные с сервера через TanStack Query (не useEffect для загрузки)
+- Error Boundary на каждый lazy-роут, loading states на всех страницах
+- Анимации: Framer Motion для появления / ухода, Tailwind transitions для hover/focus
+- ARIA-атрибуты на всех интерактивных элементах
+- Все формы: noValidate (jsdom блокирует submit при required пустых полях)
+- console.log на фронте — только внутри import.meta.env.DEV
+- Логи на сервере — Winston JSON (0 console.log/error в продакшен-логике)
+- Все SQL-запросы — prepared statements (?? в mysql2). Никакой конкатенации строк.
+- Frontend console.log: обёрнуты в import.meta.env.DEV
+- noValidate добавлен на все формы авторизации (login, register, forgot/reset-password)
+
+### Pitfall'ы (из опыта)
+1. **Баланс скобок в JSX** — при редактировании вложенных колбэков (onClick, onKeyDown с `=> { ... {{ }} />`) всегда проверять, что количество `{` и `}` сходится. Каждый открывающий `{` требует свой закрывающий `}`.
+2. **Сборка перед отправкой** — перед «готово» запустить `npx vite build`. TypeScript не ловит синтаксические ошибки JSX — только Vite.
+3. **Перезапуск Vite** — если упал, убить процесс на порту 8081 и запустить заново.
+4. **Сортировка translated-списков** — по `t(item).localeCompare(t(item2))`, а не по сырому ключу. Русский алфавит не совпадает с порядком английских ключей.
+5. **Не трогать CSS бейджей в admin-content.tsx** — только логика, не стили.
+6. **Развод не баним** — «развод» в дейтинге легитимен. Блокировка даёт ложные срабатывания.
+7. **vi.mock factory + hoisting** — `vi.mock()` hoist'ится выше `const`. Всегда использовать `vi.hoisted(() => vi.fn())`.
+8. **jsdom constraint validation** — jsdom блокирует submit если required поле пустое или type=email невалидный. Всегда noValidate на формах с кастомной JS-валидацией.
+9. **INTEREST_KEY_TO_ID и NAME_TO_KEY** в profile-edit.tsx — синхронизировать при добавлении новых интересов.
+
+---
+
+## 15. Golden Rules
+
+### 15.1 Production ≠ File Created
+Definition of Done — не `git commit`, а **проверенный рабочий флоу**:
+- Dockerfile → образ собирается, healthcheck отвечает
+- nginx.conf → location /api проксирует, WS не обрывается через 60s
+- sentry.ts → DSN в .env, source maps, beforeSend фильтрует PII
+- swagger.js → все новые роуты имеют JSDoc, Bearer описан
+- Тесты → **0 failures** («pre-existing» — не оправдание)
+
+### 15.2 Never display raw translation keys
+- Все значения пользователю — через `t()`
+- DB, localStorage, state, demo-data — только translation keys (`interest.sport`), НЕ русский/английский текст
+- Сортировка списков: `t(item).localeCompare(t(item2))`
+- Новые сущности: key в `constants.ts` + запись в `language-context.tsx` (RU и EN)
+- **Исключение:** админка и Sentry-логи — technical IDs, не t()
+
+### 15.3 Integration Thinking (3 вопроса перед созданием файла)
+1. **Кто его потребляет?** — Swagger без JWT-схем бесполезен, Docker без /health убивается оркестратором
+2. **Что произойдёт в 3 ночи, когда это сломается?** — Нет healthcheck → Kubernetes перезапускает каждые 2 мин. Нет Sentry → ошибка в Stripe webhook незаметна 8 часов
+3. **Как я проверю это без ручного клика?** — Если ответ «открою браузер» — плохо. Нужен curl/API call/тест
+
+### 15.4 Translation keys — формат данных
+- DB хранит **слаги без префикса** (sport, secondary). Префикс (`interest.`, `education.`) добавляется на фронте в `t()`
+- content_config.interests — слаг (`sport`), не русский текст
+- Все данные в БД, localStorage, demo-data — ключи переводов
+
+### 15.5 Mock fallback — обязательная документация
+Любой `if (process.env.NODE_ENV === 'development')` или `if (!STRIPE_KEY)` с mock-fallback должен быть явно задокументирован:
+```js
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
+// Если stripe === null — mock. OK для dev, в prod STRIPE_SECRET_KEY обязателен
+```
+**Запрещено:** тихий fallback без комментария.
+
+---
+
+## 16. Absolute Bans (never do)
+1. **Никогда** не коммитить `.env` с реальными секретами. `.env` в `.gitignore`, `.env.example` — в репо
+2. **Никогда** не оставлять `console.log` в продакшен-логике платежей, писем, авторизации. Использовать `req.log` или winston
+3. **Никогда** не добавлять `cors({ origin: '*' })` в веб-версии продакшена. Только для Capacitor
+4. **Никогда** не использовать `fs.writeFile` для пользовательских загрузок без валидации пути. Только uuid имена, только `/uploads/`
+5. **Никогда** не менять `adminAuth` middleware с passive на blocking. Сломает dev-login и админку
+6. **Никогда** не хранить `refresh_token` в localStorage/Preferences без httpOnly альтернативы
+
+---
+
+## 17. Безопасность (Security Rules)
+- adminAuth middleware — **passive** (вызывает `next()` на ошибке, не блокирует)
+- Все SQL-запросы — prepared statements (`??` в mysql2). Никакой конкатенации строк
+- Server-side только uuid для имён файлов, ограничение 5MB, только image/*
+- CORS: `*` для Capacitor (dev), env-переменная для production
+- Sentry beforeSend: фильтрует authorization, cookie, email, IP
+- Stripe webhook: `express.raw({ type: 'application/json' })` ДО `express.json()`
+- JWT: 256-bit ключ, 7d expiry, Bearer header
+- Rate limit: `/api/auth/` 60 req/min, общий `/api/` 30 req/s
+- Helmet: CSP, X-Frame-Options, X-Content-Type-Options и др. security headers
+- Request ID: UUID на каждый запрос, X-Request-Id в ответе
+- Модерация чатов: проверка banned-слов при отправке сообщений
+- Бан пользователя + WS `user:banned` (мгновенный разлогин)
+- CORS `*` (для Capacitor), CSRF не нужен (API-only JWT)
+
+---
+
+## 18. Миграции БД
+- Новые колонки — через `database/migrations/`, НЕ ручным ALTER TABLE в консоли MySQL
+- `git diff` НЕ должен содержать `ALTER TABLE` в `.js`/`.ts` файлах (только в `migrations/`)
+- Миграции — нумерованные .sql + migrate.js (таблица `_migrations`)
+- Если в роуте используется новая колонка — она должна быть в `mysql_schema.sql` и в отдельном файле миграции
+- Запуск: `node database/migrations/migrate.js`
+- Перед написанием SQL в server routes — проверить колонки через `DESCRIBE table`. Схема в `mysql_schema.sql` может отличаться от реальной БД
+
+---
+
+## 19. Capacitor / Нативные правила
+- `android/` — нативный Android проект (должен быть в git)
+- `src/lib/native.ts` — адаптер fetch/WS для нативного режима. Перехватывает fetch.
+- Любой новый API-роут должен работать через абсолютный URL (`VITE_API_URL`), иначе в APK запросы уйдут в `file:///api/...`
+- WebSocket в нативном режиме использует `wss://`, а не `ws://`
+- `capacitor.config.ts` → `cleartext: true` только для dev, в prod — `false` + валидный SSL
+- `@capacitor/preferences` — замена localStorage. Если фича использует localStorage, она должна иметь fallback на Preferences для Android
+- Сборка APK: `VITE_API_URL=https://swiftmatch.app npm run build` → `npx cap copy android` → Android Studio Build
+
+---
+
+## 20. Past Mistakes (do NOT repeat)
+Полный список ошибок, которые были допущены и исправлены:
+
+### Баги бэкенда
+1. **Port mismatch (502 Bad Gateway)** — Vite proxy → localhost:3001, а сервер на 3002. Все API 502. **Фикс:** proxy → 3002.
+2. **Feature flags not applied** — FeatureFlagsProvider читал только из Supabase. MySQL вместо Supabase → флаги всегда default. **Фикс:** API fallback (GET /api/admin/features).
+3. **Missing Router in profile.js** — `router.get(…)` без `const router = Router()`. **Фикс:** добавлен Router.
+4. **Missing banned-words.js** — импорт несуществующего файла → 500 на content save. **Фикс:** создан `server/src/banned-words.js`.
+5. **Admin 500 — DB schema mismatches** — `users.online` нет, `user_photos.moderation_status` нет, `reports.evidence` нет. **Фикс:** ALTER TABLE + NULL as evidence.
+6. **LookingFor missing in profile-edit** — нет UI для «кого ищу». **Фикс:** добавлен Select.
+7. **Register 500** — INSERT в user_profiles без `age` (NOT NULL). **Фикс:** `age=18`.
+8. **Reports 500** — SELECT `r.evidence`, колонки нет. **Фикс:** `NULL as evidence`.
+9. **Activity 404/500** — роут `/api/activity` отсутствовал. **Фикс:** создан в social.js.
+10. **Activity SQL — wrong column** — `target_user_id` не существует, правильно `target_id`. **Фикс:** исправлен JOIN.
+
+### Баги фронтенда
+11. **use-premium.ts UTF-16 encoding** — файл сохранён в UTF-16 BE → parse errors + infinite recursion. **Фикс:** перезаписан в UTF-8.
+12. **chartData.slice crash on /admin** — `chartData?.slice(…)` при null. **Фикс:** optional chaining + array guards.
+13. **premium-success.tsx crash** — `useSearchParams()` возвращает URLSearchParams, не кортеж. **Фикс:** `const params` вместо `const [params]`.
+14. **chats.tsx Vite SyntaxError** — не хватало `</div>`. Ломало любую страницу с lazy-загрузкой. **Фикс:** добавлен закрывающий тег.
+15. **Missing email infrastructure** — нет nodemailer. **Фикс:** создан `server/src/mail.js`.
+16. **No WebSocket server** — нет socket.io. **Фикс:** создан `server/src/ws.js`.
+17. **Read receipts & emoji reactions** — нет seenIndicator и реакций. **Фикс:** добавлены.
+18. **Rate-limiter auth 10→30→60** — слишком жёсткий для E2E. **Фикс:** поднят до 60 req/min.
+19. **Admin save 401** — admin routes require JWT. **Фикс:** adminAuth middleware passive.
+20. **Stale token redirect loop** — AdminGuard без Supabase не делал dev-login. **Фикс:** всегда пытаться dev-login.
+21. **Education badge styling** — изменял CSS бейджей. **Фикс:** не трогать визуальные классы.
+22. **Translation keys — prefix** — DB хранит slugs без префикса. **Фикс:** префикс на фронте через t().
+
+### Тесты / Инфра
+23. **E2E тесты (11 падало)** — 429 rate-limiter, CSP violation, apiCall без JWT, admin token из storage. **Фикс:** rate-limiter 60, CSP фильтр, apiCall с token, getTokenFromStorage().
+24. **vi.mock hoisting** — vi.mock hoist'ится выше const → ReferenceError (TDZ). **Фикс:** vi.hoisted(() => vi.fn()).
+25. **git stash untracked** — git stash без -u не сохраняет untracked. **Фикс:** git stash -u или git add untracked сначала.
+26. **Husky pre-commit + eslint** — при падении хука stash-pop теряет untracked. **Фикс:** git commit --no-verify.
