@@ -41,6 +41,17 @@
 - Все SQL-запросы — prepared statements (`??` в mysql2). Никакой конкатенации строк
 - noValidate добавлен на все формы авторизации (login, register, forgot/reset-password) — jsdom блокирует submit при required пустых полях
 
+### Pitfall'ы (из опыта)
+1. **Баланс скобок в JSX** — при редактировании вложенных колбэков (onClick, onKeyDown с `=> { ... {{ }} />`) всегда проверять, что количество `{` и `}` сходится. Каждый открывающий `{` требует свой закрывающий `}`.
+2. **Сборка перед ответом** — перед «готово» запустить `npx vite build`. TypeScript не ловит синтаксические ошибки JSX — только Vite.
+3. **Перезапуск Vite** — если упал, убить процесс на порту 8081 и запустить заново.
+4. **Сортировка translated-списков** — по `t(item).localeCompare(t(item2))`, а не по сырому ключу. Русский алфавит не совпадает с порядком английских ключей.
+5. **Не трогать CSS бейджей в admin-content.tsx** — только логика, не стили.
+6. **Развод не баним** — «развод» в дейтинге легитимен. Блокировка даёт ложные срабатывания.
+7. **vi.mock factory + hoisting** — `vi.mock()` hoist'ится выше `const`. Всегда использовать `vi.hoisted(() => vi.fn())`.
+8. **jsdom constraint validation** — jsdom блокирует submit если required поле пустое или type=email невалидный. Всегда noValidate на формах с кастомной JS-валидацией.
+9. **INTEREST_KEY_TO_ID и NAME_TO_KEY** в profile-edit.tsx — синхронизировать при добавлении новых интересов.
+
 ### Data Rules (i18n)
 
 - **Всё** в БД, localStorage, state — translation keys (`interest.sport`, не `"Спорт"`)
@@ -107,7 +118,7 @@
 2. Проверить консоль браузера — нет ошибок
 3. Проверить Network tab — правильные статусы
 4. Если production — Security grep (хардкодные секреты, порты)
-5. Обновить документацию (context.txt, AGENTS.md при необходимости)
+5. Обновить документацию (context.txt, AGENTS.md, persona.md при необходимости)
 6. `git push` только когда всё зелёное
 
 ## Golden Rule: Never display raw translation keys
@@ -322,6 +333,7 @@ grep -rE "dev-secret|localhost:300[0-9]|password.*=.*$|JWT_SECRET.*=.*key" \
 - `server/.env` → `PORT=3002`
 - `vite.config.ts` → `proxy: { '/api': 'http://localhost:3002' }`
 - `capacitor.config.ts` / `src/lib/native.ts` → `VITE_API_URL` указывает на тот же хост
+- `.env` (root) → `VITE_WS_URL`, `VITE_API_URL` для Vite dev-сервера
 
 Несоответствие = 502 Bad Gateway на проде.
 
@@ -343,7 +355,7 @@ grep -rE "dev-secret|localhost:300[0-9]|password.*=.*$|JWT_SECRET.*=.*key" \
 ### 5. Email / SMTP (если touched auth/notify)
 
 - [ ] `server/src/mail.js` не содержит `console.log` как единственный транспорт в проде
-- [ ] `.env` содержит `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (или fallback на Mailgun/Resend API key)
+- [ ] `.env` содержит `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` (или fallback на Mailgun/Resend API key)
 - [ ] Регистрация с реальным email отправляет письмо (проверить через Mailtrap или логи)
 
 ### 6. WebSocket reliability (если touched ws.js / use-websocket.ts)
@@ -467,6 +479,14 @@ const stripe = process.env.STRIPE_SECRET_KEY
 10. **jsdom constraint validation** — jsdom blocks form `submit` event if a `required` field is empty or `type="email"` has invalid value. Always add `noValidate` to `<form>` elements that use custom JS validation (standard practice).
 11. **git stash untracked files** — `git stash` (without `-u`) does NOT stash untracked files. Lint-staged automatic backup also doesn't include untracked files. When troubleshooting stash operations, use `git stash show -p` to verify content, and restore with `git restore --source <stash-hash> --worktree -- .` from the unreachable commit.
 12. **Husky pre-commit + eslint** — The `.husky/pre-commit` runs `lint-staged` which runs eslint + prettier. If the hook fails, it stash-pop's working changes and can lose untracked files. Use `git commit --no-verify` when the changes are verified (tests pass, build succeeds) to avoid hook interference.
+13. **Register 500 (age)** — INSERT в `user_profiles` не указывал `age` (колонка NOT NULL). **Fix:** добавлен `age=18` в INSERT.
+14. **Reports 500 (evidence)** — SELECT использовал `r.evidence`, колонки нет в БД. **Fix:** заменено на `NULL as evidence`.
+15. **Activity 404/500** — роут `/api/activity` полностью отсутствовал. **Fix:** создан в `social.js`.
+16. **Activity SQL (wrong column)** — колонка `target_user_id` не существует, правильно `target_id`. JOIN был на неправильное поле. **Fix:** исправлен JOIN.
+17. **premium-success.tsx crash** — `useSearchParams()` возвращает URLSearchParams, не кортеж. `const [params]` → `const params`. **Fix:** исправлена деструктуризация.
+18. **chats.tsx Vite SyntaxError** — не хватало `</div>` для `<div data-testid="message-list">`, Vite выдавал `Expected '</', got 'jsx text'`. Ломало любую lazy-загружаемую страницу (в т.ч. `/admin/messaging`). **Fix:** добавлен закрывающий тег.
+19. **Rate-limiter auth 10→30→60** — слишком жёсткий лимит для E2E тестов (429 Too Many Requests). **Fix:** поднят до 60 req/min.
+20. **E2E тесты (11 падало)** — 429 rate-limiter, CSP violation, apiCall без JWT, admin token из storage. **Fix:** rate-limiter 60, CSP фильтр, apiCall с token, getTokenFromStorage().
 
 ---
 
@@ -744,6 +764,40 @@ SELECT ...
 Верни отчёт со скриншотами упавших тестов и логами ошибок.
 ```
 
+### Unit-тесты (language-context, feature-flags, use-websocket)
+```
+Добавь unit-тесты для:
+
+1. `language-context.test.tsx` — проверка translation keys (RU/EN):
+   - `t()` возвращает русскую строку для RU
+   - `t()` возвращает английскую строку для EN
+   - `t()` возвращает key если перевод не найден
+   - Смена языка перерендеривает текст
+
+2. `feature-flags-context.test.tsx` — API fallback, default flags:
+   - Без Supabase флаги грузятся через GET /api/admin/features
+   - При ошибке API — default flags (все true)
+   - FeatureFlagsProvider передаёт корректные значения
+
+3. `use-websocket.test.tsx` — connect/disconnect:
+   - connect с токеном — socket открывается
+   - connect без токена — socket не открывается
+   - disconnect при unmount — clean up
+```
+
+### Починка chats.tsx Vite SyntaxError
+```
+При сборке Vite падает: `Expected '</', got 'jsx text'` в chats.tsx.
+Причина: не хватает `</div>` для `<div data-testid="message-list">`.
+Фикс: добавить закрывающий тег. Ломало /admin/messaging (триггерит lazy-загрузку chats.tsx).
+```
+
+### Починка settings-privacy.tsx
+```
+Страница /settings/privacy делает fetch к `/api/settings` — роут не существует (404).
+Фикс: переписать на localStorage (аналогично main settings.tsx).
+```
+
 ---
 
 ## 🏗️ Project Structure (SwiftMatch)
@@ -858,6 +912,13 @@ jobs:
 | E2E (UI mode) | Playwright UI | `npm run test:e2e:ui` | Interactive debugging |
 | API | Curl / tests | — | Healthcheck, все роуты |
 
+### Unit-тесты (ключевые файлы)
+- `language-context.test.tsx` — проверка translation keys (RU/EN), mock `t()`
+- `feature-flags-context.test.tsx` — API fallback, default flags при отсутствии Supabase
+- `use-websocket.test.tsx` — connect с токеном, null без токена, disconnect при unmount
+- `auth-context.test.tsx` — login/logout, token lifecycle
+- `use-premium.test.ts` — tiers, subscription status
+
 ### Playwright структура
 
 ```
@@ -873,6 +934,20 @@ e2e/
 │   └── global-setup.ts      # Health check + DB verify перед тестами
 └── visual/                  # Скриншотные тесты (будущие)
 ```
+
+### Сценарии в `audit-full.spec.ts` (12 сьюитов)
+1. `Health & Infrastructure` — API healthcheck, frontend loads без ошибок
+2. `Registration flow` — регистрация через UI, затем логин
+3. `Negative auth tests` — wrong password stays on /login, empty email validation
+4. `Like → Match → Chat` (два пользователя) — API лайки user4→user5, проверка match, отправка сообщения
+5. `Admin flow` — дашборд без ошибок, toggle feature flag, save/reset кнопки, search users
+6. `Public pages` — /, /login, /register, /forgot-password без console errors
+7. `Settings` — toggle switches, logout button
+8. `Chat functionality` — открыть чат, проверить message input
+9. `Groups` — открыть диалог создания
+10. `Negative & security` — XSS в bio экранирован, wrong password, empty email
+11. `WebSocket real-time` — сообщение появляется без перезагрузки
+12. `WebSocket two-browser` — браузер A отправляет, браузер B получает без reload
 
 ### Конфигурация
 - **screenshot**: `only-on-failure` — скриншот при падении
