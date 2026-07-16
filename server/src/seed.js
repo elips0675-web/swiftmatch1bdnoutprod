@@ -200,9 +200,9 @@ async function main() {
 
     await conn.execute(
       `INSERT INTO user_profiles
-       (id, display_name, age, bio, avatar_url, gender, looking_for, dating_goal, height, city, lat, lng, zodiac, circadian, super_likes, online, last_seen)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())`,
-      [userId, u.displayName, u.age, u.bio, u.avatarUrl, u.gender, u.lookingFor, u.datingGoal, u.height, u.city, u.lat, u.lng, u.zodiac, u.circadian, u.superLikes],
+       (id, display_name, age, bio, avatar_url, gender, looking_for, dating_goal, height, city, lat, lng, location, zodiac, circadian, super_likes, online, last_seen)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ST_SRID(POINT(?, ?), 4326), ?, ?, ?, 1, NOW())`,
+      [userId, u.displayName, u.age, u.bio, u.avatarUrl, u.gender, u.lookingFor, u.datingGoal, u.height, u.city, u.lat, u.lng, u.lng, u.lat, u.zodiac, u.circadian, u.superLikes],
     )
 
     const numInterests = rand(2, 5)
