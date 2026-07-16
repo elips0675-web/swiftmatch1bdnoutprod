@@ -230,7 +230,25 @@
 | 19 | Multi-Environment Configuration (.env.development/staging/production) | ❌ |
 | 20 | Design System / Storybook | ❌ |
 
-Полное описание каждого пункта — в `Промты.txt` (раздел 21).
+### Дополнительные разделы (DevEx, Архитектура, a11y, Security, DevOps, Бизнес-логика)
+| # | Раздел | Статус |
+|---|--------|--------|
+| 21 | LOCAL_SETUP.md + .nvmrc + engines | ❌ |
+| 22 | Database Seeding (npm run db:seed/reset) | ❌ |
+| 23 | State Management Decision Tree | ❌ |
+| 24 | Error Handling Strategy (единый формат ошибок) | ❌ |
+| 25 | Request Validation (Zod shared между фронтом/бэком) | ❌ |
+| 26 | Performance Budget + PWA + Image Strategy | ❌ |
+| 27 | a11y Checklist + Loading States (Skeleton) | ❌ |
+| 28 | Database Query Optimization + Soft Deletes + Audit Log | ❌ |
+| 29 | Idempotency Keys + Circuit Breaker | ❌ |
+| 30 | CSP Strict + Webhook Signature + Secrets Rotation | ❌ |
+| 31 | Graceful Shutdown + Readiness/Liveness Health Checks | ❌ |
+| 32 | Testing Pyramid + Visual Regression + Contract Tests | ❌ |
+| 33 | Infrastructure as Code + Blue-Green Deploy + Migration Safety | ❌ |
+| 34 | Subscription Lifecycle + Referral System + Granular Rate Limits | ❌ |
+
+Полное описание каждого пункта — в `Промты.txt` (разделы 21–31).
 
 ## Playwright E2E Test Coverage
 - **30 tests, 0 failures** (31s, 8 workers)

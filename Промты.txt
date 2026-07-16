@@ -643,3 +643,285 @@ app.use('/api/v1', v1Routes);
 | 21.18 | API Versioning | 🟢 | ❌ |
 | 21.19 | Multi-Environment Config | 🟢 | ❌ |
 | 21.20 | Design System / Storybook | 🟢 | ❌ |
+
+---
+
+## 22. DevEx & Onboarding
+
+### 22.1 LOCAL_SETUP.md — запуск с нуля за 5 минут
+```bash
+# Чек-лист для нового разработчика
+git clone → cp .env.example .env → docker compose up → npm run dev → open http://localhost:5173
+```
+Явно прописать: версия Node, глобальные зависимости, порты, которые должны быть свободны.
+
+### 22.2 Database Seeding & Fixtures
+```ts
+// scripts/seed.ts
+// - 50 тестовых пользователей с фото (unsplash/placeholder)
+// - 10 мэтчей, 200 сообщений
+// - 1 admin, 1 banned user, 1 premium user
+// - npm run db:seed и npm run db:reset
+```
+Фиксит: ручное создание данных для тестирования чата/мэтчей.
+
+### 22.3 .nvmrc + engines в package.json
+```json
+{ "engines": { "node": ">=20.11.0", "npm": ">=10.2.0" } }
+```
+Фиксит: «У меня на Node 18 не собирается».
+
+---
+
+## 23. Архитектура & State Management
+
+### 23.1 State Management Decision Tree
+- Client-only (theme, UI) → React Context
+- Server state (API) → TanStack Query
+- Cross-component sync (websocket, cart) → Zustand / Valtio
+- Form state → React Hook Form (никогда не в Context)
+
+### 23.2 Error Handling Strategy (единый формат)
+```ts
+// Все API-ошибки:
+{ "error": "ERROR_CODE", "message": "Human readable", "details": {}, "requestId": "uuid" }
+// Frontend: axios interceptors → toast для 4xx, Sentry для 5xx, retry для 429
+```
+
+### 23.3 Request Validation (Zod на обеих сторонах)
+```ts
+// shared/schemas/auth.ts — используется и на фронте, и на бэке
+export const LoginSchema = z.object({ email: z.email(), password: z.min(8) });
+```
+Фиксит: дублирование валидации, рассинхрон схем.
+
+---
+
+## 24. Performance & Quality
+
+### 24.1 Performance Budget
+```yaml
+# budgets.json
+- First Contentful Paint: < 1.2s
+- Time to Interactive: < 2.5s
+- Bundle size (initial): < 150 KB gzip
+- Lighthouse: > 90 все категории
+- Core Web Vitals: LCP < 2.5s, CLS < 0.1, INP < 200ms
+```
+Проверять в CI. Фиксит: «Почему на 3G приложение не юзабельно?»
+
+### 24.2 PWA / Service Worker
+```ts
+// vite-plugin-pwa
+// - Offline fallback page (cache-first для статики)
+// - Background sync для сообщений (отправлено в offline → sync when online)
+// - Push notifications (FCM)
+```
+Фиксит: пользователь в метро отправляет сообщение → «Failed to fetch».
+
+### 24.3 Image Strategy (Responsive Images)
+```html
+<picture>
+  <source srcset="avatar.avif" type="image/avif">
+  <img src="avatar.webp" loading="lazy" decoding="async" alt="...">
+</picture>
+```
+Правило: всегда lazy, всегда WebP/AVIF, всегда размеры.
+
+---
+
+## 25. Accessibility & UX
+
+### 25.1 a11y Checklist
+- [ ] Все интерактивные элементы ≥ 44×44px (touch target)
+- [ ] Focus trap в модалках (react-focus-lock)
+- [ ] Skip-to-content link
+- [ ] aria-live для динамических уведомлений (новый мэтч)
+- [ ] Reduced motion respect (prefers-reduced-motion)
+- [ ] Color contrast ≥ 4.5:1
+Фиксит: Apple/Google review отклоняют за плохую a11y.
+
+### 25.2 Loading States & Skeletons
+Правило: никаких «Loading...» текстов
+- <Skeleton /> для карточек профилей
+- <Spinner /> только для кнопок действий
+- Optimistic UI для лайков/сообщений
+
+---
+
+## 26. Database & Backend Patterns
+
+### 26.1 Database Query Optimization
+- [ ] Все JOIN с EXPLAIN ANALYZE перед merge
+- [ ] N+1 запрещены (DataLoader или JOIN)
+- [ ] Индексы на всех foreign keys
+- [ ] Индексы на частых WHERE (email, user_id, created_at)
+- [ ] Composite indexes для частых комбинаций (user_id + status)
+- [ ] Пагинация: cursor-based для ленты, offset только для админки
+
+### 26.2 Soft Deletes & Audit Log
+```sql
+-- Все таблицы: deleted_at TIMESTAMP NULL
+CREATE TABLE audit_log (
+  id, table_name, record_id, action, old_values JSON, new_values JSON,
+  user_id, ip_address, created_at
+);
+```
+Фиксит: «Пользователь жалуется, что фото пропало» — нет истории. GDPR + безопасность.
+
+### 26.3 Idempotency Keys (универсальные)
+```ts
+// Все мутации POST/PUT/PATCH:
+Headers: { 'Idempotency-Key': uuid }
+// Redis: SET idempotency:key:uuid "processed" EX 86400
+```
+Фиксит: двойная оплата, двойный лайк, дубли сообщений при плохом соединении.
+
+### 26.4 Circuit Breaker для внешних API
+```ts
+// Stripe, Twilio, S3, FCM
+// - 5 ошибок подряд → OPEN (fallback на queue/ретрай)
+// - 30 секунд → HALF-OPEN (1 тестовый запрос)
+```
+Фиксит: каскадный отказ. Если Stripe down — приложение не должно падать.
+
+---
+
+## 27. Security Deep Dive
+
+### 27.1 Content Security Policy (CSP) Strict
+```ts
+// Helmet CSP:
+default-src 'self';
+script-src 'self' 'nonce-{random}';
+style-src 'self' 'unsafe-inline';
+img-src 'self' blob: data: https://cdn.swiftmatch.app;
+connect-src 'self' wss://api.swiftmatch.app;
+```
+
+### 27.2 Webhook Signature Verification
+```ts
+// Не только Stripe — любой webhook:
+const signature = req.headers['x-signature'];
+const expected = crypto.createHmac('sha256', WEBHOOK_SECRET).update(rawBody).digest('hex');
+if (!crypto.timingSafeEqual(signature, expected)) throw 401;
+```
+Фиксит: фейковые webhook-запросы.
+
+### 27.3 Secrets Rotation Playbook
+1. Сгенерировать новый JWT_SECRET
+2. Деплой с поддержкой 2 ключей (verify: [old, new], sign: new)
+3. Ждать 7d (TTL токена)
+4. Убрать old key
+5. Аналогично для DB password, Stripe keys, SMTP
+
+---
+
+## 28. Observability & Reliability
+
+### 28.1 Structured Logging (Winston JSON)
+```json
+{
+  "level": "error", "message": "Payment failed",
+  "service": "swiftmatch-api", "version": "1.2.3",
+  "requestId": "uuid", "userId": "123", "traceId": "jaeger-trace",
+  "timestamp": "ISO8601"
+}
+```
+
+### 28.2 Health Checks (Readiness vs Liveness)
+```ts
+// /health/live — сервер запущен (always 200)
+// /health/ready — DB, Redis, S3 доступны (200/503)
+// Kubernetes использует readiness для трафика, liveness для рестарта
+```
+
+### 28.3 Graceful Shutdown
+```ts
+process.on('SIGTERM', async () => {
+  server.close(); // stop accepting new connections
+  await redis.disconnect();
+  await db.end();
+  await queue.close();
+  process.exit(0);
+});
+```
+Фиксит: потеря WebSocket-сообщений и background jobs при деплое.
+
+---
+
+## 29. Testing & Quality Gates
+
+### 29.1 Testing Pyramid (требования)
+- Unit: 70% coverage (business logic, utilities)
+- Integration: 20% (API routes, DB queries)
+- E2E: 10% (критические флоу: регистрация → лайк → чат → оплата)
+- Mutation testing (optional): stryker-js
+
+### 29.2 Visual Regression Testing
+```ts
+// Chromatic / Storybook + Loki
+// - Все состояния компонентов: empty, loading, error, success
+// - Скриншоты в CI при каждом PR
+```
+Фиксит: «После обновления Tailwind кнопка поехала».
+
+### 29.3 Contract Testing (Pact)
+```ts
+// Frontend consumer ↔ Backend provider
+// Гарантия: если бэк меняет API, фронт сломается в CI, не в проде
+```
+Фиксит: рассинхрон фронта и бэка после «быстрого фикса».
+
+---
+
+## 30. DevOps & Infrastructure
+
+### 30.1 Infrastructure as Code (Terraform / Pulumi)
+```hcl
+# terraform/
+# - AWS: ECS/EKS, RDS, ElastiCache, S3, CloudFront
+# - Cloudflare: DNS, WAF, DDoS protection
+# - Stripe: webhook endpoints (prod/staging)
+```
+
+### 30.2 Blue-Green / Canary Deployment
+- Новая версия на 5% трафика → метрики (error rate, latency) → 100%
+- Автоматический rollback при error rate > 1%
+Фиксит: баг в проде → откат за 30 секунд, не 30 минут.
+
+### 30.3 Database Migration Safety
+- Migrations: только additive (добавить колонку), никаких DROP/RENAME в одном PR
+- Backfill: отдельный скрипт, не в миграции (блокирует таблицу)
+- Shadow database для проверки миграций в CI
+Фиксит: ALTER TABLE на 10M записей = downtime.
+
+---
+
+## 31. Бизнес-логика (универсальная)
+
+### 31.1 Subscription Lifecycle Deep Dive
+- Trial → Active → Past_due (grace period 3 дня) → Unpaid → Cancelled
+- Proration: при апгрейде/даунгрейде
+- Retention offers: при попытке отмены — скидка 30%
+- Invoice history: PDF generation
+Фиксит: пользователь отменяет → теряете revenue. Нет стратегии удержания.
+
+### 31.2 Referral / Invite System
+```ts
+// invite_codes таблица
+// - Каждый пользователь: реферальная ссылка
+// - Пригласил 3 друзей → 1 неделя Premium бесплатно
+// - Tracking: utm_source, referrer_id
+```
+Фиксит: органический рост. Дейтинг без вирусности — дорогой paid acquisition.
+
+### 31.3 Rate Limiting Granular
+```ts
+// - /api/upload: 5/min (фото)
+// - /api/like: 30/min free, 100/min premium
+// - /api/report: 3/day (флуд репортами)
+// - /api/search: 60/min
+// - WebSocket: max 100 msg/min
+```
+Фиксит: abuse API. Пользователь бот-фермы лайкает всех.
