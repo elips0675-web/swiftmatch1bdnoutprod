@@ -173,32 +173,40 @@
 ---
 ## Что осталось
 
-### 🔴 Требуют реальных ключей/сервисов (код готов)
+### 🔴 Требует реальных ключей (код готов, без env не работает)
 | Переменная | Где | Назначение |
 |---|---|---|
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `server/.env` | Реальные платежи |
 | `SMTP_USER`, `SMTP_PASS` | `server/.env` | Email (регистрация, сброс пароля) |
 | `SENTRY_DSN` | `server/.env` + `.env` | Мониторинг ошибок |
-| `REDIS_URL` | `server/.env` | Кэш + rate-limit |
+| `REDIS_URL` | `server/.env` | Кэш + rate-limit + Bull Queue + WS Adapter |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | `server/.env` | Облачное хранение файлов |
 | `DB_PASSWORD` | `server/.env` | Непустой пароль MySQL |
 | `CORS_ORIGIN` | `server/.env` | Домен прода |
+| `NODE_ENV=production` | `server/.env` | Отключает Stripe mock, Sentry sampling 0.1 |
 
-### 🟠 Остаётся доделать
-1. **Real API ключи:** вписать 7 ключей в `server/.env`
-2. **Push FCM для Android:** заменить/дополнить VAPID Web Push на Firebase Cloud Messaging для Capacitor
-3. **Deep Links:** настроить Universal Links (iOS) + App Links (Android)
+### 🟠 Нужно доделать (1-я неделя после запуска)
+1. **Push FCM для Android** — Firebase Cloud Messaging для Capacitor
+2. **Deep Links** — Universal Links (iOS) + App Links (Android)
+3. **CDN для фото** — S3 + CloudFront/CDN (трафик через сервер убьёт CPU)
+4. **Apple/Google IAP** — RevenueCat (App Store отклонит без нативных платежей)
+5. **Twilio API ключи** — SMS-верификация (80% ботов без неё)
+6. **OpenAI/AWS ключи** — AI-модерация (NSFW-фото не отсекаются)
+
+### 🟢 Опционально (не блокирует запуск)
+- Feature Flags (Unleash), Product Analytics (PostHog), Monitoring (Grafana)
+- API Versioning, Design System/Storybook, GDPR docs, Load Testing (k6)
+- Outbox Pattern, Distributed Tracing, Chaos Engineering
 
 ## Priority Timeline — что делать в каком порядке
 
 | Фаза | Что делать | Почему срочно |
 |------|-----------|---------------|
-| **Неделя 1-2** | Push FCM + Deep Links | Без этого мобильное приложение — мёртвое |
-| **Неделя 3-4** | CI/CD + Docker + nginx + SSL | Ручной деплой = боль и ошибки |
-| **Неделя 5-6** | Apple/Google IAP через RevenueCat | App Store отклонит без нативных платежей |
-| **Неделя 7-8** | CDN для фото + Image optimization | Трафик фото убьёт сервер первым |
-| **Месяц 2** | Analytics + A/B testing | Нельзя оптимизировать то, что не измеряешь |
-| **Месяц 2-3** | AI-модерация фото + GDPR compliance | Бан в App Store или штраф GDPR = смерть проекта |
+| **Перед запуском** | Вписать 8 переменных в .env + `NODE_ENV=production` | Без этого не работают платежи, email, Sentry, кэш |
+| **Неделя 1** | Push FCM + Deep Links | Без этого мобильное приложение — мёртвое |
+| **Неделя 2** | CDN для фото + AI-модерация | Трафик фото убьёт сервер; NSFW-фото без модерации |
+| **Неделя 3-4** | Apple/Google IAP через RevenueCat | App Store отклонит без нативных платежей |
+| **Месяц 2** | SMS-верификация (Twilio) + Analytics | 80% ботов без верификации; нельзя оптимизировать то, что не измеряешь |
 
 Полное описание 10 категорий и 34.1–34.12 — в `Промты.txt` (разделы 33–34).
 
@@ -245,27 +253,33 @@
 | `server/src/jobs/push.job.js` | Push notification queue processor |
 | `server/src/jobs/image.job.js` | Image processing queue (Sharp) |
 | `database/migrations/005_add_spatial_location.sql` | Spatial index for geo search |
+| `database/migrations/006_add_soft_delete_audit.sql` | Soft deletes + audit_log |
+| `database/migrations/007_add_referral.sql` | Referral codes |
+| `server/src/audit.js` | Soft delete + audit helpers |
+| `server/src/seed.js` | Database seeder (50 users, matches, msgs) |
+| `server/src/routes/report.js` | POST /api/reports + auto-ban |
+| `server/src/routes/referral.js` | Referral system endpoints |
 | `project-context.md` | Полный контекст для AI-ассистентов |
 
 ## Production Readiness Summary
-- **Тесты:** 177 total — 52 фронт (11 файлов) + 95 сервер (9 файлов) + 30 E2E — 0 failures
+- **Тесты:** 177 total — 52 фронт + 95 сервер (11 файлов) + 30 E2E — 0 failures
 - **Сборка:** `vite build` успешно
 - **Логи:** Winston во всех серверных файлах (0 console.log/error)
+- **Health Checks:** `/health/live` (liveness) + `/health/ready` (readiness, DB+Redis)
+- **Graceful Shutdown:** SIGTERM + SIGINT, timeout 10s, закрывает http → queues → redis → db
+- **Soft Deletes:** `deleted_at` на 11 таблицах + `audit_log` для всех мутаций
+- **Report Escalation:** POST /api/reports, auto-ban при 3/5+ репортах, severe categories → instant ban
+- **Referral System:** уникальный referral_code, отслеживание конверсий
+- **DB Pool:** connectionLimit 20, keepAlive, настраивается через `DB_POOL_MAX`
 - **Backup:** `scripts/backup-mysql.ps1` (auto-detect mysqldump, retention 7d) + Task Scheduler (ежедневно 03:00)
-- **Setup:** `scripts/setup.ps1` — автоматическая настройка dev-окружения
+- **Setup:** `scripts/setup.ps1` — авто-настройка dev-окружения
 - **.env.example:** оба файла содержат все переменные с комментариями
-- **.env (root):** создан — VITE_WS_URL, VITE_API_URL, все VITE_* переменные для Vite dev-сервера
 - **SEO:** sitemap.xml, расширенный robots.txt, улучшенный manifest.json
 - **Error boundaries:** per-page (30+ lazy-роутов изолированы)
-- **Loading states:** activity.tsx, chats.tsx, profile.tsx (спиннер)
-- **Rate-limiter:** auth 60 req/min (поднят с 30 для E2E тестов)
-- **E2E:** 30 tests, 0 failures, storageState (демо/админ/user4/user5), screenshot/video/trace на падение, аудит console errors
-- **data-testid:** 15+ страниц покрыты селекторами для Playwright
-- **Негативные тесты:** XSS, wrong password, empty form validation
-- **WS real-time:** тест сообщения без перезагрузки + двухбраузерный тест
-- **Unit-тесты:** use-websocket, language-context, feature-flags-context
+- **Rate-limiter:** auth 60 req/min, api 100 req/min
 - **Bull Queue:** email/push/image очереди с Redis, graceful shutdown, fallback без Redis
 - **Redis WS Adapter:** горизонтальное масштабирование Socket.IO через pub/sub
+- **Geospatial Search:** MySQL Spatial ST_Distance_Sphere + SPATIAL INDEX
 - **Geospatial Search:** ST_Distance_Sphere + SPATIAL INDEX + prepared statements (без SQL-инъекций)
 - **Новые роуты:** /matches, /premium, /settings/privacy, /profile/:id добавлены в App.tsx
 - **Vite сборка:** 2.09s, 3580 modules, 0 errors (после фикса chats.tsx)
@@ -331,7 +345,7 @@
 | 36 | Distributed Tracing (OpenTelemetry + Jaeger) | ❌ |
 | 37 | Cache Strategy (Cache-Aside, Write-Through, Invalidation) | ❌ |
 | 38 | Backup Verification (восстановление из бэкапа) | ❌ |
-| 39 | Database Connection Pooling (mysql2 config) | ❌ |
+| 39 | Database Connection Pooling (mysql2 config) | ✅ connectionLimit 20 + keepAlive + env |
 | 40 | Incident Post-Mortem Process | ❌ |
 
 Полное описание каждого пункта — в `Промты.txt` (разделы 21–31).

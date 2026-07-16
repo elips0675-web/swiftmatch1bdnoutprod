@@ -123,11 +123,21 @@ npx vite --port 8081 --host
 - **Soft Deletes:** `deleted_at` на 11 основных таблицах
 - **Audit Log:** `audit_log` таблица со всеми мутациями (кто, что, когда)
 
+### 🏥 Health Checks
+- `/health/live` — сервер жив (always 200)
+- `/health/ready` — DB + Redis check (200/503)
+- Graceful shutdown: SIGTERM + SIGINT, timeout 10s
+
 ### 🎁 Реферальная система
 - Уникальный referral_code для каждого пользователя
 - Отслеживание приглашённых друзей и премиум-конверсий
+- `GET /api/referral/code`, `POST /api/referral/apply`, `GET /api/referral/stats`
 
 ### 🧪 Тестирование
+- **Фронтенд (Vitest):** 52 теста, 11 файлов
+- **Сервер (Vitest):** 117 тестов, 11 файлов — **0 failures**
+- **E2E (Playwright):** 30 тестов, 2 spec-файла (audit-full, helpers) — **0 failures**
+- **Swagger:** OpenAPI-документация с JSDoc-аннотациями
 - **Фронтенд (Vitest):** 52 теста, 11 файлов
 - **Сервер (Vitest):** 117 тестов, 11 файлов — **0 failures**
 - **E2E (Playwright):** 30 тестов, 2 spec-файла (audit-full, helpers) — **0 failures**
@@ -164,39 +174,56 @@ npx vite --port 8081 --host
 
 ## Что осталось до продакшена
 
-### 🔴 Требуют реальных ключей/сервисов (код готов)
+### 🔴 Требует реальных ключей (код готов, без env не работает)
 
 | Переменная | Файл | Назначение |
 |---|---|---|
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `server/.env` | Реальные платежи |
 | `SMTP_USER`, `SMTP_PASS` | `server/.env` | Email (регистрация, сброс пароля) |
 | `SENTRY_DSN` | `server/.env` + `.env` | Мониторинг ошибок |
-| `REDIS_URL` | `server/.env` | Кэш + rate-limit |
+| `REDIS_URL` | `server/.env` | Кэш + rate-limit + Bull Queue + WS Adapter |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | `server/.env` | Облачное хранение файлов |
 | `DB_PASSWORD` | `server/.env` | Непустой пароль для MySQL |
 | `CORS_ORIGIN` | `server/.env` | Домен прода (вместо `localhost:8081`) |
+| `NODE_ENV=production` | `server/.env` | Отключает Stripe mock, Sentry sampling 0.1 |
 
-### 🟢 Опционально
+### 🟠 Нужно доделать (до 1-й недели после запуска)
 
-- Включить Redis (`REDIS_URL`) для:
-  - Кэширования сессий (`cache.js` — profile 60s, matches 30s)
-  - Bull Queue (email/push/image фоновые задачи)
-  - Socket.IO Redis Adapter (горизонтальное масштабирование WS)
-- Настроить `mysqldump` cron: `scripts/backup-mysql.ps1` (Windows) или `scripts/backup-mysql.sh` (Linux) с retention 7 дней (инструкция ниже)
-- Включить геопоиск: запустить `node database/migrations/migrate.js`
+| Задача | Почему важно |
+|--------|-------------|
+| **Push FCM для Android** (Firebase Cloud Messaging) | Без этого мобильное приложение не получает пуши |
+| **Deep Links** (Universal Links iOS + App Links Android) | Пуши открывают главную, а не чат/профиль |
+| **CDN для фото** (S3 + CloudFront/CDN) | Трафик фото через сервер убьёт CPU первого же дня |
+| **Apple/Google IAP** (RevenueCat) | App Store отклонит без нативных платежей |
+| **Twilio API ключи** для SMS-верификации | Дейтинг без верификации = 80% ботов |
+| **OpenAI/AWS ключи** для AI-модерации | NSFW-фото не отсекаются автоматически |
+
+### 🟢 Опционально (не блокирует запуск)
+
+- Включить Redis (`REDIS_URL`) для кэша, Bull Queue, WS Adapter
+- Настроить `mysqldump` cron: `scripts/backup-mysql.ps1` (Windows) или `scripts/backup-mysql.sh` (Linux) с retention 7 дней
 - Сгенерировать тестовые данные: `cd server && npm run db:seed`
+- Feature Flags (Unleash), Product Analytics (PostHog), Monitoring (Grafana)
+- API Versioning, Design System/Storybook, GDPR docs, Load Testing (k6)
 
 ---
 
 ## Структура
 
-| Папка | Назначение |
-|-------|------------|
-| `server/` | API на Express + MySQL (маршруты: auth, profile, social, chats, groups, contest, premium, reports, notifications, admin) |
-| `server/src/routes/admin/` | Админка (dashboard, users, analytics, reports, content, features, messaging, monetization, media) |
+| Папка/Файл | Назначение |
+|------------|-----------|
+| `server/` | API на Express + MySQL (auth, profile, social, chats, premium, reports, referral, admin) |
+| `server/src/routes/admin/` | Админка (dashboard, users, analytics, reports, content, features, messaging, monetization) |
 | `server/src/ws.js` | Socket.IO (чат, уведомления, онлайн-статус) |
+| `server/src/queue.js` | Bull Queue (email/push/image фоновые задачи) |
+| `server/src/jobs/` | Процессоры очередей (email.job.js, push.job.js, image.job.js) |
+| `server/src/redis.js` | ioredis lazy client (3 клиента: main/pub/sub) |
+| `server/src/audit.js` | Soft delete + audit log helpers |
+| `server/src/seed.js` | Генератор тестовых данных (50 users, 30 matches, 200 msgs) |
+| `server/src/routes/report.js` | POST /api/reports + auto-ban escalation |
+| `server/src/routes/referral.js` | Реферальная система (code, apply, stats) |
 | `src/` | Фронтенд на React + Vite + Tailwind |
-| `database/` | `mysql_schema.sql` + `demo_data.sql` |
+| `database/` | `mysql_schema.sql` + `demo_data.sql` + `migrations/` (6 миграций) |
 
 ## Резервное копирование MySQL
 
