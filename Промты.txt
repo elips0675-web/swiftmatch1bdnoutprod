@@ -477,3 +477,169 @@ const stripe = process.env.STRIPE_SECRET_KEY
 24. **vi.mock hoisting** — vi.mock hoist'ится выше const → ReferenceError (TDZ). **Фикс:** vi.hoisted(() => vi.fn()).
 25. **git stash untracked** — git stash без -u не сохраняет untracked. **Фикс:** git stash -u или git add untracked сначала.
 26. **Husky pre-commit + eslint** — при падении хука stash-pop теряет untracked. **Фикс:** git commit --no-verify.
+
+---
+
+## 21. Production Roadmap — что нужно для продакшена
+
+### 🔴 Критично — без этого не запустить/не масштабировать
+
+#### 21.1 CI/CD Pipeline (GitHub Actions)
+```yaml
+# .github/workflows/ci.yml
+- Lint + TypeScript strict check
+- Unit tests (Vitest) + Server tests (Jest/Vitest)
+- Playwright E2E (parallel shards, 4 workers)
+- Build Vite + Docker build server
+- Deploy staging on PR, production on tag
+```
+
+#### 21.2 Docker / Docker Compose
+- `Dockerfile` (multi-stage: deps → build → prod)
+- `docker-compose.yml`: app + mysql + redis + nginx + s3mock (minio)
+- Нужно для идентичных окружений dev/staging/prod
+
+#### 21.3 Background Jobs (Bull + Redis)
+- `server/src/queue.js`:
+  - emailQueue (приветственные письма, дайджесты)
+  - matchQueue (расчёт совместимости, уведомления о мэтче)
+  - imageQueue (ресайз фото, NSFW-проверка, WebP-конвертация)
+  - notificationQueue (push-уведомления, email-оповещения)
+
+#### 21.4 Redis Adapter для Socket.IO
+- Горизонтальное масштабирование WebSocket:
+  ```js
+  const { createAdapter } = require("@socket.io/redis-adapter");
+  io.adapter(createAdapter(pubClient, subClient));
+  ```
+- Без этого при 2+ серверах WS-сообщения теряются между инстансами
+
+#### 21.5 Geospatial Search (ближайшие пользователи)
+- MySQL 8.0+ Spatial: `POINT` + `SRID 4326` + `SPATIAL INDEX`
+- `ST_Distance_Sphere(location, POINT(?, ?)) <= radius`
+- Дейтинг без "люди рядом" — не дейтинг. `ORDER BY sqrt(pow(...))` убивает БД на 10k пользователей
+
+### 🟠 Высокий приоритет — без этого будет больно через 3 месяца
+
+#### 21.6 Push Notifications (Firebase Cloud Messaging)
+- `src/lib/push.ts`: requestPermission → FCM token → save to `/api/devices`
+- Server: `sendMulticast()` на мэтч/сообщение
+- Capacitor: `@capacitor/push-notifications`
+- Socket.IO не работает, когда приложение в фоне — теряете 60% engagement
+
+#### 21.7 SMS Verification (Twilio / Vonage)
+- `server/src/sms.js`: sendVerificationCode + verifyCode
+- rate-limit: 3 SMS/час на номер
+- Дейтинг = высокий риск фейков. Верификация телефона снижает ботов на 80%
+
+#### 21.8 AI Content Moderation (фото + текст)
+- AWS Rekognition / Google Vision: detect nudity, violence
+- Sightengine / Azure Content Moderator: текстовый токсичный контент
+- `moderation_status: 'pending' | 'approved' | 'rejected'` (уже есть в schema)
+- Автоматический бан при confidence > 0.85
+- "Banned words" — это 2010-й. Нужна модерация изображений в реальном времени
+
+#### 21.9 Image Processing Pipeline (Sharp + S3 + CloudFront)
+- Sharp: resize 800x800, 400x400, 200x200 (thumbnails)
+- WebP/AVIF конвертация
+- Blur hash для placeholder
+- S3 upload с uuid + CloudFront CDN
+- Без ресайза = 10s загрузка профиля, $$$ на трафик
+
+#### 21.10 Video / Voice Calls (WebRTC)
+- PeerConnection, ICE servers (Twilio STUN/TURN или coturn)
+- Сигналинг через существующий Socket.IO
+- offer → answer → ICE candidates → stream
+- Конкуренты (Tinder, Bumble) уже имеют видеозвонки
+
+### 🟡 Средний приоритет — нужно для роста и команды
+
+#### 21.11 Feature Flags Service (Unleash / Flagsmith)
+- `isEnabled('new_chat_ui')` → постепенный rollout (5% → 50% → 100%)
+- A/B тест цен: `isEnabled('premium_v2')`
+- server-side: флаги в middleware (отключить лайки при overload)
+
+#### 21.12 Product Analytics (PostHog / Amplitude)
+- `track('profile_view', { source: 'search' | 'match' })`
+- `track('swipe', { direction: 'left' | 'right', duration_ms })`
+- funnel: register → profile_complete → first_like → first_match → first_message
+- "0 failures в тестах" ≠ "продукт работает". Нужно знать, где дропаются пользователи
+
+#### 21.13 Advanced Monitoring (Grafana + Prometheus + Loki)
+- metrics: HTTP request duration, DB query time, WS connections, Redis memory
+- alerts: P99 latency > 500ms, DB connections > 80%, error rate > 1%
+- Loki: агрегация Winston-логов
+- Sentry ловит ошибки, но не ловит "сайт тормозит"
+
+#### 21.14 Load Testing (k6 / Artillery)
+- 1000 VU делают `/api/search` одновременно
+- 500 VU отправляют сообщения в чат
+- Проверка: P95 < 200ms, 0% ошибок, DB CPU < 70%
+- Дейтинг имеет пики (14 февраля, вечер пятницы)
+
+#### 21.15 Data Warehouse / ETL (BigQuery / ClickHouse)
+- `analytics.events`: event_time, user_id, event_type, properties (JSON)
+- ETL: MySQL → ClickHouse каждые 15 мин
+- Dashboard: retention cohorts, LTV, CAC, churn prediction
+- Аналитика на production БД = смерть. Отдельный warehouse для BI
+
+### 🟢 Нужно для зрелости и compliance
+
+#### 21.16 GDPR / Data Privacy Compliance
+- `DELETE /api/me` — полное удаление (каскад: user → profile → photos → messages → matches)
+- `GET /api/me/export` — JSON со всеми данными пользователя
+- Автоматическое удаление неактивных аккаунтов через 2 года
+- Cookie consent banner
+- Штраф GDPR до 4% оборота
+
+#### 21.17 Incident Response & Runbooks
+```markdown
+# runbooks/
+- db-down.md: включаем read-only mode, показываем заглушку
+- ws-down.md: fallback на long-polling, queue сообщений
+- stripe-webhook-fail.md: ручная синхронизация подписок
+- on-call: PagerDuty/Opsgenie rotation
+```
+
+#### 21.18 API Versioning Strategy
+```js
+app.use('/api/v1', v1Routes);
+// app.use('/api/v2', v2Routes); // когда breaking change
+```
+Мобильное приложение не обновляется мгновенно. Старые клиенты должны работать 3-6 месяцев.
+
+#### 21.19 Multi-Environment Configuration
+- `.env.development`, `.env.staging`, `.env.production`
+- Сейчас в проекте есть `server/.env` и `vite.config.ts`, но нет явного разделения staging/prod
+
+#### 21.20 Design System / Storybook
+- Все shadcn/ui компоненты + кастомные (ProfileCard, MatchModal, ChatBubble)
+- Visual regression testing (Chromatic)
+- 3 разработчика + дизайнер = дрифт UI. Storybook — единый источник правды
+
+---
+
+### Сводная таблица
+
+| # | Раздел | Приоритет | Статус |
+|---|--------|-----------|--------|
+| 21.1 | CI/CD Pipeline (GitHub Actions) | 🔴 | ❌ |
+| 21.2 | Docker & Compose | 🔴 | ❌ |
+| 21.3 | Background Jobs (Bull Queue) | 🔴 | ❌ |
+| 21.4 | Redis Socket.IO Adapter | 🔴 | ❌ |
+| 21.5 | Geospatial Search (MySQL Spatial) | 🔴 | ❌ |
+| 21.6 | Push Notifications (FCM) | 🟠 | ❌ |
+| 21.7 | SMS Verification (Twilio) | 🟠 | ❌ |
+| 21.8 | AI Moderation (Rekognition) | 🟠 | ❌ |
+| 21.9 | Image Pipeline (Sharp + CDN) | 🟠 | ❌ |
+| 21.10 | WebRTC Video/Voice | 🟠 | ❌ |
+| 21.11 | Feature Flags (Unleash) | 🟡 | ❌ |
+| 21.12 | Product Analytics (PostHog) | 🟡 | ❌ |
+| 21.13 | Monitoring (Grafana) | 🟡 | ❌ |
+| 21.14 | Load Testing (k6) | 🟡 | ❌ |
+| 21.15 | Data Warehouse (ClickHouse) | 🟡 | ❌ |
+| 21.16 | GDPR & Data Privacy | 🟢 | ❌ |
+| 21.17 | Incident Response | 🟢 | ❌ |
+| 21.18 | API Versioning | 🟢 | ❌ |
+| 21.19 | Multi-Environment Config | 🟢 | ❌ |
+| 21.20 | Design System / Storybook | 🟢 | ❌ |

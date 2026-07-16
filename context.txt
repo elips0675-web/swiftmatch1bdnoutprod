@@ -192,6 +192,46 @@
 
 Для прода: вписать 7 ключей в `server/.env` (см. таблицу выше).
 
+## Production Roadmap — что нужно добавить для продакшена
+
+### 🔴 Критично
+| # | Задача | Статус |
+|---|--------|--------|
+| 1 | CI/CD Pipeline (GitHub Actions) — lint → build → test → deploy | ❌ |
+| 2 | Docker / Docker Compose (app + mysql + redis + nginx + minio) | ❌ |
+| 3 | Background Jobs — Bull Queue (email, match, image, notification) | ❌ |
+| 4 | Redis Adapter для Socket.IO (горизонтальное масштабирование WS) | ❌ |
+| 5 | Geospatial Search — MySQL Spatial (`ST_Distance_Sphere`) | ❌ |
+
+### 🟠 Высокий
+| # | Задача | Статус |
+|---|--------|--------|
+| 6 | Push Notifications (Firebase Cloud Messaging + Capacitor) | ❌ |
+| 7 | SMS Verification (Twilio / Vonage) | ❌ |
+| 8 | AI Content Moderation (AWS Rekognition / Google Vision) | ❌ |
+| 9 | Image Processing Pipeline (Sharp + S3 + CloudFront + WebP) | ❌ |
+| 10 | Video / Voice Calls (WebRTC + coturn STUN/TURN) | ❌ |
+
+### 🟡 Средний
+| # | Задача | Статус |
+|---|--------|--------|
+| 11 | Feature Flags Service (Unleash / Flagsmith) | ❌ |
+| 12 | Product Analytics (PostHog / Amplitude) | ❌ |
+| 13 | Monitoring (Grafana + Prometheus + Loki) | ❌ |
+| 14 | Load Testing (k6 / Artillery) | ❌ |
+| 15 | Data Warehouse / ETL (ClickHouse / BigQuery) | ❌ |
+
+### 🟢 Низкий (compliance / зрелость)
+| # | Задача | Статус |
+|---|--------|--------|
+| 16 | GDPR / Data Privacy Compliance | ❌ |
+| 17 | Incident Response & Runbooks | ❌ |
+| 18 | API Versioning (v1, v2) | ❌ |
+| 19 | Multi-Environment Configuration (.env.development/staging/production) | ❌ |
+| 20 | Design System / Storybook | ❌ |
+
+Полное описание каждого пункта — в `Промты.txt` (раздел 21).
+
 ## Playwright E2E Test Coverage
 - **30 tests, 0 failures** (31s, 8 workers)
 - **audit-full.spec.ts** — 12 сьюитов, все используют storageState:
