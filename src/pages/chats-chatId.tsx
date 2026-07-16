@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronLeft, Send, MoreVertical, Smile, Heart, Laugh, Zap, Star, Flame, Eye, CheckCheck } from "lucide-react";
+import { ChevronLeft, Send, MoreVertical, Smile, Heart, Laugh, Zap, Star, Flame, Eye, CheckCheck, Phone, Video } from "lucide-react";
 import Image from "@/shims/next-image";
 import { useRouter } from "@/shims/next-navigation";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,11 @@ import { useAntiScreenshot } from "@/hooks/useAntiScreenshot";
 import { getToken } from '@/lib/token';
 import { BottomNav } from "@/components/navigation/bottom-nav";
 import { format } from 'date-fns';
+import { useAuth } from "@/context/auth-context";
+import { useWebSocket } from "@/hooks/use-websocket";
+import { useWebRTC } from "@/hooks/use-webrtc";
+import { VideoCallDialog } from "@/components/video-call";
+import { VoiceCallDialog } from "@/components/voice-call";
 
 const QUICK_REACTIONS = [
   { id: 'heart', icon: Heart, color: 'text-red-500', label: '❤️' },
@@ -55,10 +60,18 @@ function ChatRoomSkeleton() {
 export default function ChatPage({ params }: { params: { chatId: string } }) {
   const router = useRouter();
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const { socket } = useWebSocket();
   const [inputValue, setInputValue] = useState("");
   const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
   const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
   const [reactionMsgId, setReactionMsgId] = useState<number | null>(null);
+  const [isVideoCall, setIsVideoCall] = useState(false);
+  const [isVoiceCall, setIsVoiceCall] = useState(false);
+  const [isCallMuted, setIsCallMuted] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(false);
+
+  const webrtc = useWebRTC(socket, user?.id ?? null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -146,6 +159,16 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
     return Object.values(grouped)
   }
 
+  const handleStartVideoCall = () => {
+    setIsVideoCall(true);
+    webrtc.startCall(chatPartner?.user_id, 'video');
+  };
+
+  const handleStartVoiceCall = () => {
+    setIsVoiceCall(true);
+    webrtc.startCall(chatPartner?.user_id, 'audio');
+  };
+
   const isLoading = messagesLoading || partnerLoading;
 
   if (isLoading) {
@@ -171,6 +194,8 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
         <div className="flex-1">
             <h3 className="font-bold text-sm truncate">{chatPartner.name}</h3>
         </div>
+        <Button variant="ghost" size="icon" onClick={handleStartVideoCall} className="rounded-full text-muted-foreground hover:bg-muted/50"><Video size={18} /></Button>
+        <Button variant="ghost" size="icon" onClick={handleStartVoiceCall} className="rounded-full text-muted-foreground hover:bg-muted/50"><Phone size={18} /></Button>
         <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="rounded-full"><MoreVertical size={18} /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end" />
@@ -241,6 +266,34 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
         </div>
       </div>
       <BottomNav />
+
+      {isVideoCall && (
+        <VideoCallDialog
+          open={isVideoCall}
+          onOpenChange={setIsVideoCall}
+          user={chatPartner}
+          localStream={webrtc.localStream}
+          remoteStream={webrtc.remoteStream}
+          callState={webrtc.callState}
+          endCall={webrtc.endCall}
+          isMuted={isCallMuted}
+          isVideoOff={isVideoOff}
+          onToggleMute={() => setIsCallMuted(!isCallMuted)}
+          onToggleVideo={() => setIsVideoOff(!isVideoOff)}
+        />
+      )}
+      {isVoiceCall && (
+        <VoiceCallDialog
+          open={isVoiceCall}
+          onOpenChange={setIsVoiceCall}
+          user={chatPartner}
+          localStream={webrtc.localStream}
+          callState={webrtc.callState}
+          endCall={webrtc.endCall}
+          isMuted={isCallMuted}
+          onToggleMute={() => setIsCallMuted(!isCallMuted)}
+        />
+      )}
     </div>
   );
 }

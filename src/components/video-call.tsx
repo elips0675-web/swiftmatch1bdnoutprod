@@ -1,6 +1,4 @@
-
-import { useState, useEffect, useRef } from 'react';
-import Image from "@/shims/next-image";
+import { useEffect, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -16,69 +14,62 @@ import {
   Maximize,
   Minimize,
 } from 'lucide-react';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { toast } from '@/hooks/use-toast';
+import type { CallState } from '@/hooks/use-webrtc';
 
-export function VideoCallDialog({ open, onOpenChange, user }: { open: boolean, onOpenChange: (open: boolean) => void, user: any }) {
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
+export function VideoCallDialog({
+  open,
+  onOpenChange,
+  user,
+  localStream,
+  remoteStream,
+  callState,
+  endCall,
+  isMuted,
+  isVideoOff,
+  onToggleMute,
+  onToggleVideo,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  user: any;
+  localStream: MediaStream | null;
+  remoteStream: MediaStream | null;
+  callState: CallState;
+  endCall: () => void;
+  isMuted: boolean;
+  isVideoOff: boolean;
+  onToggleMute: () => void;
+  onToggleVideo: () => void;
+}) {
   const [callDuration, setCallDuration] = useState(0);
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState(true);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (open) {
+    if (open && callState === 'connected') {
       setCallDuration(0);
-
-      const getCameraPermission = async () => {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            console.error('Camera API not available.');
-            setHasCameraPermission(false);
-            toast({
-              variant: 'destructive',
-              title: 'Камера не доступна',
-              description: 'Ваш браузер не поддерживает эту функцию.',
-            });
-            return;
-        }
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          setHasCameraPermission(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        } catch (error) {
-          console.error('Error accessing camera:', error);
-          setHasCameraPermission(false);
-          toast({
-            variant: 'destructive',
-            title: 'Доступ к камере запрещен',
-            description: 'Разрешите доступ к камере в настройках браузера.',
-          });
-        }
-      };
-
-      getCameraPermission();
-      
       timer = setInterval(() => {
         setCallDuration(prev => prev + 1);
       }, 1000);
     }
-
-    return () => {
-      clearInterval(timer);
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-        videoRef.current.srcObject = null;
-      }
-    };
-  }, [open]);
-
+    return () => clearInterval(timer);
+  }, [open, callState]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -86,9 +77,14 @@ export function VideoCallDialog({ open, onOpenChange, user }: { open: boolean, o
     return `${mins}:${secs}`;
   };
 
+  const handleEndCall = () => {
+    endCall();
+    onOpenChange(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { endCall(); } onOpenChange(v); }}>
+      <DialogContent
         className={cn(
           "max-w-none w-screen h-screen p-0 border-0 bg-black flex flex-col items-center justify-center transition-all duration-500",
           isFullScreen ? "rounded-none" : "rounded-3xl max-w-[480px] h-[95vh] mx-auto"
@@ -96,59 +92,75 @@ export function VideoCallDialog({ open, onOpenChange, user }: { open: boolean, o
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogTitle className="sr-only">Video call with {user?.name}</DialogTitle>
-        <motion.div 
-          layout 
+        <motion.div
+          layout
           className="relative w-full h-full rounded-3xl overflow-hidden bg-gray-900 flex items-center justify-center"
         >
           {/* Remote user video */}
           <div className="absolute inset-0">
-            <Image
-              src={user.img}
-              alt={user.name}
-              fill
-              className="object-cover opacity-80"
-            />
-            <div className="absolute inset-0 bg-black/30"></div>
+            {remoteStream ? (
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                <div className="w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center">
+                  <span className="text-4xl text-white/50">{user?.name?.[0]}</span>
+                </div>
+              </div>
+            )}
+            {callState === 'calling' && (
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                <div className="text-white text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full border-4 border-t-transparent border-white animate-spin" />
+                  <p className="text-lg">Calling {user?.name}...</p>
+                </div>
+              </div>
+            )}
+            {callState === 'ringing' && (
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                <div className="text-white text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full border-4 border-t-transparent border-white animate-spin" />
+                  <p className="text-lg">Incoming call from {user?.name}...</p>
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="relative z-10 flex flex-col items-center justify-center text-white">
-             <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white/50 mb-4 shadow-lg">
-                <Image src={user.img} alt={user.name} width={96} height={96} className="object-cover" />
-             </div>
-             <h3 className="text-2xl font-bold">{user.name}</h3>
-             <p className="text-lg font-mono tracking-widest mt-1">{formatDuration(callDuration)}</p>
-          </div>
+          {/* Connected state info */}
+          {callState === 'connected' && (
+            <div className="relative z-10 flex flex-col items-center justify-center text-white pointer-events-none">
+              <p className="text-lg font-mono tracking-widest mt-1">{formatDuration(callDuration)}</p>
+            </div>
+          )}
 
-          {/* Local user video */}
+          {/* Local user video PiP */}
           <AnimatePresence>
-            {!isVideoOff && (
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.8, y: 50 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.8, y: 50 }}
-                    drag
-                    dragConstraints={{ top: -250, left: -100, right: 100, bottom: 250 }}
-                    className="absolute bottom-28 sm:bottom-32 right-4 w-28 h-40 bg-gray-800 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl cursor-grab active:cursor-grabbing"
-                >
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      muted
-                      playsInline
-                      className="w-full h-full object-cover"
-                    />
-                    {!hasCameraPermission && (
-                        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center p-2 text-center text-white">
-                            <VideoOff size={24} className="mb-2" />
-                            <p className="text-[10px] leading-tight">Камера недоступна</p>
-                        </div>
-                    )}
-                    {isMuted && (
-                        <div className="absolute bottom-1 right-1 p-1 bg-black/50 rounded-full">
-                            <MicOff size={12} className="text-white" />
-                        </div>
-                    )}
-                </motion.div>
+            {!isVideoOff && localStream && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, y: 50 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.8, y: 50 }}
+                drag
+                dragConstraints={{ top: -250, left: -100, right: 100, bottom: 250 }}
+                className="absolute bottom-28 sm:bottom-32 right-4 w-28 h-40 bg-gray-800 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl cursor-grab active:cursor-grabbing"
+              >
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover scale-x-[-1]"
+                />
+                {isMuted && (
+                  <div className="absolute bottom-1 right-1 p-1 bg-black/50 rounded-full">
+                    <MicOff size={12} className="text-white" />
+                  </div>
+                )}
+              </motion.div>
             )}
           </AnimatePresence>
 
@@ -157,7 +169,7 @@ export function VideoCallDialog({ open, onOpenChange, user }: { open: boolean, o
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsMuted(!isMuted)}
+              onClick={onToggleMute}
               className={cn(
                 "w-14 h-14 rounded-full text-white hover:bg-white/20",
                 isMuted && "bg-white/20"
@@ -168,7 +180,7 @@ export function VideoCallDialog({ open, onOpenChange, user }: { open: boolean, o
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsVideoOff(!isVideoOff)}
+              onClick={onToggleVideo}
               className={cn(
                 "w-14 h-14 rounded-full text-white hover:bg-white/20",
                 isVideoOff && "bg-white/20"
@@ -178,13 +190,13 @@ export function VideoCallDialog({ open, onOpenChange, user }: { open: boolean, o
             </Button>
             <Button
               size="icon"
-              onClick={() => onOpenChange(false)}
-              className="w-16 h-14 rounded-full bg-red-500 hover:bg-red-600 text-white text-2xl"
+              onClick={handleEndCall}
+              className="w-16 h-14 rounded-full bg-red-500 hover:bg-red-600 text-white"
             >
               <PhoneOff size={28} />
             </Button>
           </div>
-          
+
           <Button
             variant="ghost"
             size="icon"
