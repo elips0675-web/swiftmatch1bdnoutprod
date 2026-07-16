@@ -20,6 +20,7 @@ CREATE TABLE users (
   created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   last_login          TIMESTAMP NULL,
+  phone               VARCHAR(20) NULL AFTER email,
   INDEX idx_users_email (email),
   INDEX idx_users_role (role),
   INDEX idx_users_reset_token (reset_token)
@@ -708,6 +709,22 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_refresh_user (user_id),
   INDEX idx_refresh_token (token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------
+-- 43. SMS VERIFICATION
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sms_verification (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id     INT UNSIGNED NOT NULL,
+  phone       VARCHAR(20) NOT NULL,
+  code        VARCHAR(6) NOT NULL,
+  verified    TINYINT(1) NOT NULL DEFAULT 0,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  expires_at  TIMESTAMP NOT NULL,
+  UNIQUE KEY uk_sms_user (user_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Feature flags (single row)

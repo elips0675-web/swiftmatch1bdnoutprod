@@ -30,6 +30,8 @@ import socialRoutes from './routes/social.js'
 import premiumRoutes from './routes/premium.js'
 import authRoutes, { createRefreshToken } from './routes/auth.js'
 import adminModerationRoutes from './routes/admin-moderation.js'
+import smsRoutes from './routes/sms.js'
+import moderationRoutes from './routes/moderation.js'
 import { JWT_SECRET } from './middleware.js'
 import { setupSwagger } from './swagger.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -152,6 +154,8 @@ app.use(pushRoutes)
 app.use(premiumRoutes)
 app.use(socialRoutes)
 app.use(authRoutes)
+app.use(smsRoutes)
+app.use(moderationRoutes)
 
 app.use('/api/admin', adminAuth)
 
