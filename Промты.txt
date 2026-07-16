@@ -1,0 +1,192 @@
+# Промты для SwiftMatch (структура тестов и продакшн)
+
+## 1. Функциональный аудит приложения
+Проведи полный функциональный аудит веб-приложения SwiftMatch (дейтинг-приложение аналог Tinder).
+
+Стек: React 18 + Vite + Tailwind (фронт), Express.js + MySQL (бэкенд), Socket.IO, Stripe, JWT.
+
+### Что проверить:
+1. АВТОРИЗАЦИЯ И РЕГИСТРАЦИЯ — регистрация, логин, logout, forgot password, verify email, dev-login
+2. ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ — создание, редактирование, загрузка фото, удаление, настройки приватности
+3. ЛАЙКИ И МЭТЧИ — свайп/лайк, мэтч, список мэтчей, геопоиск
+4. ЧАТЫ — создание, отправка, история, typing indicator, read receipts, emoji-реакции, удаление, banned words
+5. ПРЕМИУМ / МОНЕТИЗАЦИЯ — тарифы, Stripe Checkout, webhook, лимиты free vs premium
+6. СОЦИАЛЬНЫЕ ФИЧИ — группы, конкурс, онлайн-статус
+7. АДМИНКА — доступ, дашборд, пользователи, фича-флаги, рассылки, модерация, цены
+8. ИНФРАСТРУКТУРА — /health, WebSocket heartbeat, Sentry, Swagger, CORS
+
+Формат: для каждой функции статус (✅/❌/⚠️/❓), ошибка, файлы, приоритет (🔴/🟠/🟡/🟢).
+
+---
+
+## 2. Аудит связки Админка-БД-Приложение
+Проверь:
+1. СХЕМА ДАННЫХ vs КОД — все колонки в SELECT/INSERT/UPDATE существуют в schema, типы совпадают
+2. ADMIN API vs БД — каждый роут (GET/PUT /api/admin/users, stats, features, content, reports, newsletter, impersonate). SQL через prepared statements? try/catch? возвращает массив для DataTable?
+3. ADMIN UI vs ADMIN API — что UI ожидает vs что API реально возвращает
+4. ИЗМЕНЕНИЯ В АДМИНКЕ → ПРИЛОЖЕНИЕ — бан, цены, feature flags применяются?
+5. БЕЗОПАСНОСТЬ — adminAuth passive? req.user.role === 'admin' проверяется внутри? SQL-инъекции? IDOR?
+
+Формат: таблицы с проблемами и фиксами.
+
+---
+
+## 3. Добавление data-testid селекторов
+Добавь data-testid на все интерактивные элементы согласно таблице:
+
+| Страница | Селектор |
+|----------|----------|
+| login.tsx | `[data-testid="email"]`, `[data-testid="password"]`, `[data-testid="phone"]`, `[data-testid="submit-login"]` |
+| register.tsx | `[data-testid="name"]`, `[data-testid="email"]`, `[data-testid="password"]`, `[data-testid="submit-register"]` |
+| forgot-password.tsx | `[data-testid="email"]`, `[data-testid="submit-forgot-password"]` |
+| settings.tsx | `[data-testid="switch-*"]`, `[data-testid="logout-button"]`, `[data-testid="delete-account-button"]` |
+| profile-edit.tsx | `[data-testid="profile-name"]`, `[data-testid="profile-bio"]`, `[data-testid="save-profile"]` |
+| groups.tsx | `[data-testid="create-group-button"]`, `[data-testid="group-name"]`, `[data-testid="group-description"]`, `[data-testid="submit-create-group"]` |
+| search.tsx | `[data-testid="change-filters"]`, `[data-testid="prev-profile"]`, `[data-testid="next-profile"]` |
+| search-filters.tsx | `[data-testid="apply-filters"]` |
+| premium-success.tsx | `[data-testid="back-home-button"]` |
+| admin-features.tsx | `[data-testid="save-features"]`, `[data-testid="reset-features"]` |
+| admin-users.tsx | `[data-testid="search-users"]` |
+| admin-messaging.tsx | `[data-testid="messaging-title"]`, `[data-testid="messaging-body"]`, `[data-testid="send-campaign"]` |
+| chats-chatId.tsx | `[data-testid="message-input"]`, `[data-testid="send-button"]`, `[data-testid="message-list"]` |
+| chats.tsx | `[data-testid="message-input"]`, `[data-testid="send-button"]`, `[data-testid="chat-search"]` |
+| activity.tsx | `[data-testid="reveal-profile"]` |
+| contest.tsx | `[data-testid="close-photo-viewer"]` |
+
+---
+
+## 4. Playwright E2E тесты
+Создай полный набор E2E тестов в `e2e/audit-full.spec.ts`:
+
+1. Health & Infrastructure — API healthcheck, frontend loads без ошибок
+2. Registration flow — регистрация через UI, затем логин
+3. Negative auth tests — wrong password stays on /login, empty email validation
+4. Like → Match → Chat (два пользователя) — API лайки user4→user5, проверка match, отправка сообщения
+5. Admin flow — дашборд без ошибок, toggle feature flag, save/reset кнопки, search users
+6. Public pages — /, /login, /register, /forgot-password без console errors
+7. Settings — toggle switches, logout button
+8. Chat functionality — открыть чат, проверить message input
+9. Groups — открыть диалог создания
+10. Negative & security — XSS в bio экранирован, wrong password, empty email
+11. WebSocket real-time — сообщение появляется без перезагрузки
+12. WebSocket two-browser — браузер A отправляет, браузер B получает без reload
+
+Хелперы:
+- `e2e/helpers/audit.ts` — console/network/page error tracker с expectClean()
+- `e2e/helpers/api.ts` — apiCall(), loginViaApi(), healthCheck()
+- `e2e/setup/global-setup.ts` — health check + storage state (demo/admin/user4/user5)
+
+Конфиг: screenshot/video on failure, json reporter, 8 workers.
+
+---
+
+## 5. Unit-тесты
+Добавь unit-тесты для:
+1. `language-context.test.tsx` — проверка translation keys (RU/EN), mock t()
+2. `feature-flags-context.test.tsx` — API fallback, default flags
+3. `use-websocket.test.tsx` — connect с токеном, null без токена, disconnect при unmount
+
+---
+
+## 6. Починка chats.tsx Vite SyntaxError
+При сборке Vite падает: `Expected '</', got 'jsx text'` в chats.tsx.
+Причина: не хватает `</div>` для `<div data-testid="message-list">`.
+Фикс: добавить закрывающий тег. Ломало /admin/messaging (триггерит lazy-загрузку chats.tsx).
+
+---
+
+## 7. Починка settings-privacy.tsx
+Страница /settings/privacy делает fetch к `/api/settings` — роут не существует (404).
+Фикс: переписать на localStorage (аналогично main settings.tsx).
+
+---
+
+## 8. Redis + Backup по этапам
+
+### Этап 1: Redis
+1. Подключить `getRedis`/`disconnectRedis` в `server/src/index.js`
+2. Graceful connect при старте, disconnect на SIGTERM
+3. Создать `server/src/cache.js` с:
+   - `cacheRoute(ttl)` — кэширование по URL
+   - `cacheRoutePerUser(ttl)` — кэширование по userId + URL
+   - `setCached(key, data)` / `getCached(key)` — низкоуровневый API
+   - `invalidate(pattern)` — сброс по паттерну (scanStream)
+4. Кэшировать GET /api/profile/:id (60s), сброс на PUT profile
+5. Кэшировать GET /api/matches (30s per-user), сброс на POST like→match
+6. Добавить CACHE_TTL в server/.env.example
+
+### Этап 2: MySQL Backup
+1. Переписать `scripts/backup-mysql.ps1`:
+   - auto-detect mysqldump (8 путей)
+   - `cmd.exe /c` для вызова mysqldump (избежать проблем PowerShell с ANSI)
+   - retention 7 дней
+   - размер файла в выводе
+2. Создать Task Scheduler: ежедневно 03:00
+
+---
+
+## 9. Production Readiness Checklist
+
+### Security grep
+```bash
+grep -rE "dev-secret|localhost:300[0-9]|password.*=.*$|JWT_SECRET.*=.*key" \
+  --include="*.env" --include="*.ts" --include="*.js" \
+  --exclude-dir=node_modules --exclude-dir=dist
+```
+
+### Конфигурационная консистентность
+- server/.env → PORT=3002
+- vite.config.ts → proxy /api → localhost:3002
+- .env → VITE_WS_URL, VITE_API_URL
+
+### Платежный флоу (Stripe)
+- STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET в server/.env
+- mockFallback только при NODE_ENV !== 'production'
+- Idempotency-Key на checkout.sessions.create
+- express.raw({ type: 'application/json' }) перед express.json()
+
+### Email / SMTP
+- SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_FROM
+- Не console.log как единственный транспорт
+
+### WebSocket
+- pingInterval 10000, pingTimeout 5000
+- reconnect exponential backoff (max 30s)
+- ack на сообщениях
+- user:banned event разлогинивает
+
+### File Upload
+- limits: { fileSize: 5 * 1024 * 1024 }
+- file.mimetype.startsWith('image/')
+- uuid + оригинальное расширение
+
+### Admin routes
+- adminAuth middleware passive (next() на ошибке)
+- req.user.role === 'admin' внутри хендлера
+- Все PUT/POST/DELETE проверяют роль
+- SQL в try/catch, пустой результат → [] или {}
+
+### Sentry / Observability
+- SENTRY_DSN в .env (frontend и backend)
+- beforeSend фильтрует authorization, cookie, email, IP
+- /health роут
+
+### Тесты
+- npm run test (frontend) — 0 failures
+- cd server && npm run test — 0 failures
+- npx playwright test — 0 failures
+
+---
+
+## 10. Документация
+Обновить:
+- context.txt — что сделано, что осталось, ключевые файлы, статус страниц
+- AGENTS.md — правила, стек, pitfall'ы, prompt templates
+- personna.md — порт API, особенности проекта
+
+---
+
+## 11. Git
+- Conventional Commits: feat:, fix:, refactor:, test:, docs:, chore:
+- git commit --no-verify если changes проверены
+- git push origin main
