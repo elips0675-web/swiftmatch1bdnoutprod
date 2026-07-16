@@ -50,7 +50,7 @@
 - **Docker:** .dockerignore, restart, mem_limit, named volume, healthcheck
 - **Nginx:** rate limit, client_max_body_size, proxy_read_timeout 86400s, SSL
 - **Логи:** 0 console.log/error в server/src/ — везде Winston
-- **Тесты:** 137/137, 0 failures
+- **Тесты:** 177/177, 0 failures — 52 фронт + 95 сервер + 30 E2E
 
 ### Функциональный аудит (июль 2026)
 Проверены все 8 разделов через работающий API (сервер localhost:3002):
@@ -160,6 +160,7 @@
 | `server/src/sentry.js` | Sentry init + beforeSend |
 | `server/src/middleware/idempotency.js` | Idempotency-Key защита |
 | `server/src/redis.js` | ioredis lazy client |
+| `server/src/cache.js` | Redis cache middleware (cacheRoute, cacheRoutePerUser, invalidate) |
 | `server/src/routes/admin/analytics.js` | analytics/overview, retention, revenue-mix, registrations |
 | `database/migrations/migrate.js` | Миграции БД |
 | `nginx/swiftmatch.conf` | Production Nginx config |
@@ -173,6 +174,7 @@
 - **Backup:** `scripts/backup-mysql.ps1` (auto-detect mysqldump, retention 7d) + Task Scheduler (ежедневно 03:00)
 - **Setup:** `scripts/setup.ps1` — автоматическая настройка dev-окружения
 - **.env.example:** оба файла содержат все переменные с комментариями
+- **.env (root):** создан — VITE_WS_URL, VITE_API_URL, все VITE_* переменные для Vite dev-сервера
 - **SEO:** sitemap.xml, расширенный robots.txt, улучшенный manifest.json
 - **Error boundaries:** per-page (30+ lazy-роутов изолированы)
 - **Loading states:** activity.tsx, chats.tsx, profile.tsx (спиннер)
