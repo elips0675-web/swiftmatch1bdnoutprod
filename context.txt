@@ -247,6 +247,12 @@
 | 32 | Testing Pyramid + Visual Regression + Contract Tests | ❌ |
 | 33 | Infrastructure as Code + Blue-Green Deploy + Migration Safety | ❌ |
 | 34 | Subscription Lifecycle + Referral System + Granular Rate Limits | ❌ |
+| 35 | Outbox Pattern (релиабельные события) + Dead Letter Queue | ❌ |
+| 36 | Distributed Tracing (OpenTelemetry + Jaeger) | ❌ |
+| 37 | Cache Strategy (Cache-Aside, Write-Through, Invalidation) | ❌ |
+| 38 | Backup Verification (восстановление из бэкапа) | ❌ |
+| 39 | Database Connection Pooling (mysql2 config) | ❌ |
+| 40 | Incident Post-Mortem Process | ❌ |
 
 Полное описание каждого пункта — в `Промты.txt` (разделы 21–31).
 

@@ -925,3 +925,76 @@ process.on('SIGTERM', async () => {
 // - WebSocket: max 100 msg/min
 ```
 Фиксит: abuse API. Пользователь бот-фермы лайкает всех.
+
+---
+
+## 32. Production-паттерны (для этого проекта)
+
+### 32.1 Outbox Pattern (релиабельные события)
+```ts
+// Вместо прямой отправки в Bull/Socket.IO из HTTP-хендлера:
+// 1. INSERT в outbox (table, record_id, event_type, payload JSON)
+// 2. Отдельный worker читает outbox и отправляет в queue/WS
+// 3. После подтверждения — DELETE из outbox или пометить sent_at
+```
+Фиксит: потеря событий при падении сервера между commit и queue.send(). Особенно критично для мэтчей и платежей.
+
+### 32.2 Dead Letter Queue + Retry Strategy
+```ts
+// Для Bull Queue (section 21.3):
+// - 3 попытки с exponential backoff + jitter (1s, 4s, 16s)
+// - После 3х неудач → DLQ (отдельная очередь)
+// - Алерт при > 10 сообщений в DLQ за час
+// - Ручной ретрай/скип через админку
+```
+Фиксит: «Сообщение упало и никто не узнал». Email не отправился, NSFW-проверка не прошла.
+
+### 32.3 Distributed Tracing (OpenTelemetry + Jaeger)
+```ts
+// server/src/tracing.js
+const { NodeTracerProvider } = require('@opentelemetry/sdk-trace-node');
+// - traceId в каждый HTTP-ответ (X-Trace-Id)
+// - Spans: HTTP request, DB query, Redis call, Queue job
+// - Jaeger UI: поиск по userId/traceId
+```
+Фиксит: «Почему запрос занял 3 секунды?» — без трейсинга неизвестно, где тормозит (БД? Redis? Внешний API?).
+
+### 32.4 Cache Strategy + Invalidation Patterns
+- Cache-Aside (уже есть в cache.js): GET → если нет в Redis → query → set cache
+- Write-Through: PUT → update DB + set cache в одном потоке
+- Invalidation on write (уже есть: PUT profile → invalidate, POST like → invalidate matches)
+- **Чего не хватает:** TTL с jitter (не сбрасывать весь кэш разом), partial invalidate (только изменённые поля)
+Фиксит: «После обновления фото профиля — старая фотка ещё 60 секунд».
+
+### 32.5 Backup Verification
+```bash
+# После backup-mysql.ps1:
+# 1. Создать тестовую БД: CREATE DATABASE swiftmatch_verify;
+# 2. Восстановить: mysql ... swiftmatch_verify < backup.sql
+# 3. Проверить: SELECT COUNT(*) FROM users > 0
+# 4. Удалить тестовую БД: DROP DATABASE swiftmatch_verify;
+```
+Фиксит: «Бэкапы есть, но восстанавливаются ли они?» — распространённая проблема.
+
+### 32.6 Database Connection Pooling
+```ts
+// mysql2 pool config для production:
+{
+  connectionLimit: 20,      // не 10, не 100
+  queueLimit: 0,
+  waitForConnections: true,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000
+}
+// Мониторинг: pool._allConnections.length, pool._freeConnections.length
+// Алерт: если все 20 коннектов заняты > 5 секунд
+```
+Фиксит: «БД перестала отвечать» — часто из-за истощения пула соединений (неправильный connectionLimit).
+
+### 32.7 Incident Post-Mortem Process
+1. Инцидент обнаружен (Sentry / Grafana / пользователь)
+2. Contain: откат фичи / блокировка пользователя / read-only mode
+3. Diagnose: найти root cause (логи + трейсы + метрики)
+4. Fix: deploy + verify
+5. Post-mortem: что произошло, почему, что делаем, чтобы не повторилось
+Фиксит: «Одна и та же ошибка — каждый месяц». Без post-mortem команда не учится.
