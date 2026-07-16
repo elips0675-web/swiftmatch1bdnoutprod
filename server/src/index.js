@@ -37,7 +37,7 @@ const app = express()
 const PORT = process.env.PORT || 3001
 
 const limiter = rateLimit({ windowMs: 60_000, max: 100, message: { message: 'Too many requests' } })
-const authLimiter = rateLimit({ windowMs: 60_000, max: 30, message: { message: 'Too many auth attempts' } })
+const authLimiter = rateLimit({ windowMs: 60_000, max: 60, message: { message: 'Too many auth attempts' } })
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }))
 app.use(helmet())

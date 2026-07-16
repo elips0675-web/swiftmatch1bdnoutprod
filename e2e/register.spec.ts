@@ -6,7 +6,7 @@ test.describe('Register page', () => {
   })
 
   test('renders registration form', async ({ page }) => {
-    await expect(page.getByText('SwiftMatch')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'SwiftMatch' })).toBeVisible()
     await expect(page.getByPlaceholder('Имя')).toBeVisible()
     await expect(page.getByPlaceholder('Email')).toBeVisible()
     await expect(page.getByText('СОЗДАТЬ АККАУНТ')).toBeVisible()

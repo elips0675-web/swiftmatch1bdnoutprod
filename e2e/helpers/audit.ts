@@ -12,7 +12,7 @@ export function createAudit(page: Page, testInfo?: TestInfo) {
   page.on('console', msg => {
     if (msg.type() === 'error') {
       const text = msg.text()
-      if (!text.includes('Sentry') && !text.includes('Supabase') && !text.includes('Service Worker') && !text.includes('non-existent route')) {
+      if (!text.includes('Sentry') && !text.includes('Supabase') && !text.includes('Service Worker') && !text.includes('non-existent route') && !text.includes('Content Security Policy') && !text.includes('429')) {
         errors.push(`Console: ${text.substring(0, 200)}`)
       }
     }

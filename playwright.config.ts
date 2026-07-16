@@ -6,7 +6,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  globalSetup: require.resolve('./e2e/setup/global-setup'),
+  globalSetup: './e2e/setup/global-setup',
   reporter: [
     ['html', { open: 'never' }],
     ['json', { outputFile: 'test-results.json' }],
@@ -24,7 +24,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: [
+  /* webServer: [
     {
       command: 'cd server && node src/index.js',
       url: 'http://localhost:3002/health',
@@ -37,5 +37,5 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 30000,
     },
-  ],
+  ], */
 })

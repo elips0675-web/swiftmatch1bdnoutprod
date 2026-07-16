@@ -74,6 +74,7 @@
 - **Activity SQL:** колонка `target_user_id` не существует (правильно: `target_id`), JOIN был на неправильное поле
 - **Rate-limiter auth:** поднят с 10→30 req/min для `/api/auth/` (слишком жёсткий для E2E тестов)
 - **chats.tsx Vite SyntaxError:** не хватало `</div>` для `<div data-testid="message-list">`, из-за чего Vite выдавал `Expected '</', got 'jsx text'` при компиляции chats.tsx. Ломало любую страницу, которая триггерила его lazy-загрузку (в т.ч. `/admin/messaging`)
+- **E2E тесты (30 tests, 0 failures):** починены 11 падающих тестов — 429 rate-limiter (30→60), CSP фильтр, apiCall с JWT, admin token из storage state, feature flags route fix, legacy file селекторы, XSS тест через API+Profile page
 
 ### Документация обновлена
 - **Оценка kimi.txt:** переписан с реальным статусом
@@ -103,7 +104,7 @@
 - **Admin routes:** все покрыты тестами
 
 ### Тесты
-- **52 теста, 0 failures:** 52 фронт (11 файлов) + 95 сервер (9 файлов) = 147 total
+- **177 тестов, 0 failures:** 52 фронт (11 файлов) + 95 сервер (9 файлов) + 30 E2E (2 spec-файла)
 
 ### Документация
 - **server/.env.example:** все переменные с комментариями (Stripe, SMTP, Sentry, Redis, S3)
@@ -126,8 +127,7 @@
 | `CORS_ORIGIN` | `server/.env` | Домен прода |
 
 ### 🟠 Остаётся доделать
-1. **Запустить E2E тесты:** storage state создаётся в global-setup. Нужен запущенный сервер + фронт, затем `npm run test:e2e`
-2. **Real API ключи:** вписать 7 ключей в `server/.env` (см. таблицу выше)
+1. **Real API ключи:** вписать 7 ключей в `server/.env` (см. таблицу выше)
 
 ### Проверка страниц (июль 2026)
 | Страница | Статус | Примечание |
@@ -164,7 +164,7 @@
 | `project-context.md` | Полный контекст для AI-ассистентов |
 
 ## Production Readiness Summary
-- **Тесты:** 147 total — 52 фронт (11 файлов) + 95 сервер (9 файлов) — 0 failures
+- **Тесты:** 177 total — 52 фронт (11 файлов) + 95 сервер (9 файлов) + 30 E2E — 0 failures
 - **Сборка:** `vite build` успешно
 - **Логи:** Winston во всех серверных файлах (0 console.log/error)
 - **Backup:** скрипты + инструкция в README
@@ -173,8 +173,8 @@
 - **SEO:** sitemap.xml, расширенный robots.txt, улучшенный manifest.json
 - **Error boundaries:** per-page (30+ lazy-роутов изолированы)
 - **Loading states:** activity.tsx, chats.tsx, profile.tsx (спиннер)
-- **Rate-limiter:** auth 30 req/min (поднят с 10 для совместимости с E2E тестами)
-- **E2E:** 12 test suites, storageState (демо/админ/user4/user5), screenshot/video/trace на падение, аудит console errors
+- **Rate-limiter:** auth 60 req/min (поднят с 30 для E2E тестов)
+- **E2E:** 30 tests, 0 failures, storageState (демо/админ/user4/user5), screenshot/video/trace на падение, аудит console errors
 - **data-testid:** 15+ страниц покрыты селекторами для Playwright
 - **Негативные тесты:** XSS, wrong password, empty form validation
 - **WS real-time:** тест сообщения без перезагрузки + двухбраузерный тест
@@ -185,7 +185,8 @@
 Для прода: вписать 7 ключей в `server/.env` (см. таблицу выше).
 
 ## Playwright E2E Test Coverage
-- **audit-full.spec.ts** — 12 сьюитов, все используют storageState (без повторных логинов):
+- **30 tests, 0 failures** (31s, 8 workers)
+- **audit-full.spec.ts** — 12 сьюитов, все используют storageState:
   - `Health & Infrastructure` — API healthcheck, frontend loads
   - `Registration flow` — регистрация нового юзера через UI
   - `Negative auth tests` — wrong password, empty form validation

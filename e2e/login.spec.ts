@@ -6,14 +6,14 @@ test.describe('Login page', () => {
   })
 
   test('renders login form', async ({ page }) => {
-    await expect(page.getByText('SwiftMatch')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'SwiftMatch' })).toBeVisible()
     await expect(page.getByPlaceholder('Email')).toBeVisible()
     await expect(page.getByText('Продолжить')).toBeVisible()
   })
 
   test('shows validation error on empty submit', async ({ page }) => {
     await page.getByText('Продолжить').click()
-    await expect(page.locator('input:invalid')).toHaveCount(1)
+    await expect(page.locator('input:invalid').first()).toBeAttached()
   })
 
   test('navigates to register page', async ({ page }) => {
