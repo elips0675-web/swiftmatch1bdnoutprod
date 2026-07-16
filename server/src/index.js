@@ -14,6 +14,7 @@ import { createLogger, rootLogger } from './logger.js'
 import { idempotency } from './middleware/idempotency.js'
 import { initSentry } from './sentry.js'
 import { getRedis, disconnectRedis } from './redis.js'
+import { initQueues, closeQueues } from './queue.js'
 
 import adminDashboard from './routes/admin/dashboard.js'
 import adminUsers from './routes/admin/users.js'
@@ -204,6 +205,8 @@ app.use((err, req, res, next) => {
 
 initSentry(app)
 
+initQueues()
+
 const httpServer = createServer(app)
 initIO(httpServer)
 httpServer.listen(PORT, () => {
@@ -213,6 +216,7 @@ httpServer.listen(PORT, () => {
 
 process.on('SIGTERM', async () => {
   rootLogger.info('SIGTERM received — shutting down')
+  await closeQueues()
   await disconnectRedis()
   await pool.end().catch(() => {})
   httpServer.close(() => process.exit(0))

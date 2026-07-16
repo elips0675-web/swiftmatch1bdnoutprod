@@ -102,7 +102,7 @@ router.get('/api/profile/:id', cacheRoute(60), async (req, res) => {
 
 router.put('/api/profile/:id', async (req, res) => {
   try {
-    const { display_name, name, age, bio, gender, looking_for, dating_goal, height, city, country, zodiac, circadian, attachment_style, education, interests } = req.body
+    const { display_name, name, age, bio, gender, looking_for, dating_goal, height, city, country, lat, lng, zodiac, circadian, attachment_style, education, interests } = req.body
 
     await pool.query(
       `UPDATE user_profiles SET
@@ -116,13 +116,22 @@ router.put('/api/profile/:id', async (req, res) => {
         height = COALESCE(?, height),
         city = COALESCE(?, city),
         country = COALESCE(?, country),
+        lat = COALESCE(?, lat),
+        lng = COALESCE(?, lng),
         zodiac = COALESCE(?, zodiac),
         circadian = COALESCE(?, circadian),
         attachment_style = COALESCE(?, attachment_style),
         education = COALESCE(?, education)
       WHERE id = ?`,
-      [display_name, name, age, bio, gender, looking_for, dating_goal, height, city, country, zodiac, circadian, attachment_style, education, req.params.id],
+      [display_name, name, age, bio, gender, looking_for, dating_goal, height, city, country, lat ?? null, lng ?? null, zodiac, circadian, attachment_style, education, req.params.id],
     )
+
+    if (lat !== undefined && lng !== undefined) {
+      await pool.query(
+        'UPDATE user_profiles SET location = ST_SRID(POINT(?, ?), 4326) WHERE id = ?',
+        [lng, lat, req.params.id],
+      )
+    }
 
     if (interests && Array.isArray(interests)) {
       await pool.query('DELETE FROM user_interests WHERE user_id = ?', [req.params.id])

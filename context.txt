@@ -101,6 +101,28 @@
 - **noValidate:** добавлен на все формы авторизации (login, register, forgot/reset-password)
 - **no-empty / unused expressions:** исправлены в admin-users.tsx, profile.tsx, chats.tsx
 
+### Stage 3 — Bull Queue (Background Jobs)
+- `server/src/queue.js`: новый — инициализация 3 очередей (email, push, image) с Bull
+- `server/src/jobs/email.job.js`: SMTP с retry, шаблоны password-reset/verify-email
+- `server/src/jobs/push.job.js`: web-push для одного/всех пользователей
+- `server/src/jobs/image.job.js`: Sharp resize 800/400/200 + WebP + AVIF
+- `server/src/mail.js`: переписан — через emailQueue, fallback на лог
+- `server/src/routes/push.js`: sendPushToUser/sendPushToAll через pushQueue
+- `server/src/routes/upload.js`: processImage через imageQueue
+- Graceful shutdown: closeQueues() на SIGTERM
+
+### Stage 4 — Redis Socket.IO Adapter
+- `server/src/redis.js`: pub/sub клиенты (getRedisPub/getRedisSub)
+- `server/src/ws.js`: io.adapter(createAdapter(pub, sub)) при наличии REDIS_URL
+- Graceful shutdown: disconnectRedis() закрывает все 3 клиента
+
+### Stage 5 — Geospatial Search (MySQL Spatial)
+- `database/migrations/005_add_spatial_location.sql`: POINT SRID 4326 + SPATIAL INDEX
+- `database/mysql_schema.sql`: location column + idx_location
+- `server/src/routes/social.js`: поиск на ST_Distance_Sphere, все через prepared statements
+- `server/src/routes/profile.js`: location = ST_SRID(POINT(lng, lat), 4326) при update
+- `database/demo_data.sql`: координаты Москвы для 16 пользователей
+
 ### Stage 1 — WebRTC Video/Voice Calls
 - `server/src/ws.js`: +6 signalling событий (call-user, call-accepted, call-rejected, ice-candidate, end-call)
 - `src/hooks/use-webrtc.ts`: новый — RTCPeerConnection + Google STUN + call states
@@ -139,6 +161,7 @@
 
 ### Тесты
 - **177 тестов, 0 failures:** 52 фронт (11 файлов) + 95 сервер (9 файлов) + 30 E2E (2 spec-файла)
+- **Июль 2026 — 3-я итерация:** Bull Queue (3 очереди), Redis Socket.IO Adapter, Geospatial Search (MySQL Spatial)
 
 ### Документация
 - **server/.env.example:** все переменные с комментариями (Stripe, SMTP, Sentry, Redis, S3)
@@ -164,7 +187,6 @@
 1. **Real API ключи:** вписать 7 ключей в `server/.env`
 2. **Push FCM для Android:** заменить/дополнить VAPID Web Push на Firebase Cloud Messaging для Capacitor
 3. **Deep Links:** настроить Universal Links (iOS) + App Links (Android)
-4. **Background sync:** сообщения в offline → отправка при возвращении
 
 ## Priority Timeline — что делать в каком порядке
 
@@ -196,7 +218,10 @@
 1. **Redis** — lazy singleton, `cache.js` с `cacheRoute()`/`cacheRoutePerUser()`/`invalidate()`. Кэш на profile GET (60s) + matches GET (30s). Включить — раскомментировать `REDIS_URL` в `server/.env`
 2. **MySQL backup** — `scripts/backup-mysql.ps1` (авто-детект mysqldump, retention 7 дней). Task Scheduler создан: ежедневно в 03:00
 3. **S3 scaffold** — `scripts/setup.ps1` — авто-копирование .env + генерация JWT_SECRET + npm install
-4. **Документация из Промты.txt** — все 20 секций полностью перенесены в AGENTS.md. Добавлены: итеративный подход, 9 pitfall'ов, 20 past mistakes, 12 сценариев Playwright, 5 ключевых unit-тестов, 3 новых промпта, Redis+Backup, DB Migrations, расширенные Code Style и Security Rules, конфигурационная консистентность
+4. **Bull Queue** — 3 очереди (email, push, image) с Bull 4.x. Требует REDIS_URL
+5. **Redis Socket.IO Adapter** — pub/sub клиенты, createAdapter при наличии REDIS_URL
+6. **Geospatial Search** — MySQL Spatial ST_Distance_Sphere + SPATIAL INDEX. Миграция 005
+7. **Документация из Промты.txt** — все 20 секций полностью перенесены в AGENTS.md. Добавлены: итеративный подход, 9 pitfall'ов, 20 past mistakes, 12 сценариев Playwright, 5 ключевых unit-тестов, 3 новых промпта, Redis+Backup, DB Migrations, расширенные Code Style и Security Rules, конфигурационная консистентность
 
 ---
 ## Ключевые файлы
@@ -214,6 +239,11 @@
 | `database/migrations/migrate.js` | Миграции БД |
 | `nginx/swiftmatch.conf` | Production Nginx config |
 | `.github/workflows/deploy.yml` | CI/CD pipeline |
+| `server/src/queue.js` | Bull Queue (email/push/image) |
+| `server/src/jobs/email.job.js` | Email queue processor (SMTP + retry) |
+| `server/src/jobs/push.job.js` | Push notification queue processor |
+| `server/src/jobs/image.job.js` | Image processing queue (Sharp) |
+| `database/migrations/005_add_spatial_location.sql` | Spatial index for geo search |
 | `project-context.md` | Полный контекст для AI-ассистентов |
 
 ## Production Readiness Summary
@@ -233,6 +263,9 @@
 - **Негативные тесты:** XSS, wrong password, empty form validation
 - **WS real-time:** тест сообщения без перезагрузки + двухбраузерный тест
 - **Unit-тесты:** use-websocket, language-context, feature-flags-context
+- **Bull Queue:** email/push/image очереди с Redis, graceful shutdown, fallback без Redis
+- **Redis WS Adapter:** горизонтальное масштабирование Socket.IO через pub/sub
+- **Geospatial Search:** ST_Distance_Sphere + SPATIAL INDEX + prepared statements (без SQL-инъекций)
 - **Новые роуты:** /matches, /premium, /settings/privacy, /profile/:id добавлены в App.tsx
 - **Vite сборка:** 2.09s, 3580 modules, 0 errors (после фикса chats.tsx)
 
@@ -243,11 +276,11 @@
 ### 🔴 Критично
 | # | Задача | Статус |
 |---|--------|--------|
-| 1 | CI/CD Pipeline (GitHub Actions) — lint → build → test → deploy | ❌ |
-| 2 | Docker / Docker Compose (app + mysql + redis + nginx + minio) | ❌ |
-| 3 | Background Jobs — Bull Queue (email, match, image, notification) | ❌ |
-| 4 | Redis Adapter для Socket.IO (горизонтальное масштабирование WS) | ❌ |
-| 5 | Geospatial Search — MySQL Spatial (`ST_Distance_Sphere`) | ❌ |
+| 1 | CI/CD Pipeline (GitHub Actions) — lint → build → test → deploy | ✅ `.github/workflows/deploy.yml` |
+| 2 | Docker / Docker Compose (app + mysql + redis + nginx + minio) | ✅ `Dockerfile` + `docker-compose.yml` |
+| 3 | Background Jobs — Bull Queue (email, push, image) | ✅ 3 очереди, graceful shutdown, fallback |
+| 4 | Redis Adapter для Socket.IO (горизонтальное масштабирование WS) | ✅ pub/sub clients + createAdapter |
+| 5 | Geospatial Search — MySQL Spatial (`ST_Distance_Sphere`) | ✅ миграция + SPATIAL INDEX + prepared statements |
 
 ### 🟠 Высокий
 | # | Задача | Статус |

@@ -94,15 +94,6 @@ const router = Router()
 router.get('/api/users/search', auth, async (req, res) => {
   const { gender, looking_for, age_min, age_max, city, interest, lat, lng, radius } = req.query
   try {
-    let sql, params
-
-    const hasGeo = lat && lng && radius
-    let userLat = 0, userLng = 0
-    if (hasGeo) {
-      userLat = parseFloat(lat)
-      userLng = parseFloat(lng)
-    }
-
     const [[self]] = await pool.query('SELECT attachment_style, lat, lng FROM user_profiles WHERE id = ?', [req.userId])
     const userStyle = self?.attachment_style
 
@@ -110,49 +101,63 @@ router.get('/api/users/search', auth, async (req, res) => {
     let compSelect = ''
     let orderBy = 'up.online DESC, up.last_seen DESC'
     if (userStyle) {
-      compJoin = ` LEFT JOIN compatibility_scores cs ON cs.style_a = '${userStyle}' AND cs.style_b = up.attachment_style`
+      compJoin = ` LEFT JOIN compatibility_scores cs ON cs.style_a = ? AND cs.style_b = up.attachment_style`
       compSelect = ', COALESCE(cs.score, 0) AS compatibility_score'
       orderBy = 'COALESCE(cs.score, 0) DESC, up.online DESC, up.last_seen DESC'
     }
 
     const baseSelect = `up.id, up.display_name, up.name, up.age, up.gender, up.city, up.country, up.avatar_url, up.online, up.last_seen, up.dating_goal${compSelect}`
 
-    let distanceExpr = hasGeo
-      ? userLat
-        ? `, ROUND(6371 * 2 * ASIN(SQRT(POWER(SIN((RADIANS(${userLat}) - RADIANS(up.lat)) / 2), 2) + COS(RADIANS(${userLat})) * COS(RADIANS(up.lat)) * POWER(SIN((RADIANS(${userLng}) - RADIANS(up.lng)) / 2), 2))), 1) AS distance`
-        : ''
-      : ''
-    let having = hasGeo && userLat ? ` HAVING distance < ${Number(radius)}` : ''
+    const hasGeo = lat && lng && radius
+    let distanceExpr = ''
+    let having = ''
+    const geoParams = []
+    if (hasGeo) {
+      const userLat = parseFloat(lat)
+      const userLng = parseFloat(lng)
+      if (!isNaN(userLat) && !isNaN(userLng)) {
+        distanceExpr = `, ROUND(ST_Distance_Sphere(up.location, ST_SRID(POINT(?, ?), 4326)), 1) AS distance`
+        having = ' HAVING distance < ?'
+        geoParams.push(userLng, userLat, Number(radius))
+      }
+    }
 
+    const blockParams = [req.userId, req.userId]
     const blockJoin = ' LEFT JOIN user_blocks bl ON (bl.blocker_id = ? AND bl.blocked_id = up.id) OR (bl.blocker_id = up.id AND bl.blocked_id = ?)'
     const blockWhere = ' AND bl.blocker_id IS NULL'
 
+    const whereClauses = ['up.id != ?']
+    const whereParams = [req.userId]
+
     if (interest) {
-      sql = `SELECT DISTINCT ${baseSelect}${distanceExpr}
-             FROM user_profiles up
-             JOIN user_interests ui ON ui.user_id = up.id
-             JOIN interests i ON i.id = ui.interest_id
-             ${compJoin}
-             ${blockJoin}
-             WHERE up.id != ? AND (i.name_ru = ? OR i.name_en = ?)${blockWhere}`
-      params = [req.userId, req.userId, req.userId, interest, interest]
-    } else {
-      sql = `SELECT ${baseSelect}${distanceExpr}
-             FROM user_profiles up
-             ${compJoin}
-             ${blockJoin}
-             WHERE up.id != ?${blockWhere}`
-      params = [req.userId, req.userId, req.userId]
+      whereClauses.push('(i.name_ru = ? OR i.name_en = ?)')
+      whereParams.push(interest, interest)
     }
 
-    if (gender) { sql += ' AND up.gender = ?'; params.push(gender) }
-    if (looking_for) { sql += ' AND up.looking_for = ?'; params.push(looking_for) }
-    if (age_min) { sql += ' AND up.age >= ?'; params.push(Number(age_min)) }
-    if (age_max) { sql += ' AND up.age <= ?'; params.push(Number(age_max)) }
-    if (city) { sql += ' AND up.city = ?'; params.push(city) }
+    if (gender) { whereClauses.push('up.gender = ?'); whereParams.push(gender) }
+    if (looking_for) { whereClauses.push('up.looking_for = ?'); whereParams.push(looking_for) }
+    if (age_min) { whereClauses.push('up.age >= ?'); whereParams.push(Number(age_min)) }
+    if (age_max) { whereClauses.push('up.age <= ?'); whereParams.push(Number(age_max)) }
+    if (city) { whereClauses.push('up.city = ?'); whereParams.push(city) }
 
-    sql += having
-    sql += ` ORDER BY ${orderBy} LIMIT 50`
+    const fromClause = interest
+      ? `FROM user_profiles up
+         JOIN user_interests ui ON ui.user_id = up.id
+         JOIN interests i ON i.id = ui.interest_id`
+      : 'FROM user_profiles up'
+
+    const params = [...whereParams]
+    if (userStyle) params.push(userStyle)
+    params.push(...blockParams)
+    if (hasGeo) params.push(...geoParams)
+
+    const sql = `SELECT ${baseSelect}${distanceExpr}
+                 ${fromClause}
+                 ${compJoin}
+                 ${blockJoin}
+                 WHERE ${whereClauses.join(' AND ')}${blockWhere}
+                 ${having}
+                 ORDER BY ${orderBy} LIMIT 50`
 
     const [rows] = await pool.query(sql, params)
     res.json(rows)

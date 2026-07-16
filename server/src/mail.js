@@ -1,78 +1,36 @@
-import nodemailer from 'nodemailer'
+import { emailQueue } from './queue.js'
 import { rootLogger } from './logger.js'
 
-let transporter = null
-
-const RETRY_MAX = 3
-const RETRY_DELAY_MS = 1000
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
-function getTransporter() {
-  if (transporter) return transporter
-
-  const host = process.env.SMTP_HOST
-  if (!host) return null
-
-  const user = process.env.SMTP_USER
-  const pass = process.env.SMTP_PASS
-  if (!user || !pass) {
-    rootLogger.warn('[mail] SMTP_USER or SMTP_PASS not set, emails disabled')
-    return null
+async function queueMail(data) {
+  if (emailQueue) {
+    await emailQueue.add(data)
+  } else {
+    rootLogger.info(`[mail] Queue not available. Would send to ${data.to}: "${data.subject}"`)
   }
-
-  transporter = nodemailer.createTransport({
-    host,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: { user, pass },
-  })
-  return transporter
 }
 
 const FROM = process.env.SMTP_FROM || 'noreply@swiftmatch.app'
 
-async function sendWithRetry(mailOptions) {
-  const transport = getTransporter()
-  if (!transport) {
-    rootLogger.info(`[mail] SMTP not configured. Would send to ${mailOptions.to}: "${mailOptions.subject}"`)
-    return
-  }
-
-  let lastError
-  for (let attempt = 1; attempt <= RETRY_MAX; attempt++) {
-    try {
-      await transport.sendMail(mailOptions)
-      rootLogger.info(`[mail] Sent to ${mailOptions.to}: "${mailOptions.subject}"`)
-      return
-    } catch (err) {
-      lastError = err
-      rootLogger.error(`[mail] Attempt ${attempt}/${RETRY_MAX} failed for ${mailOptions.to}: ${err.message}`)
-      if (attempt < RETRY_MAX) await sleep(RETRY_DELAY_MS * attempt)
-    }
-  }
-
-  throw lastError
-}
-
 export async function sendPasswordResetEmail(to, token) {
-  const resetUrl = `${process.env.CORS_ORIGIN || 'http://localhost:8080'}/reset-password?token=${token}`
-  return sendWithRetry({
-    from: FROM,
+  return queueMail({
     to,
     subject: 'Reset your SwiftMatch password',
-    html: `<p>Click <a href="${resetUrl}">here</a> to reset your password. This link expires in 1 hour.</p>`,
+    type: 'password-reset',
+    token,
+    from: FROM,
   })
 }
 
 export async function sendVerificationEmail(to, token) {
-  const verifyUrl = `${process.env.CORS_ORIGIN || 'http://localhost:8080'}/verify-email?token=${token}`
-  return sendWithRetry({
-    from: FROM,
+  return queueMail({
     to,
     subject: 'Verify your SwiftMatch email',
-    html: `<p>Click <a href="${verifyUrl}">here</a> to verify your email address.</p>`,
+    type: 'verify-email',
+    token,
+    from: FROM,
   })
+}
+
+export async function sendCustomEmail(to, subject, html) {
+  return queueMail({ to, subject, html, from: FROM })
 }

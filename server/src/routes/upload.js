@@ -6,7 +6,7 @@ import fs from 'fs'
 import pool from '../db.js'
 import { optionalAuth } from '../middleware.js'
 import logger from '../logger.js'
-import { processImage } from '../image-pipeline.js'
+import { imageQueue } from '../queue.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const UPLOAD_DIR = path.resolve(__dirname, '../../uploads')
@@ -87,11 +87,19 @@ router.post('/api/upload', optionalAuth, async (req, res) => {
     const sortOrder = req.body.sort_order || 0
     const url = `/uploads/${req.file.filename}`
 
-    // Process image with Sharp (resize + WebP)
+    // Process image with Sharp via queue (resize + WebP)
     if (req.file.path) {
-      processImage(req.file.path).catch((err) => {
-        logger.error('Image pipeline error:', err)
-      })
+      if (imageQueue) {
+        imageQueue.add({ filePath: req.file.path }).catch((err) => {
+          logger.error('Image queue error:', err)
+        })
+      } else {
+        // Fallback: process inline
+        const { processImage } = await import('../image-pipeline.js')
+        processImage(req.file.path).catch((err) => {
+          logger.error('Image pipeline error:', err)
+        })
+      }
     }
 
     const [result] = await pool.query(

@@ -1,6 +1,8 @@
 import { Server } from 'socket.io'
+import { createAdapter } from '@socket.io/redis-adapter'
 import jwt from 'jsonwebtoken'
 import { JWT_SECRET } from './middleware.js'
+import { getRedisPub, getRedisSub } from './redis.js'
 import { rootLogger } from './logger.js'
 
 let io = null
@@ -14,6 +16,13 @@ export function initIO(httpServer) {
     pingInterval: 10000,
     pingTimeout: 5000,
   })
+
+  const pub = getRedisPub()
+  const sub = getRedisSub()
+  if (pub && sub) {
+    io.adapter(createAdapter(pub, sub))
+    rootLogger.info('[ws] Redis adapter attached — horizontal scaling enabled')
+  }
 
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token || socket.handshake.query?.token

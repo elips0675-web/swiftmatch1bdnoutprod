@@ -3,6 +3,7 @@ import webpush from 'web-push'
 import pool from '../db.js'
 import { auth } from '../middleware.js'
 import logger from '../logger.js'
+import { pushQueue } from '../queue.js'
 
 const router = Router()
 
@@ -52,11 +53,34 @@ router.delete('/api/push/subscribe', async (req, res) => {
 })
 
 export async function sendPushToUser(userId, title, body, url = '/') {
+  if (pushQueue) {
+    await pushQueue.add({ userId, title, body, url })
+    return 1
+  }
+
   if (!vapidPublic || !vapidPrivate) {
     logger.info('VAPID not configured — push skipped')
     return 0
   }
 
+  return sendPushDirect(userId, title, body, url)
+}
+
+export async function sendPushToAll(title, body, url = '/') {
+  if (pushQueue) {
+    await pushQueue.add({ title, body, url })
+    return 1
+  }
+
+  if (!vapidPublic || !vapidPrivate) {
+    logger.info('VAPID not configured — push skipped')
+    return 0
+  }
+
+  return sendPushAllDirect(title, body, url)
+}
+
+async function sendPushDirect(userId, title, body, url) {
   try {
     const [rows] = await pool.query(
       'SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?',
@@ -83,12 +107,7 @@ export async function sendPushToUser(userId, title, body, url = '/') {
   }
 }
 
-export async function sendPushToAll(title, body, url = '/') {
-  if (!vapidPublic || !vapidPrivate) {
-    logger.info('VAPID not configured — push skipped')
-    return 0
-  }
-
+async function sendPushAllDirect(title, body, url) {
   try {
     const [rows] = await pool.query(
       'SELECT endpoint, p256dh, auth FROM push_subscriptions',

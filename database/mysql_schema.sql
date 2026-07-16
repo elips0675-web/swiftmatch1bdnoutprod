@@ -44,6 +44,7 @@ CREATE TABLE user_profiles (
   country         VARCHAR(100),
   lat             DECIMAL(10,7),
   lng             DECIMAL(10,7),
+  location        POINT SRID 4326 DEFAULT NULL,
   zodiac          VARCHAR(50),
   circadian       ENUM('lark','owl','flexible') DEFAULT NULL,
   attachment_style ENUM('secure','anxious','avoidant') DEFAULT NULL,
@@ -58,7 +59,8 @@ CREATE TABLE user_profiles (
   INDEX idx_profiles_city (city),
   INDEX idx_profiles_age (age),
   INDEX idx_profiles_online (online),
-  INDEX idx_profiles_gender_looking (gender, looking_for)
+  INDEX idx_profiles_gender_looking (gender, looking_for),
+  SPATIAL INDEX idx_location (location)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------

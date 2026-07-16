@@ -115,10 +115,25 @@ npx vite --port 8081 --host
 - Push-уведомления через VAPID + web-push
 
 ### 🧪 Тестирование
-- **Фронтенд (Vitest):** 42 теста, 8 файлов (login, register, error-boundary, auth-context, use-premium, utils, api)
-- **Сервер (Vitest):** 56 тестов, 6 файлов (auth, profile, premium, admin, social, middleware) — **0 failures**
-- **E2E (Playwright):** 3 spec-файла (login, register, profile) + webServer в конфиге
+- **Фронтенд (Vitest):** 52 теста, 11 файлов
+- **Сервер (Vitest):** 117 тестов, 11 файлов — **0 failures**
+- **E2E (Playwright):** 30 тестов, 2 spec-файла (audit-full, helpers) — **0 failures**
 - **Swagger:** OpenAPI-документация с JSDoc-аннотациями
+
+### ⚙️ Фоновые задачи (Bull Queue)
+- **3 очереди:** email (SMTP с retry), push (web-push), image (Sharp resize WebP/AVIF)
+- **Graceful shutdown:** closeQueues() на SIGTERM
+- **Fallback** без Redis: прямой вызов или лог
+
+### 🔄 WebSocket
+- Socket.IO с pingInterval 10s / pingTimeout 5s
+- **Redis Adapter:** горизонтальное масштабирование через pub/sub (при REDIS_URL)
+- WebRTC сигналинг (call-user, ice-candidate, end-call)
+
+### 📍 Geospatial Search
+- **MySQL Spatial:** POINT SRID 4326 + SPATIAL INDEX
+- Поиск через `ST_Distance_Sphere` (все через prepared statements)
+- Миграция `005_add_spatial_location.sql`
 
 ### 🐳 DevOps
 - **Docker:** multi-stage (node:20-alpine), healthcheck, USER node, `.dockerignore`, `restart: unless-stopped`
@@ -150,8 +165,12 @@ npx vite --port 8081 --host
 
 ### 🟢 Опционально
 
-- Включить Redis (`REDIS_URL`) для кэширования сессий и совместимости
+- Включить Redis (`REDIS_URL`) для:
+  - Кэширования сессий (`cache.js` — profile 60s, matches 30s)
+  - Bull Queue (email/push/image фоновые задачи)
+  - Socket.IO Redis Adapter (горизонтальное масштабирование WS)
 - Настроить `mysqldump` cron: `scripts/backup-mysql.ps1` (Windows) или `scripts/backup-mysql.sh` (Linux) с retention 7 дней (инструкция ниже)
+- Включить геопоиск: запустить `node database/migrations/migrate.js`
 
 ---
 

@@ -829,7 +829,12 @@ swiftmatch1bddomadm/
 │       ├── mail.js               # Nodemailer + retry
 │       ├── logger.js             # Winston JSON logger
 │       ├── sentry.js             # Sentry init + beforeSend
-│       ├── redis.js              # ioredis lazy client
+│       ├── redis.js              # ioredis lazy client (3 клиента: main/pub/sub)
+│       ├── queue.js              # Bull Queue: email / push / image
+│       ├── jobs/                 # Bull job processors
+│       │   ├── email.job.js
+│       │   ├── push.job.js
+│       │   └── image.job.js
 │       ├── banned-words.js       # Фильтр запрещённых слов
 │       ├── middleware/           # auth.js, idempotency.js, adminAuth.js
 │       └── routes/
@@ -838,7 +843,7 @@ swiftmatch1bddomadm/
 ├── database/
 │   ├── mysql_schema.sql          # Полная схема БД
 │   ├── demo_data.sql             # Тестовые данные
-│   └── migrations/               # Нумерованные миграции
+│   └── migrations/               # Нумерованные миграции (005 = spatial)
 ├── android/                      # Capacitor нативный проект
 ├── scripts/                      # setup.ps1, backup-mysql, migrate
 ├── nginx/                        # swiftmatch.conf
