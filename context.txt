@@ -82,6 +82,7 @@
 - **Оценка kimi.txt:** переписан с реальным статусом
 - **AGENTS.md:** структурирован System Prompt (Core Rules, Code Quality, Data Rules, Git, Response Format). Добавлены: Project Structure, CI/CD Pipeline, Git Workflow, Testing Strategy, Security Rules, Production Deployment
 - **AGENTS.md prompt templates:** добавлены 3 промта — функциональный аудит, аудит связки Админка-БД-Приложение, E2E-тест
+- **AGENTS.md (июль 2026):** добавлены секции из Промты.txt — Итеративный подход (5 этапов), Redis + Backup, DB Migrations, расширенные Code Style и Security Rules
 - **persona.md:** исправлен порт API (3001 → 3002)
 - **swagger-jsdoc:** установлен (отсутствовал, сервер не стартовал)
 - **Playwright-тестирование:** `e2e/audit-full.spec.ts` — 11 сьюитов: health, registration, negative auth, like→match→chat (два браузера), admin flow, public pages, settings, chat, groups, негативные тесты, WS real-time
@@ -148,6 +149,7 @@
 1. **Redis** — lazy singleton, `cache.js` с `cacheRoute()`/`cacheRoutePerUser()`/`invalidate()`. Кэш на profile GET (60s) + matches GET (30s). Включить — раскомментировать `REDIS_URL` в `server/.env`
 2. **MySQL backup** — `scripts/backup-mysql.ps1` (авто-детект mysqldump, retention 7 дней). Task Scheduler создан: ежедневно в 03:00
 3. **S3 scaffold** — `scripts/setup.ps1` — авто-копирование .env + генерация JWT_SECRET + npm install
+4. **Документация из Промты.txt** — все 20 секций перенесены в AGENTS.md (итеративный подход, unit-тесты, Redis, кэш, миграции, code style, security)
 
 ---
 ## Ключевые файлы

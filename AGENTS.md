@@ -34,6 +34,13 @@
 - Анимации: Framer Motion для появления / ухода, Tailwind transitions для hover/focus.
 - ARIA-атрибуты на всех интерактивных элементах.
 
+### Code Style (дополнительно)
+
+- console.log на фронте — только внутри `import.meta.env.DEV`
+- Логи на сервере — Winston JSON (0 console.log/error в продакшен-логике)
+- Все SQL-запросы — prepared statements (`??` в mysql2). Никакой конкатенации строк
+- noValidate добавлен на все формы авторизации (login, register, forgot/reset-password) — jsdom блокирует submit при required пустых полях
+
 ### Data Rules (i18n)
 
 - **Всё** в БД, localStorage, state — translation keys (`interest.sport`, не `"Спорт"`)
@@ -59,6 +66,49 @@
 5. Производительность и безопасность (только если есть риски).
 
 Контекст проекта: `project-context.md`
+
+## Итеративный подход к задачам (5 этапов)
+
+Каждая задача проходит 5 этапов:
+
+### Этап 0 — Чтение кода (Code Reading)
+1. Найти все релевантные файлы по теме (grep/glob)
+2. Прочитать текущую реализацию: импорты, типы, API-контракт
+3. Понять архитектуру: data flow, кто вызывает, кто потребляет
+4. Проверить существующие тесты — что уже покрыто
+5. Если баг — воспроизвести условие (логи, тесты, curl)
+
+### Этап 1 — Планирование (Plan)
+1. Определить границы задачи: что входит, что НЕ входит
+2. Выбрать архитектурное решение (1-2 предложения)
+3. Составить список изменений: какие файлы создавать/менять
+4. Проверить консистентность: не сломает ли изменение соседние модули
+5. Если production — прогнать Pre-flight Checklist
+
+### Этап 2 — Реализация (Implement)
+1. Сначала типы/интерфейсы (TypeScript strict, никаких any)
+2. Потом data layer (API, SQL, Context, Query)
+3. Потом UI (презентационные компоненты без логики)
+4. Потом связка (state management + side effects)
+5. Каждый коммит — одна атомарная логическая единица
+6. Conventional Commits: feat:, fix:, refactor:, test:, docs:, chore:
+
+### Этап 3 — Тестирование (Test)
+1. Unit-тесты на новую логику (Vitest + RTL)
+2. Интеграционные: API через curl/Playwright
+3. E2E: критические user flows (регистрация → лайк → чат)
+4. Проверка edge cases: пустые данные, ошибки, лимиты
+5. `npx vite build` — сборка без ошибок
+6. `npm run test` + `cd server && npm run test` — 0 failures
+7. `npx playwright test` — 0 failures
+
+### Этап 4 — Верификация (Verify)
+1. Проверить, что старые тесты не упали
+2. Проверить консоль браузера — нет ошибок
+3. Проверить Network tab — правильные статусы
+4. Если production — Security grep (хардкодные секреты, порты)
+5. Обновить документацию (context.txt, AGENTS.md при необходимости)
+6. `git push` только когда всё зелёное
 
 ## Golden Rule: Never display raw translation keys
 
@@ -196,6 +246,49 @@ npx cap run android --livereload=http://<IP>:8081 --open
 
 ### CORS
 На сервере настроен `cors({ origin: '*' })` — подходит для Capacitor.
+
+## Redis + Кэширование
+
+### Подключение
+- `server/src/redis.js` — lazy singleton с ioredis, getRedis()/withRedis()/disconnectRedis()
+- Graceful connect при старте, disconnect на SIGTERM
+- Без Redis — тихий fallback (не падает)
+
+### Cache module (`server/src/cache.js`)
+| Функция | Назначение |
+|---------|-----------|
+| `cacheRoute(ttl)` | Кэширование по URL (express middleware) |
+| `cacheRoutePerUser(ttl)` | Кэширование по userId + URL |
+| `setCached(key, data)` | Низкоуровневый set |
+| `getCached(key)` | Низкоуровневый get |
+| `invalidate(pattern)` | Сброс по паттерну (scanStream) |
+
+### Кэшируемые роуты
+- `GET /api/profile/:id` — 60s, сброс на PUT profile
+- `GET /api/matches` — 30s per-user, сброс на POST like→match
+
+### Конфиг
+- `CACHE_TTL` в `server/.env.example` (по умолчанию 60s)
+- Включить: раскомментировать `REDIS_URL` в `server/.env`
+
+## MySQL Backup
+
+### Скрипт `scripts/backup-mysql.ps1`
+- auto-detect mysqldump (8 путей)
+- `cmd.exe /c` для вызова mysqldump (избежать проблем PowerShell с ANSI)
+- retention 7 дней
+- Размер файла в выводе
+- Task Scheduler: ежедневно в 03:00
+
+## DB Migrations
+
+- Новые колонки — через `database/migrations/`, НЕ ручным ALTER TABLE
+- `database/migrations/migrate.js` — запуск миграций (таблица `_migrations`)
+- Нумерованные .sql файлы (001_..., 002_..., etc.)
+- `git diff` НЕ должен содержать `ALTER TABLE` в `.js`/`.ts` файлах (только в `migrations/`)
+- Если в роуте используется новая колонка — она должна быть в `mysql_schema.sql` И в отдельном файле миграции
+- Запуск: `node database/migrations/migrate.js`
+- Перед написанием SQL в server routes — проверить колонки через `DESCRIBE table`. Схема в `mysql_schema.sql` может отличаться от реальной БД
 
 ## Golden Rule: Production ≠ File Created
 
@@ -876,7 +969,11 @@ e2e/
 - Sentry beforeSend: фильтрует authorization, cookie, email, IP
 - Stripe webhook: `express.raw({ type: 'application/json' })` ДО express.json()
 - JWT: 256-bit ключ, 7d expiry, Bearer header
-- Rate limit: `/api/auth/` 10 req/min, общий `/api/` 30 req/s
+- Rate limit: `/api/auth/` 60 req/min, общий `/api/` 30 req/s
+- Helmet: CSP, X-Frame-Options, X-Content-Type-Options, и др. security headers
+- Request ID: UUID на каждый запрос, X-Request-Id в ответе
+- Модерация чатов: проверка banned-слов при отправке сообщений
+- Бан пользователя + WS `user:banned` (мгновенный разлогин)
 
 ## 🚀 Production Deployment
 
