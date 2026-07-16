@@ -138,10 +138,6 @@ npx vite --port 8081 --host
 - **Сервер (Vitest):** 117 тестов, 11 файлов — **0 failures**
 - **E2E (Playwright):** 30 тестов, 2 spec-файла (audit-full, helpers) — **0 failures**
 - **Swagger:** OpenAPI-документация с JSDoc-аннотациями
-- **Фронтенд (Vitest):** 52 теста, 11 файлов
-- **Сервер (Vitest):** 117 тестов, 11 файлов — **0 failures**
-- **E2E (Playwright):** 30 тестов, 2 spec-файла (audit-full, helpers) — **0 failures**
-- **Swagger:** OpenAPI-документация с JSDoc-аннотациями
 
 ### ⚙️ Фоновые задачи (Bull Queue)
 - **3 очереди:** email (SMTP с retry), push (web-push), image (Sharp resize WebP/AVIF)
