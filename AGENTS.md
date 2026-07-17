@@ -849,7 +849,7 @@ swiftmatch1bddomadm/
 │   ├── demo_data.sql             # Тестовые данные
 │   └── migrations/               # Нумерованные миграции (006 = audit, 007 = referral)
 ├── android/                      # Capacitor нативный проект
-├── scripts/                      # setup.ps1, backup-mysql, migrate
+├── scripts/                      # setup.ps1, backup-mysql.ps1/.sh, install-backup-task.bat
 ├── nginx/                        # swiftmatch.conf
 ├── .github/workflows/            # CI/CD (deploy.yml)
 └── test_pages.mjs                # Playwright tests
@@ -1062,7 +1062,7 @@ e2e/
 ## 🚀 Production Deployment
 
 ### Подготовка
-1. Вписать 7 ключей в `server/.env` (Stripe, SMTP, Sentry, S3, Redis, DB_PASSWORD, CORS_ORIGIN)
+1. Вписать 8 ключей в `server/.env` (Stripe, SMTP, Sentry, S3, DB_PASSWORD, CORS_ORIGIN, Twilio, OpenAI) — Redis уже активен
 2. `npx vite build` — сборка фронта в `dist/`
 3. `cd server && npm ci --production` — зависимости бэка
 

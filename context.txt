@@ -91,6 +91,14 @@
 - **e2e helpers:** `audit.ts` (console/network/error tracker), `api.ts` (API calls + health check)
 - **global-setup:** проверка `/health` + MySQL перед тестами
 
+### Stage 5 (Laragon — 5-я итерация) — Redis включён + Geospatial + Backup
+- **Redis:** REDIS_URL=redis://127.0.0.1:6379 запущен на Laragon (redis-x64-5.0.14.1), служба с автостартом. Проверены: cache.js (profile 60s, matches 30s), Bull Queue (email/push/image), Socket.IO Redis adapter (ws.js:23). Все graceful fallbacks работают.
+- **Миграции MySQL:** исправлены 001 и 005 для совместимости с MySQL 8.4 (IF NOT EXISTS через information_schema + PREPARE, SPATIAL INDEX с NOT NULL). Все 6 миграций применены.
+- **Геопоиск:** location POINT SRID 4326 + SPATIAL INDEX idx_location в user_profiles. Работает через ST_Distance_Sphere.
+- **Сид:** npm run db:seed — 50 users, 30 matches, 200 messages с корректным ST_SRID(POINT(lng,lat),4326) для location.
+- **Бэкап MySQL:** scripts/backup-mysql.ps1 протестирован (0.1 MB). install-backup-task.bat — задача в планировщик (ежедневно 3:00, retention 7 дней).
+- **.env:** REDIS_URL активна, Redis ping PONG, все модули подтверждены.
+
 ### Production Hardening
 - **Логи:** Winston JSON во всех серверных файлах (0 console.log/error)
 - **WebSocket:** pingInterval 10s, pingTimeout 5s, reconnect с exponential backoff (max 30s)
@@ -163,6 +171,7 @@
 - **177 тестов, 0 failures:** 52 фронт (11 файлов) + 95 сервер (9 файлов) + 30 E2E (2 spec-файла)
 - **Июль 2026 — 3-я итерация:** Bull Queue (3 очереди), Redis Socket.IO Adapter, Geospatial Search (MySQL Spatial)
 - **Июль 2026 — 4-я итерация (Laragon):** Health Checks+Graceful Shutdown, Database Seeding, Soft Deletes+Audit Log, Report Escalation Flow, Referral System, Smart Matching
+- **Июль 2026 — 5-я итерация (Laragon):** Redis включён (cache/Bull/WS), все миграции применены, геопоиск, seed, mysqldump cron
 
 ### Документация
 - **server/.env.example:** все переменные с комментариями (Stripe, SMTP, Sentry, Redis, S3)
@@ -179,7 +188,6 @@
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `server/.env` | Реальные платежи |
 | `SMTP_USER`, `SMTP_PASS` | `server/.env` | Email (регистрация, сброс пароля) |
 | `SENTRY_DSN` | `server/.env` + `.env` | Мониторинг ошибок |
-| `REDIS_URL` | `server/.env` | Кэш + rate-limit + Bull Queue + WS Adapter |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | `server/.env` | Облачное хранение файлов |
 | `DB_PASSWORD` | `server/.env` | Непустой пароль MySQL |
 | `CORS_ORIGIN` | `server/.env` | Домен прода |
@@ -224,13 +232,14 @@
 | **Сборка** | ✅ `vite build` | 2.09s, 3580 modules, 0 errors |
 
 ### 🟢 Опционально (готово)
-1. **Redis** — lazy singleton, `cache.js` с `cacheRoute()`/`cacheRoutePerUser()`/`invalidate()`. Кэш на profile GET (60s) + matches GET (30s). Включить — раскомментировать `REDIS_URL` в `server/.env`
-2. **MySQL backup** — `scripts/backup-mysql.ps1` (авто-детект mysqldump, retention 7 дней). Task Scheduler создан: ежедневно в 03:00
+1. **Redis** — REDIS_URL активна, cache.js + Bull Queue + Socket.IO Redis adapter работают
+2. **MySQL backup** — `scripts/backup-mysql.ps1` (авто-детект mysqldump, retention 7 дней). `install-backup-task.bat` — установка задачи
 3. **S3 scaffold** — `scripts/setup.ps1` — авто-копирование .env + генерация JWT_SECRET + npm install
-4. **Bull Queue** — 3 очереди (email, push, image) с Bull 4.x. Требует REDIS_URL
+4. **Bull Queue** — 3 очереди (email, push, image) с Bull 4.x
 5. **Redis Socket.IO Adapter** — pub/sub клиенты, createAdapter при наличии REDIS_URL
 6. **Geospatial Search** — MySQL Spatial ST_Distance_Sphere + SPATIAL INDEX. Миграция 005
-7. **Документация из Промты.txt** — все 20 секций полностью перенесены в AGENTS.md. Добавлены: итеративный подход, 9 pitfall'ов, 20 past mistakes, 12 сценариев Playwright, 5 ключевых unit-тестов, 3 новых промпта, Redis+Backup, DB Migrations, расширенные Code Style и Security Rules, конфигурационная консистентность
+7. **Seeding** — npm run db:seed (50 users, 30 matches, 200 msgs)
+8. **Документация из Промты.txt** — все 20 секций полностью перенесены в AGENTS.md
 
 ---
 ## Ключевые файлы
@@ -259,6 +268,8 @@
 | `server/src/seed.js` | Database seeder (50 users, matches, msgs) |
 | `server/src/routes/report.js` | POST /api/reports + auto-ban |
 | `server/src/routes/referral.js` | Referral system endpoints |
+| `scripts/backup-mysql.ps1` | MySQL dump + retention 7 days |
+| `scripts/install-backup-task.bat` | Установка задачи в планировщик Windows |
 | `project-context.md` | Полный контекст для AI-ассистентов |
 
 ## Production Readiness Summary
@@ -277,9 +288,9 @@
 - **SEO:** sitemap.xml, расширенный robots.txt, улучшенный manifest.json
 - **Error boundaries:** per-page (30+ lazy-роутов изолированы)
 - **Rate-limiter:** auth 60 req/min, api 100 req/min
-- **Bull Queue:** email/push/image очереди с Redis, graceful shutdown, fallback без Redis
-- **Redis WS Adapter:** горизонтальное масштабирование Socket.IO через pub/sub
-- **Geospatial Search:** MySQL Spatial ST_Distance_Sphere + SPATIAL INDEX
+- **Bull Queue:** email/push/image очереди с Redis, graceful shutdown, fallback без Redis ✅ Redis активен
+- **Redis WS Adapter:** Socket.IO adapter через pub/sub ✅ Redis активен
+- **Geospatial Search:** MySQL Spatial ST_Distance_Sphere + SPATIAL INDEX ✅ Миграции применены
 - **Geospatial Search:** ST_Distance_Sphere + SPATIAL INDEX + prepared statements (без SQL-инъекций)
 - **Новые роуты:** /matches, /premium, /settings/privacy, /profile/:id добавлены в App.tsx
 - **Vite сборка:** 2.09s, 3580 modules, 0 errors (после фикса chats.tsx)

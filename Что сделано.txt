@@ -112,7 +112,41 @@
 | referralCode при регистрации | `server/src/routes/auth.js` |
 | **Тесты** | server 117/117 ✅ |
 
+## 5-я итерация (Laragon) — Redis + Geospatial + Backup + Seed
+
+### Redis — включён и работает
+| Изменение | Файл |
+|-----------|------|
+| REDIS_URL=redis://127.0.0.1:6379 в .env | `server/.env` |
+| Redis запущен (Laragon redis-x64-5.0.14.1, порт 6379) | — |
+| Служба Redis установлена с автостартом | — |
+| `withRedis` → cache.js (profile 60s, matches 30s) работает | `server/src/cache.js` |
+| Bull Queue (email/push/image) с Redis | `server/src/queue.js` |
+| Socket.IO Redis adapter (ws.js:23) | `server/src/ws.js` |
+
+### Миграции MySQL — исправлены и применены
+| Изменение | Файл |
+|-----------|------|
+| 001: `IF NOT EXISTS` → `information_schema` + `PREPARE` (MySQL 8.4) | `database/migrations/001_add_moderation_columns.sql` |
+| 005: SPATIAL INDEX с `NOT NULL`, idempotent | `database/migrations/005_add_spatial_location.sql` |
+| Все 6 миграций применены (001–007) | `_migrations` table |
+| Геопоиск: POINT SRID 4326 + SPATIAL INDEX | `user_profiles.location` |
+
+### Seed — успешно
+| `npm run db:seed` | 50 users, 30 matches, 200 messages |
+| ST_SRID(POINT(lng,lat),4326) для location | `server/src/seed.js` |
+
+### MySQL Backup — настроен
+| Скрипт | scripts/backup-mysql.ps1 (авто-детект mysqldump) |
+| Retention | 7 дней |
+| Установка | scripts/install-backup-task.bat (запустить как Administrator) |
+
+### Тесты
+| Redis ping | PONG |
+| Cache (getCached/setCached) | ✅ |
+| Redis pub/sub clients | ✅ |
+
 ## Запланировано / не сделано
-- .env секреты (Stripe, SMTP, Sentry, S3, Redis) — ждём реальные credentials
+- .env секреты (Stripe, SMTP, Sentry, S3) — ждём реальные credentials
 - **Push FCM для Android** — Firebase Cloud Messaging для Capacitor
 - **Pre-existing lint warnings (70+)** — не трогать

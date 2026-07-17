@@ -128,6 +128,11 @@ npx vite --port 8081 --host
 - `/health/ready` — DB + Redis check (200/503)
 - Graceful shutdown: SIGTERM + SIGINT, timeout 10s
 
+### 💾 Redis (включён)
+- **REDIS_URL=redis://127.0.0.1:6379** — кэш (profile 60s, matches 30s per-user), Bull Queue (email/push/image), Socket.IO Redis adapter
+- Graceful fallback без Redis — все модули работают
+- Cлужба Redis установлена с автостартом
+
 ### 🎁 Реферальная система
 - Уникальный referral_code для каждого пользователя
 - Отслеживание приглашённых друзей и премиум-конверсий
@@ -177,7 +182,6 @@ npx vite --port 8081 --host
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `server/.env` | Реальные платежи |
 | `SMTP_USER`, `SMTP_PASS` | `server/.env` | Email (регистрация, сброс пароля) |
 | `SENTRY_DSN` | `server/.env` + `.env` | Мониторинг ошибок |
-| `REDIS_URL` | `server/.env` | Кэш + rate-limit + Bull Queue + WS Adapter |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | `server/.env` | Облачное хранение файлов |
 | `DB_PASSWORD` | `server/.env` | Непустой пароль для MySQL |
 | `CORS_ORIGIN` | `server/.env` | Домен прода (вместо `localhost:8081`) |
@@ -196,9 +200,6 @@ npx vite --port 8081 --host
 
 ### 🟢 Опционально (не блокирует запуск)
 
-- Включить Redis (`REDIS_URL`) для кэша, Bull Queue, WS Adapter
-- Настроить `mysqldump` cron: `scripts/backup-mysql.ps1` (Windows) или `scripts/backup-mysql.sh` (Linux) с retention 7 дней
-- Сгенерировать тестовые данные: `cd server && npm run db:seed`
 - Feature Flags (Unleash), Product Analytics (PostHog), Monitoring (Grafana)
 - API Versioning, Design System/Storybook, GDPR docs, Load Testing (k6)
 
@@ -230,10 +231,9 @@ npx vite --port 8081 --host
 # Единоразово
 .\scripts\backup-mysql.ps1 -DbName swiftmatch -DbUser root
 
-# Планировщик задач (ежедневно в 3:00)
-$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"C:\swiftmatch1bd\scripts\backup-mysql.ps1`""
-$trigger = New-ScheduledTaskTrigger -Daily -At 03:00
-Register-ScheduledTask -TaskName "SwiftMatch Backup" -Action $action -Trigger $trigger -RunLevel Highest
+# Установить задачу в планировщик (ежедневно в 3:00)
+# Запусти install-backup-task.bat от имени Администратора:
+.\scripts\install-backup-task.bat
 ```
 
 ### Linux / Docker
@@ -302,6 +302,7 @@ DB_USER=root
 DB_PASSWORD=
 DB_NAME=swiftmatch
 CORS_ORIGIN=http://localhost:8081
+REDIS_URL=redis://127.0.0.1:6379
 VAPID_PUBLIC_KEY=BEygaffoNfy9XaaH0QqILW1Kzuf-7WoVL4oAvQpC1ebFkZ8X828d8Fv8TXcqBuykDK4IWJdZMA6TOkQfSBP8N8o
 VAPID_PRIVATE_KEY=b370faewrsuKX2yUXBZ-2-axZiScdesTmpXHPq0yJN4
 ```
