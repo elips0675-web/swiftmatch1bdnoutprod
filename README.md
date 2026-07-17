@@ -45,9 +45,9 @@ npx vite --port 8081 --host
 
 | Email | Пароль | Роль |
 |-------|--------|------|
-| `admin@mail.ru` | `admin123` | Админ |
-| `demo@mail.ru` | `admin123` | Анна (пользователь) |
-| `user4@demo.ru` … `user23@demo.ru` | `admin123` | 18 демо-пользователей |
+| `admin@mail.ru` | `demo123456` | Админ |
+| `demo@mail.ru` | `demo123456` | Анна (пользователь) |
+| `user4@demo.ru` … `user23@demo.ru` | `demo123456` | 18 демо-пользователей |
 
 > После `git pull` запустить `node seed-users.cjs` в `server/` если добавились новые demo-пользователи.
 

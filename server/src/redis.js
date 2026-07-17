@@ -10,14 +10,18 @@ let connected = false
 
 function createRedisClient() {
   if (!REDIS_URL) return null
-  return new Redis(REDIS_URL, {
+  const opts = {
     maxRetriesPerRequest: 3,
     retryStrategy(times) {
       if (times > 3) return null
       return Math.min(times * 200, 2000)
     },
-    lazyConnect: true,
-  })
+    connectTimeout: 3000,
+  }
+  if (process.env.NODE_ENV !== 'test') {
+    opts.lazyConnect = true
+  }
+  return new Redis(REDIS_URL, opts)
 }
 
 function attachListeners(redisClient, label) {

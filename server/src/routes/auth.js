@@ -221,11 +221,10 @@ router.post('/api/auth/resend-verification', async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      'SELECT id, email_verified_at FROM users WHERE email = ?',
+      'SELECT id FROM users WHERE email = ?',
       [email],
     )
     if (rows.length === 0) return res.status(404).json({ message: 'User not found' })
-    if (rows[0].email_verified_at) return res.json({ message: 'Email already verified' })
 
     const verification_token = crypto.randomBytes(32).toString('hex')
     await pool.query(
@@ -253,7 +252,7 @@ router.post('/api/auth/verify-email', async (req, res) => {
     if (rows.length === 0) return res.status(400).json({ message: 'Invalid token' })
 
     await pool.query(
-      'UPDATE users SET email_verified_at = NOW(), verification_token = NULL WHERE id = ?',
+      'UPDATE users SET verification_token = NULL WHERE id = ?',
       [rows[0].id],
     )
 

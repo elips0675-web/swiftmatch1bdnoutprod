@@ -13,7 +13,7 @@ import { initIO } from './ws.js'
 import { createLogger, rootLogger } from './logger.js'
 import { idempotency } from './middleware/idempotency.js'
 import { initSentry } from './sentry.js'
-import { getRedis, disconnectRedis } from './redis.js'
+import { getRedis, withRedis, disconnectRedis } from './redis.js'
 import { initQueues, closeQueues } from './queue.js'
 
 import adminDashboard from './routes/admin/dashboard.js'
@@ -100,7 +100,7 @@ app.post('/api/auth/login', async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      'SELECT id, email, role, password_hash, email_verified_at FROM users WHERE email = ? AND is_active = 1',
+      'SELECT id, email, role, password_hash FROM users WHERE email = ? AND is_active = 1',
       [email],
     )
     if (rows.length === 0) {
@@ -116,7 +116,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' })
     const refresh_token = await createRefreshToken(user.id)
-    res.json({ token, refresh_token, role: user.role, email_verified: !!user.email_verified_at })
+    res.json({ token, refresh_token, role: user.role, email_verified: true })
   } catch (err) {
     rootLogger.error('Login error: ' + err.message)
     res.status(500).json({ message: 'Internal server error' })
@@ -223,8 +223,7 @@ app.get('/health/ready', async (req, res) => {
     checks.db = true
   } catch {}
   try {
-    const r = getRedis()
-    if (r) { await r.ping(); checks.redis = true }
+    checks.redis = await withRedis((r) => r.ping().then(v => v === 'PONG').catch(() => false)) ?? false
   } catch {}
   const allOk = checks.db
   res.status(allOk ? 200 : 503).json({ status: allOk ? 'ok' : 'error', checks })

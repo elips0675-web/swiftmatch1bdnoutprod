@@ -74,6 +74,42 @@ function parseJsonField(val, fallback) {
   return fallback || []
 }
 
+router.get('/api/profile/me', auth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT up.*, u.email FROM user_profiles up
+       JOIN users u ON u.id = up.id
+       WHERE up.id = ?`,
+      [req.userId],
+    )
+    if (rows.length === 0) return res.status(404).json({ message: 'Profile not found' })
+
+    const [photos] = await pool.query(
+      'SELECT id, url, sort_order, is_avatar FROM user_photos WHERE user_id = ? ORDER BY sort_order',
+      [req.userId],
+    )
+
+    const [interests] = await pool.query(
+      `SELECT i.id, i.name_ru, i.name_en FROM interests i
+       JOIN user_interests ui ON ui.interest_id = i.id
+       WHERE ui.user_id = ?`,
+      [req.userId],
+    )
+
+    const profile = rows[0]
+    profile.photos = photos
+    profile.interests = interests.map(i => i.name_ru)
+    profile.lat = parseFloat(profile.lat)
+    profile.lng = parseFloat(profile.lng)
+    delete profile.location
+
+    res.json(profile)
+  } catch (err) {
+    logger.error('Profile me error:', err.message)
+    res.status(500).json({ message: 'Failed to fetch profile', detail: err.message })
+  }
+})
+
 router.get('/api/profile/:id', cacheRoute(60), async (req, res) => {
   try {
     const [rows] = await pool.query(
