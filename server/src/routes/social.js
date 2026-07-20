@@ -95,7 +95,7 @@ router.get('/api/users/search', auth, async (req, res) => {
   const { gender, looking_for, age_min, age_max, city, interest, lat, lng, radius } = req.query
   try {
     const [[self]] = await pool.query(
-      'SELECT attachment_style, lat, lng, age FROM user_profiles WHERE id = ?',
+      'SELECT attachment_style, lat, lng, age, passport_mode, passport_city, passport_lat, passport_lng FROM user_profiles WHERE id = ?',
       [req.userId],
     )
     const userStyle = self?.attachment_style
@@ -111,17 +111,23 @@ router.get('/api/users/search', auth, async (req, res) => {
 
     const baseSelect = `up.id, up.display_name, up.name, up.age, up.gender, up.city, up.country, up.avatar_url, up.online, up.last_seen, up.dating_goal${compSelect}`
 
-    const hasGeo = lat && lng && radius
+    const userPassportMode = self?.passport_mode
+    const userPassportLat = userPassportMode ? self?.passport_lat : null
+    const userPassportLng = userPassportMode ? self?.passport_lng : null
+    const searchLat = lat || userPassportLat || self?.lat
+    const searchLng = lng || userPassportLng || self?.lng
+    const searchRadius = radius || 50
+    const hasGeo = searchLat && searchLng
     let distanceExpr = ''
     let having = ''
     const geoParams = []
     if (hasGeo) {
-      const userLat = parseFloat(lat)
-      const userLng = parseFloat(lng)
+      const userLat = parseFloat(searchLat)
+      const userLng = parseFloat(searchLng)
       if (!isNaN(userLat) && !isNaN(userLng)) {
         distanceExpr = `, ROUND(ST_Distance_Sphere(up.location, ST_SRID(POINT(?, ?), 4326)), 1) AS distance`
         having = ' HAVING distance < ?'
-        geoParams.push(userLng, userLat, Number(radius))
+        geoParams.push(userLng, userLat, Number(searchRadius))
       }
     }
 
@@ -129,7 +135,7 @@ router.get('/api/users/search', auth, async (req, res) => {
     const blockJoin = ' LEFT JOIN user_blocks bl ON (bl.blocker_id = ? AND bl.blocked_id = up.id) OR (bl.blocker_id = up.id AND bl.blocked_id = ?)'
     const blockWhere = ' AND bl.blocker_id IS NULL'
 
-    const whereClauses = ['up.id != ?', 'up.deleted_at IS NULL']
+    const whereClauses = ['up.id != ?', 'up.deleted_at IS NULL', 'up.incognito = 0']
     const whereParams = [req.userId]
 
     if (interest) {
@@ -751,7 +757,7 @@ router.get('/api/activity', auth, async (req, res) => {
               up.display_name as user_name, up.avatar_url as user_avatar
        FROM activity_log al
        LEFT JOIN user_profiles up ON al.user_id = up.id
-       WHERE al.target_id = ?
+       WHERE al.target_id = ? AND (up.incognito = 0 OR up.incognito IS NULL)
        ORDER BY al.created_at DESC
        LIMIT 50`,
       [req.userId],

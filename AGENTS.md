@@ -487,6 +487,10 @@ const stripe = process.env.STRIPE_SECRET_KEY
 18. **chats.tsx Vite SyntaxError** — не хватало `</div>` для `<div data-testid="message-list">`, Vite выдавал `Expected '</', got 'jsx text'`. Ломало любую lazy-загружаемую страницу (в т.ч. `/admin/messaging`). **Fix:** добавлен закрывающий тег.
 19. **Rate-limiter auth 10→30→60** — слишком жёсткий лимит для E2E тестов (429 Too Many Requests). **Fix:** поднят до 60 req/min.
 20. **E2E тесты (11 падало)** — 429 rate-limiter, CSP violation, apiCall без JWT, admin token из storage. **Fix:** rate-limiter 60, CSP фильтр, apiCall с token, getTokenFromStorage().
+21. **COALESCE порядок params в profile.js** — при добавлении incognito/passport_mode в PUT profile не совпадал порядок SET clause и params массива. **Fix:** добавлены новые поля в деструктуризацию req.body и переупорядочены params.
+22. **Ghost Mode / Passport Mode — premium gate** — toggle доступен всем без проверки подписки. **Fix:** PUT `/api/settings/privacy` проверяет активную подписку при включении incognito или passport_mode, возвращает 403 `PREMIUM_REQUIRED`.
+23. **Incognito визиты видны в activity** — activity роут показывал визиты инкогнито-пользователей. **Fix:** добавлен `AND (up.incognito = 0 OR up.incognito IS NULL)` в WHERE.
+24. **Фронт incognito только в localStorage** — settings.tsx и settings-privacy.tsx не синхронизировали состояние с сервером. **Fix:** при загрузке — fetch GET /api/settings/privacy, при изменении — PUT с телом.
 
 ---
 

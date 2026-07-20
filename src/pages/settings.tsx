@@ -48,10 +48,18 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setIsClient(true);
-    const savedIncognito = localStorage.getItem('incognito-mode');
-    if (savedIncognito) {
-      setSettings(prev => ({ ...prev, incognito: JSON.parse(savedIncognito) }));
-    }
+    fetch('/api/settings/privacy')
+      .then(r => r.json())
+      .then(data => {
+        setSettings(prev => ({ ...prev, incognito: Boolean(data.incognito) }))
+        localStorage.setItem('incognito-mode', JSON.stringify(Boolean(data.incognito)))
+      })
+      .catch(() => {
+        const savedIncognito = localStorage.getItem('incognito-mode');
+        if (savedIncognito) {
+          setSettings(prev => ({ ...prev, incognito: JSON.parse(savedIncognito) }));
+        }
+      })
     const savedConsent = localStorage.getItem('data-processing-consent');
     if (savedConsent) {
       setSettings(prev => ({ ...prev, dataProcessingConsent: JSON.parse(savedConsent) }));
@@ -78,6 +86,11 @@ export default function SettingsPage() {
   const handleIncognitoChange = (val: boolean) => {
     setSettings(prev => ({ ...prev, incognito: val }));
     localStorage.setItem('incognito-mode', JSON.stringify(val));
+    fetch('/api/settings/privacy', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ incognito: val }),
+    }).catch(() => {})
     toast({
       title: t('settings.incognito'),
       description: val ? t('settings.incognito.enabled_desc') : t('settings.incognito.disabled_desc'),

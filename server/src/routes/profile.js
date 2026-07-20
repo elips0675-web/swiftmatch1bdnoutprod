@@ -102,7 +102,7 @@ router.get('/api/profile/:id', cacheRoute(60), async (req, res) => {
 
 router.put('/api/profile/:id', async (req, res) => {
   try {
-    const { display_name, name, age, bio, gender, looking_for, dating_goal, height, city, country, zodiac, circadian, attachment_style, education, interests } = req.body
+    const { display_name, name, age, bio, gender, looking_for, dating_goal, height, city, country, zodiac, circadian, attachment_style, education, interests, incognito, passport_mode, passport_city, passport_lat, passport_lng } = req.body
 
     await pool.query(
       `UPDATE user_profiles SET
@@ -115,13 +115,18 @@ router.put('/api/profile/:id', async (req, res) => {
         dating_goal = COALESCE(?, dating_goal),
         height = COALESCE(?, height),
         city = COALESCE(?, city),
+        incognito = COALESCE(?, incognito),
+        passport_mode = COALESCE(?, passport_mode),
+        passport_city = COALESCE(?, passport_city),
+        passport_lat = COALESCE(?, passport_lat),
+        passport_lng = COALESCE(?, passport_lng),
         country = COALESCE(?, country),
         zodiac = COALESCE(?, zodiac),
         circadian = COALESCE(?, circadian),
         attachment_style = COALESCE(?, attachment_style),
         education = COALESCE(?, education)
       WHERE id = ?`,
-      [display_name, name, age, bio, gender, looking_for, dating_goal, height, city, country, zodiac, circadian, attachment_style, education, req.params.id],
+      [display_name, name, age, bio, gender, looking_for, dating_goal, height, city, incognito, passport_mode, passport_city, passport_lat, passport_lng, country, zodiac, circadian, attachment_style, education, req.params.id],
     )
 
     if (interests && Array.isArray(interests)) {
@@ -149,6 +154,59 @@ router.delete('/api/profile/me', auth, async (req, res) => {
   } catch (err) {
     logger.error('Delete account error:', err)
     res.status(500).json({ message: 'Failed to delete account' })
+  }
+})
+
+// ─── Privacy settings ───────────────────────────────────────────
+router.get('/api/settings/privacy', auth, async (req, res) => {
+  try {
+    const [[profile]] = await pool.query(
+      'SELECT incognito, passport_mode, passport_city, passport_lat, passport_lng FROM user_profiles WHERE id = ?',
+      [req.userId],
+    )
+    if (!profile) return res.status(404).json({ message: 'Profile not found' })
+    res.json({
+      incognito: Boolean(profile.incognito),
+      passport_mode: Boolean(profile.passport_mode),
+      passport_city: profile.passport_city,
+      passport_lat: profile.passport_lat,
+      passport_lng: profile.passport_lng,
+    })
+  } catch (err) {
+    logger.error('Privacy GET error:', err)
+    res.status(500).json({ message: 'Failed to fetch privacy settings' })
+  }
+})
+
+router.put('/api/settings/privacy', auth, async (req, res) => {
+  try {
+    const { incognito, passport_mode, passport_city, passport_lat, passport_lng } = req.body
+
+    if (incognito || passport_mode) {
+      const [subRows] = await pool.query(
+        "SELECT id FROM subscriptions WHERE user_id = ? AND is_active = 1 AND expires_at > NOW() LIMIT 1",
+        [req.userId],
+      )
+      if (subRows.length === 0) {
+        return res.status(403).json({ message: 'Premium subscription required for this feature', code: 'PREMIUM_REQUIRED' })
+      }
+    }
+
+    await pool.query(
+      `UPDATE user_profiles SET
+        incognito = COALESCE(?, incognito),
+        passport_mode = COALESCE(?, passport_mode),
+        passport_city = COALESCE(?, passport_city),
+        passport_lat = COALESCE(?, passport_lat),
+        passport_lng = COALESCE(?, passport_lng)
+      WHERE id = ?`,
+      [incognito, passport_mode, passport_city, passport_lat, passport_lng, req.userId],
+    )
+    invalidate(`route:/api/profile/${req.userId}*`).catch(() => {})
+    res.json({ message: 'Privacy settings updated' })
+  } catch (err) {
+    logger.error('Privacy PUT error:', err)
+    res.status(500).json({ message: 'Failed to update privacy settings' })
   }
 })
 

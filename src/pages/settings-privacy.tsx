@@ -3,27 +3,72 @@ import { useLanguage } from "@/context/language-context"
 import { useRouter } from "@/shims/next-navigation"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, EyeOff, ShieldCheck, Scale } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { ArrowLeft, EyeOff, Globe, ShieldCheck, Scale } from "lucide-react"
 import { toast } from 'sonner'
 
 export default function SettingsPrivacy() {
   const { t } = useLanguage()
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
-  const [settings, setSettings] = useState({ incognito: false, dataProcessingConsent: true })
+  const [settings, setSettings] = useState({ incognito: false, passport_mode: false, passport_city: '', dataProcessingConsent: true })
 
   useEffect(() => {
     setIsClient(true)
-    setSettings({
-      incognito: JSON.parse(localStorage.getItem('incognito-mode') || 'false'),
+    fetch('/api/settings/privacy')
+      .then(r => r.json())
+      .then(data => {
+        setSettings(prev => ({
+          ...prev,
+          incognito: Boolean(data.incognito),
+          passport_mode: Boolean(data.passport_mode),
+          passport_city: data.passport_city || '',
+        }))
+        localStorage.setItem('incognito-mode', JSON.stringify(Boolean(data.incognito)))
+      })
+      .catch(() => {
+        setSettings({
+          incognito: JSON.parse(localStorage.getItem('incognito-mode') || 'false'),
+          passport_mode: false,
+          passport_city: '',
+          dataProcessingConsent: JSON.parse(localStorage.getItem('data-processing-consent') || 'true'),
+        })
+      })
+    setSettings(prev => ({
+      ...prev,
       dataProcessingConsent: JSON.parse(localStorage.getItem('data-processing-consent') || 'true'),
-    })
+    }))
   }, [])
+
+  const savePrivacy = (body: Record<string, unknown>) => {
+    fetch('/api/settings/privacy', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).catch(() => {})
+  }
 
   const handleIncognitoChange = (val: boolean) => {
     setSettings(prev => ({ ...prev, incognito: val }))
     localStorage.setItem('incognito-mode', JSON.stringify(val))
+    savePrivacy({ incognito: val })
     toast.success(val ? t('settings.incognito.enabled_desc') : t('settings.incognito.disabled_desc'))
+  }
+
+  const handlePassportModeChange = (val: boolean) => {
+    setSettings(prev => ({ ...prev, passport_mode: val }))
+    savePrivacy({ passport_mode: val, passport_city: val ? settings.passport_city : null })
+    toast.success(val ? t('settings.passport_mode.enabled_desc') : t('settings.passport_mode.disabled_desc'))
+  }
+
+  const handlePassportCityChange = (city: string) => {
+    setSettings(prev => ({ ...prev, passport_city: city }))
+  }
+
+  const handlePassportCityBlur = () => {
+    if (settings.passport_mode && settings.passport_city) {
+      savePrivacy({ passport_city: settings.passport_city })
+    }
   }
 
   const handleConsentChange = (val: boolean) => {
@@ -51,6 +96,31 @@ export default function SettingsPrivacy() {
           </div>
           <Switch data-testid="switch-incognito" checked={isClient ? settings.incognito : false} onCheckedChange={handleIncognitoChange} />
         </div>
+
+        <div className="flex items-center justify-between py-3 border-b">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+              <Globe size={18} />
+            </div>
+            <div>
+              <p className="text-sm font-bold">{t('settings.passport_mode')}</p>
+              <p className="text-xs text-muted-foreground">{t('settings.passport_mode.desc')}</p>
+            </div>
+          </div>
+          <Switch data-testid="switch-passport-mode" checked={isClient ? settings.passport_mode : false} onCheckedChange={handlePassportModeChange} />
+        </div>
+
+        {settings.passport_mode && (
+          <div className="pl-12 pb-3">
+            <Input
+              placeholder="City name"
+              value={settings.passport_city}
+              onChange={e => handlePassportCityChange(e.target.value)}
+              onBlur={handlePassportCityBlur}
+              data-testid="passport-city"
+            />
+          </div>
+        )}
 
         <div className="flex items-center justify-between py-3 border-b">
           <div className="flex items-center gap-3">

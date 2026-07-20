@@ -51,6 +51,11 @@ CREATE TABLE user_profiles (
   education       VARCHAR(100),
   super_likes     INT UNSIGNED NOT NULL DEFAULT 0,
   boost_until     DATETIME NULL,
+  incognito       BOOLEAN NOT NULL DEFAULT FALSE,
+  passport_mode   BOOLEAN NOT NULL DEFAULT FALSE,
+  passport_city   VARCHAR(100) NULL,
+  passport_lat    DECIMAL(10,7) NULL,
+  passport_lng    DECIMAL(10,7) NULL,
   online          BOOLEAN NOT NULL DEFAULT FALSE,
   last_seen       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -60,7 +65,8 @@ CREATE TABLE user_profiles (
   INDEX idx_profiles_age (age),
   INDEX idx_profiles_online (online),
   INDEX idx_profiles_gender_looking (gender, looking_for),
-  SPATIAL INDEX idx_location (location)
+    INDEX idx_incognito (incognito),
+    SPATIAL INDEX idx_location (location)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------
