@@ -64,6 +64,13 @@
 | Missing @capacitor/push-notifications package | npm install в корень проекта | ✅ Исправлен |
 | Missing @socket.io/redis-adapter package | npm install в server/ | ✅ Исправлен |
 
+## Этап 2: Реализовано без внешних ключей
+| # | Задача | Файлы | Статус |
+|---|--------|-------|--------|
+| 7 | **Ghost Mode** — инкогнито + premium gate | `migrations/009_add_ghost_passport.sql`, `profile.js`, `social.js`, `settings-privacy.tsx` | ✅ Реализовано |
+| 8 | **Passport Mode** — показ в другом городе + premium gate | те же файлы, что Ghost Mode | ✅ Реализовано |
+| 9 | **GDPR Compliance** — export, erase, consent | `migrations/010_add_gdpr.sql`, `routes/gdpr.js`, `settings-privacy.tsx` | ✅ Реализовано |
+
 ## Запланировано — ждут реальных ключей
 - FCM_SERVER_KEY (Firebase проект)
 - RevenueCat webhook secret + IAP products
@@ -75,9 +82,7 @@
 - Sentry DSN
 
 ## Запланировано — не начато
-- GDPR / Data Privacy Compliance
 - Background GPS + Geofence
-- Ghost Mode / Passport Mode (Premium)
 - Video Date Scheduling
 - Disappearing Messages (TTL)
 - AI Icebreakers (OpenAI в чаты)

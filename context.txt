@@ -58,7 +58,7 @@
 - **Deep Links:** ✅ Scaffold (assetlinks.json, capacitor.config.ts, use-deep-links.ts); ждёт домена
 - **Nginx:** rate limit, client_max_body_size, proxy_read_timeout 86400s, SSL
 - **Логи:** 0 console.log/error в server/src/ — везде Winston
-- **Тесты:** 177/177, 0 failures — 52 фронт + 95 сервер + 30 E2E
+- **Тесты:** 199/199, 0 failures — 52 фронт + 117 сервер + 30 E2E
 
 ### Функциональный аудит (июль 2026)
 Проверены все 8 разделов через работающий API (сервер localhost:3002):
