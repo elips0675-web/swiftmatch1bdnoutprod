@@ -33,6 +33,7 @@ import adminModerationRoutes from './routes/admin-moderation.js'
 import smsRoutes from './routes/sms.js'
 import moderationRoutes from './routes/moderation.js'
 import iapRoutes from './routes/iap.js'
+import gdprRoutes from './routes/gdpr.js'
 import { JWT_SECRET } from './middleware.js'
 import { setupSwagger } from './swagger.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -188,6 +189,7 @@ app.use('/api/admin', adminFeatures)
 app.use('/api/admin', adminMessaging)
 app.use('/api/admin', adminMonetization)
 app.use('/api/admin', adminModerationRoutes)
+app.use(gdprRoutes)
 
 app.get('/health', async (req, res) => {
   try {

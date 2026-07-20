@@ -491,6 +491,7 @@ const stripe = process.env.STRIPE_SECRET_KEY
 22. **Ghost Mode / Passport Mode — premium gate** — toggle доступен всем без проверки подписки. **Fix:** PUT `/api/settings/privacy` проверяет активную подписку при включении incognito или passport_mode, возвращает 403 `PREMIUM_REQUIRED`.
 23. **Incognito визиты видны в activity** — activity роут показывал визиты инкогнито-пользователей. **Fix:** добавлен `AND (up.incognito = 0 OR up.incognito IS NULL)` в WHERE.
 24. **Фронт incognito только в localStorage** — settings.tsx и settings-privacy.tsx не синхронизировали состояние с сервером. **Fix:** при загрузке — fetch GET /api/settings/privacy, при изменении — PUT с телом.
+25. **GDPR отсутствовал** — не было API для экспорта/удаления данных по требованию GDPR. **Fix:** создан `server/src/routes/gdpr.js` с 5 endpoints (data export, erase request/confirm, consent log/history), миграция `010_add_gdpr.sql`, UI кнопки в settings-privacy.tsx.
 
 ---
 

@@ -4,7 +4,7 @@ import { useRouter } from "@/shims/next-navigation"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft, EyeOff, Globe, ShieldCheck, Scale } from "lucide-react"
+import { ArrowLeft, EyeOff, Globe, ShieldCheck, Scale, Download, Trash2 } from "lucide-react"
 import { toast } from 'sonner'
 
 export default function SettingsPrivacy() {
@@ -69,6 +69,31 @@ export default function SettingsPrivacy() {
     if (settings.passport_mode && settings.passport_city) {
       savePrivacy({ passport_city: settings.passport_city })
     }
+  }
+
+  const handleExportData = () => {
+    fetch('/api/data/export')
+      .then(r => r.json())
+      .then(data => {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = `swiftmatch-data-${Date.now()}.json`; a.click()
+        URL.revokeObjectURL(url)
+        toast.success(t('settings.data_export.success'))
+      })
+      .catch(() => toast.error('Export failed'))
+  }
+
+  const handleEraseData = () => {
+    if (!window.confirm(t('settings.data_erase.confirm'))) return
+    fetch('/api/data/erase/request', { method: 'POST' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.token) navigator.clipboard?.writeText(data.token)
+        toast.success(t('settings.data_erase.token_sent'))
+      })
+      .catch(() => toast.error('Erase request failed'))
   }
 
   const handleConsentChange = (val: boolean) => {
@@ -153,6 +178,32 @@ export default function SettingsPrivacy() {
             <Scale size={18} />
           </div>
           <p className="text-sm font-bold">{t('settings.privacy_policy')}</p>
+        </div>
+      </div>
+
+      <h2 className="text-lg font-black pt-4">{t('settings.gdpr')}</h2>
+
+      <div className="flex items-center justify-between py-3 border-b cursor-pointer hover:bg-muted/30 -mx-4 px-4 transition-colors rounded-lg" onClick={handleExportData}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+            <Download size={18} />
+          </div>
+          <div>
+            <p className="text-sm font-bold">{t('settings.data_export')}</p>
+            <p className="text-xs text-muted-foreground">{t('settings.data_export.desc')}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between py-3 border-b cursor-pointer hover:bg-muted/30 -mx-4 px-4 transition-colors rounded-lg" onClick={handleEraseData}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center text-destructive">
+            <Trash2 size={18} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-destructive">{t('settings.data_erase')}</p>
+            <p className="text-xs text-muted-foreground">{t('settings.data_erase.desc')}</p>
+          </div>
         </div>
       </div>
     </div>

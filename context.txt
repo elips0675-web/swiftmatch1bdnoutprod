@@ -120,6 +120,7 @@
 - **Ghost Mode (incognito):** `up.incognito = 0` в поиске, API GET/PUT `/api/settings/privacy`, премиум-гейтинг, синхронизация фронта с сервером
 - **Passport Mode:** `passport_mode/city/lat/lng` в user_profiles, авто-использование passport_location в поиске, премиум-гейтинг, UI toggle + city input
 - **Incognito в активности:** activity route фильтрует `up.incognito = 0` — скрыты визиты инкогнито-пользователей
+- **GDPR Compliance:** `GET /api/data/export` (экспорт всех данных), `POST /api/data/erase/request` + `/confirm` (полное удаление с подтверждением), `POST /api/consent` + `GET /api/consent/history` (логирование согласий); миграция 010; UI кнопки в /settings/privacy
 
 ### Stage 1 — WebRTC Video/Voice Calls
 - `server/src/ws.js`: +6 signalling событий (call-user, call-accepted, call-rejected, ice-candidate, end-call)
@@ -199,7 +200,7 @@
 | # | Задача | Статус | Что нужно |
 |---|--------|--------|-----------|
 | 6 | CDN для фото (S3 + CloudFront) | ✅ Sharp pipeline есть; S3 scaffold | Настроить S3 + CDN; сейчас локальный диск |
-| 7 | GDPR / Data Privacy Compliance | ❌ | Consent flow, data export, right to erasure |
+| 7 | GDPR / Data Privacy Compliance | ✅ | Data export, full erasure, consent_log API, UI кнопки |
 | 8 | Background GPS + Geofence | ❌ | @capacitor/geolocation background mode |
 | 9 | Ghost Mode / Incognito (Premium) | ✅ | incognito BOOLEAN, search filter, premium-gated API, фронт синхронизирован |
 | 10 | Passport Mode (Premium) | ✅ | passport_mode/city/lat/lng, авто-подстановка в поиск, premium-gated, UI toggle |
@@ -277,6 +278,8 @@
 | `database/migrations/migrate.js` | Миграции БД |
 | `database/migrations/008_add_iap.sql` | IAP колонки в subscriptions |
 | `database/migrations/009_add_ghost_passport.sql` | Ghost Mode + Passport Mode колонки |
+| `database/migrations/010_add_gdpr.sql` | GDPR: consent_log + data_erase_requests |
+| `server/src/routes/gdpr.js` | GDPR API (data export, erase, consent) |
 | `server/src/routes/profile.js` | Профиль + GET/PUT `/api/settings/privacy` |
 | `nginx/swiftmatch.conf` | Production Nginx config |
 | `.github/workflows/deploy.yml` | CI/CD pipeline |
