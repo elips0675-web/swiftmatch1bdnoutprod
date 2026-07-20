@@ -188,21 +188,31 @@ npx vite --port 8081 --host
 | `CORS_ORIGIN` | `server/.env` | Домен прода (вместо `localhost:8081`) |
 | `NODE_ENV=production` | `server/.env` | Отключает Stripe mock, Sentry sampling 0.1 |
 
-### 🟠 Нужно доделать (до 1-й недели после запуска)
+### ✅ Реализовано (без внешних ключей)
 
-| Задача | Почему важно |
-|--------|-------------|
-| **Push FCM для Android** (Firebase Cloud Messaging) | Без этого мобильное приложение не получает пуши |
-| **Deep Links** (Universal Links iOS + App Links Android) | Пуши открывают главную, а не чат/профиль |
-| **CDN для фото** (S3 + CloudFront/CDN) | Трафик фото через сервер убьёт CPU первого же дня |
-| **Apple/Google IAP** (RevenueCat) | App Store отклонит без нативных платежей |
-| **Twilio API ключи** для SMS-верификации | Дейтинг без верификации = 80% ботов |
-| **OpenAI/AWS ключи** для AI-модерации | NSFW-фото не отсекаются автоматически |
+| Фича | Файлы | Статус |
+|------|-------|--------|
+| **Ghost Mode** (инкогнито + premium gate) | `profile.js`, `social.js`, `settings-privacy.tsx`, миграция 009 | ✅ |
+| **Passport Mode** (показ в другом городе + premium gate) | Те же файлы, что Ghost Mode | ✅ |
+| **GDPR Compliance** (data export, erase, consent) | `routes/gdpr.js`, миграция 010, UI в settings-privacy | ✅ |
 
-### 🟢 Опционально (не блокирует запуск)
+### 🟠 Код готов — ждут ключи API
+
+| Задача | Ключи |
+|--------|-------|
+| Push FCM для Android | `FCM_SERVER_KEY` |
+| Deep Links | Настроить домен + SHA256 |
+| RevenueCat IAP | Webhook secret + проект |
+| SMS-верификация (Twilio) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` |
+| AI-модерация фото | `OPENAI_API_KEY` или AWS Rekognition |
+| CDN для фото | S3 bucket + AWS keys |
+
+### 🟢 Ещё не начато
 
 - Feature Flags (Unleash), Product Analytics (PostHog), Monitoring (Grafana)
-- API Versioning, Design System/Storybook, GDPR docs, Load Testing (k6)
+- API Versioning, Design System/Storybook, Load Testing (k6)
+- Disappearing Messages (TTL), Video Date Scheduling, AI Icebreakers
+- Background GPS + Geofence
 
 ---
 
@@ -221,7 +231,8 @@ npx vite --port 8081 --host
 | `server/src/routes/report.js` | POST /api/reports + auto-ban escalation |
 | `server/src/routes/referral.js` | Реферальная система (code, apply, stats) |
 | `src/` | Фронтенд на React + Vite + Tailwind |
-| `database/` | `mysql_schema.sql` + `demo_data.sql` + `migrations/` (6 миграций) |
+| `database/` | `mysql_schema.sql` + `demo_data.sql` + `migrations/` (10 миграций) |
+| `server/src/routes/gdpr.js` | GDPR API (data export, erase, consent logging) |
 
 ## Резервное копирование MySQL
 

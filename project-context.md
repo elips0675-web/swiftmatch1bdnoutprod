@@ -184,3 +184,22 @@ build: { target: 'es2020', minify: 'esbuild', chunkSizeWarningLimit: 600 }
 | `activity.*` | `activity.unlock_title` | — |
 
 Переводы: RU — `language-context.tsx:12-931`, EN — `:935-1980`
+
+## Premium Features (новые)
+
+| Фича | Колонки | API | Premium gate |
+|------|---------|-----|-------------|
+| **Ghost Mode** (инкогнито) | `user_profiles.incognito` | `GET/PUT /api/settings/privacy` | Да (403 без подписки) |
+| **Passport Mode** (другой город) | `passport_mode`, `passport_city`, `passport_lat`, `passport_lng` | `GET/PUT /api/settings/privacy` | Да (403 без подписки) |
+
+## GDPR
+
+| Endpoint | Метод | Описание |
+|----------|-------|----------|
+| `/api/data/export` | GET | Экспорт всех данных пользователя (JSON) |
+| `/api/data/erase/request` | POST | Запрос на удаление (генерация токена) |
+| `/api/data/erase/confirm` | POST | Подтверждение удаления по токену (24ч) |
+| `/api/consent` | POST | Логирование согласия (тип + granted) |
+| `/api/consent/history` | GET | История согласий |
+
+Таблицы: `consent_log`, `data_erase_requests` — миграция `010_add_gdpr.sql`.
