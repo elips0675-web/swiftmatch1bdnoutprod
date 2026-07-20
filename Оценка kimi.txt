@@ -1,0 +1,49 @@
+На основе анализа вашего проекта SwiftMatch и текущих трендов рынка дейтинг-приложений 2026 года, вот структурированный план доработок до полноценного продукта.
+🔴 Критично — блокирует запуск (Недели 1–2)
+Таблица
+#	Задача	Почему срочно	Что нужно сделать
+1	Push-уведомления для Android (FCM)	Без пушей мобильное приложение мёртвое — пользователи не узнают о мэтчах и сообщениях	Интегрировать @capacitor/push-notifications + Firebase Cloud Messaging. Заменить/дополнить текущие VAPID Web Push на FCM для нативного Android. Сейчас у вас только VAPID (веб-пуши), но в APK они не работают без Google Services.
+2	Deep Links	Пуши открывают главную страницу вместо конкретного чата/профиля	Настроить Android App Links (assetlinks.json) + iOS Universal Links. В capacitor.config.ts добавить server.url для deep link handling.
+3	Apple/Google IAP через RevenueCat	App Store и Google Play отклонят приложение без нативных встроенных покупок	Интегрировать purchases-capacitor (RevenueCat). Stripe оставить для веб-версии, но для мобильных сторов обязательны IAP. Это требование обоих магазинов для приложений с подписками.
+4	SMS-верификация (Twilio/Vonage)	Дейтинг без верификации = 80% ботов и фейков	Докрутить существующий scaffold server/src/sms.js — добавить реальные API-ключи Twilio, rate-limit 3 SMS/час, интегрировать в флоу регистрации.
+5	AI-модерация фото (AWS Rekognition)	NSFW-контент не отсекается автоматически = бан в сторах	Докрутить scaffold server/src/ai-moderation.js — подключить реальные ключи AWS Rekognition для nudity/violence detection при загрузке фото. Сейчас fallback на эвристику (regex) — недостаточно.
+🟠 Высокий приоритет — влияет на retention (Недели 3–4)
+Таблица
+#	Задача	Почему важно	Что нужно сделать
+6	CDN для фото + Image Optimization	Трафик фото через сервер убьёт CPU в первый же день	Подключить S3 (Yandex Cloud/Selectel) + CloudFront/CDN. Сейчас scaffold готов (server/src/image-pipeline.js с Sharp/WebP/AVIF), но загрузка идёт на локальный диск.
+7	GDPR / Data Privacy Compliance	Штраф до 4% оборота за утечку данных дейтинг-приложения	Добавить: consent flow при регистрации, data export (GDPR Article 20), right to erasure, privacy policy страницу. Данные дейтинга — особо чувствительные.
+8	Background GPS + Geofence	Текущий геопоиск работает только при открытом приложении	Добавить @capacitor/geolocation с background mode. Adaptive polling: частый при открытом, раз в 5 минут в фоне. Геофенс для обновления пула мэтчей при смещении 100м+.
+9	Ghost Mode / Incognito (Premium)	Базовая фича premium-дейтинга — скрытое присутствие в ленте	Добавить флаг incognito в user_profiles. При включении — профиль не появляется в чужой ленте, но сам пользователь видит других.
+10	Passport Mode (Premium)	Возможность менять локацию на другой город перед поездкой	Добавить passport_location в профиль. При passport_mode = true — использовать эту локацию вместо GPS для поиска.
+🟡 Средний приоритет — конкурентное преимущество (Недели 5–8)
+Таблица
+#	Задача	Что нужно сделать
+11	AI Icebreakers	Интеграция OpenAI API для генерации персонализированных первых сообщений на основе общих интересов. Сейчас у вас scaffold готов, но не подключён к чатам.
+12	Video Date Scheduling	WebRTC уже есть (Stage 1), но нет планирования: календарь, dual reminders, blur background.
+13	Disappearing Messages	Таймер 24ч/7д/90д для сообщений, enforced server-side с TTL.
+14	Profile Score + AI Recommendations	Анализ профиля и рекомендации по улучшению («добавьте фото с улыбкой», «опишите хобби подробнее»).
+15	Date Check-in (Safety)	Поделиться локацией с доверенным контактом, авто-алерт если нет чек-ина.
+16	A/B Testing Framework	Feature flags (LaunchDarkly/Flagsmith) для контролируемого rollout фич по когортам и гео.
+17	Analytics (PostHog/Amplitude)	Retention curves (D1/D7/D30), funnel analysis, match rate, message conversion. Сейчас у вас базовые endpoint'ы в admin/analytics.js, но нет product analytics.
+🟢 Инфраструктура и масштабирование (Месяц 2–3)
+Таблица
+#	Задача	Статус в проекте	Действие
+18	CI/CD Pipeline (GitHub Actions)	❌ Нет	.github/workflows/deploy.yml есть scaffold, но нужно настроить runner'ы, секреты, staging environment
+19	Docker Compose (app + mysql + redis + nginx)	❌ Нет	Создать docker-compose.yml для production stack
+20	Redis Adapter для Socket.IO	❌ Нет	Горизонтальное масштабирование WS через socket.io-redis-adapter
+21	Load Testing (k6/Artillery)	❌ Нет	Нагрузочные тесты на геопоиск и чаты
+22	Monitoring (Grafana + Prometheus)	❌ Нет	Метрики: DAU, latency, error rate, match rate
+23	Backup Verification	⚠️ Есть скрипт	Добавить автоматическую проверку восстановления из бэкапа раз в неделю
+📋 Чеклист перед подачей в App Store / Google Play
+Таблица
+Проверка	Статус	Действие
+Реальные API-ключи (7 штук) в server/.env	⚠️ Ждут	Заполнить: Stripe, SMTP, Sentry, S3, Redis, Twilio, AWS Rekognition
+IAP интегрирован (RevenueCat)	❌ Нет	Обязательно для сторов
+Privacy Policy + Terms of Service	❌ Нет	Юридические страницы
+Content Rating (17+)	❌ Нет	Настроить в консолях
+Screenshots для сторов	❌ Нет	5+ скриншотов с реальными данными
+TestFlight / Internal Testing	❌ Нет	Загрузить билд
+Age Verification (18+)	⚠️ Scaffold	Докрутить проверку при регистрации
+💡 Ключевой инсайт из рынка 2026
+Согласно анализу рынка, 60–70% оттока пользователей из дейтинг-приложений происходит на этапе онбординга. Ваше текущее приложение уже имеет solid foundation (177 тестов, WebRTC, WebSocket, админка), но главный риск сейчас — не технический долг, а отсутствие мобильных пушей и нативных платежей. Без этих двух компонентов приложение в APK-билде фактически нежизнеспособно.
+Приоритет: FCM → RevenueCat → Deep Links → SMS verify → CDN. Это 4–6 недель работы и разделит ваш продукт от «тестовой копии» до «приложения, которое можно выкладывать в сторы».

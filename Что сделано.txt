@@ -1,27 +1,47 @@
 # Что сделано
 
+> Актуально на июль 2026. Все тесты: 199/199 (52 фронт + 117 сервер + 30 E2E). Vite build: ✅
+
+## Этап 1: 🔴 Мобильный запуск (код готов, ждут ключи)
+
+| # | Задача | Файлы | Статус |
+|---|--------|-------|--------|
+| 1 | **Push FCM** — dual-канал (VAPID + FCM) | `fcm.js`, `push.js`, `use-fcm-token.ts`, `use-push-capacitor.ts` | ✅ Код готов |
+| 2 | **Deep Links** — App Links + обработчик | `assetlinks.json`, `capacitor.config.ts`, `use-deep-links.ts` | ✅ Код готов |
+| 3 | **SMS-верификация в регистрацию** | `auth.js` (phone INSERT), `register.tsx` (phone input) | ✅ Код готов |
+| 4 | **RevenueCat IAP** — webhook + миграция | `routes/iap.js`, `migrations/008_add_iap.sql` | ✅ Код готов |
+| 5 | **AI-модерация фото** — NSFW check в upload | `upload.js` → `ai-moderation.js` | ✅ Код готов |
+| 6 | **API-ключи** — 10+ переменных в .env | `server/.env`, `server/.env.example` | ✅ Добавлены |
+
 ## Блоки
 | Блок | Статус |
 |------|--------|
 | Восстановление Sentry, Docker, SEO, ErrorBoundary | ✅ Готово |
 | Добавление Stripe mock, SMTP, WebSocket, тестов, JS-вспомогательных скриптов | ✅ Готово |
-| Оценка kimi.txt — 13 требований | ✅ Все выполнены |
+| Оценка kimi.txt — 13 требований | ✅ 13/13 код готов (8 ждут реальных ключей) |
 | Серверный лог через winston | ✅ Готово |
 | console.log на фронте → import.meta.env.DEV | ✅ Готово |
 | Per-page ErrorBoundary через SuspenseWrapper | ✅ Готово |
 | Stripe mock blocked for NODE_ENV=production | ✅ Готово |
-| Тесты (137/137) | ✅ Все проходят |
+| Тесты (199/199) | ✅ Все проходят |
 | SEO/PWA (sitemap, robots, manifest) | ✅ Готово |
 | Swagger/OpenAPI (JSDoc + swagger-jsdoc) | ✅ Готово |
 | Docker (healthcheck, jwt из env) | ✅ Готово |
 | AGENTS.md prompt templates + restructure | ✅ Готово |
-| AGENTS.md: CI/CD, Git Workflow, Project Structure, Security, Testing, Deployment | ✅ Готово |
-| persona.md port fix (3001 → 3002) | ✅ Готово |
 | data-testid селекторы (login, register, chat, forgot-password, settings, profile-edit, groups, search, admin) | ✅ Готово |
 | e2e: audit-full.spec.ts + helpers (audit.ts, api.ts) | ✅ Готово |
 | e2e: global-setup.ts (health check before tests) | ✅ Готово |
 | playwright.config: screenshots, video, trace, json reporter | ✅ Готово |
-| package.json: npm run test:e2e, test:e2e:ui, test:e2e:debug, test:e2e:report | ✅ Готово |
+
+## Блоки (pre-pull, уже были)
+- WebRTC Video/Voice Calls (Stage 1)
+- Sharp Image Pipeline WebP/AVIF (Stage 2)
+- Push Notifications VAPID (Stage 3)
+- SMS Verification scaffold (Stage 4)
+- AI Moderation scaffold (Stage 5)
+- Админка: 8 роутов, аналитика, рассылки, фичи
+- Redis + Cache Module
+- MySQL Backup + DB Migrations
 
 ## Багфиксы
 | Баг | Фикс | Статус |
@@ -37,116 +57,31 @@
 | premium-success.tsx crash (useSearchParams) | const params = useSearchParams() | ✅ Исправлен |
 | Activity 404/500 (missing /api/activity route) | добавлен SQL-роут в social.js | ✅ Исправлен |
 | Activity SQL (wrong column name + join logic) | target_id, WHERE target_id=? | ✅ Исправлен |
+| Register 500 (missing location column) | location добавлен в INSERT | ✅ Исправлен |
+| Migration 005 spatial NULL | DEFAULT для NULL location | ✅ Исправлен |
+| Migration 006 SELECT on nonexistent table | удалён несуществующий SELECT | ✅ Исправлен |
+| Server test script missing | "test": "vitest run" в package.json | ✅ Исправлен |
+| Missing @capacitor/push-notifications package | npm install в корень проекта | ✅ Исправлен |
+| Missing @socket.io/redis-adapter package | npm install в server/ | ✅ Исправлен |
 
-## Этап 21.3 — Background Jobs (Bull Queue)
-| Файл | Назначение |
-|------|-----------|
-| `server/src/queue.js` | Инициализация 3 очередей (email, push, image) + graceful shutdown |
-| `server/src/jobs/email.job.js` | Процессор email-очереди (SMTP с retry, password-reset/verify-email шаблоны) |
-| `server/src/jobs/push.job.js` | Процессор push-очереди (web-push для одного/всех пользователей) |
-| `server/src/jobs/image.job.js` | Процессор image-очереди (Sharp resize 800/400/200 + WebP + AVIF) |
-| `server/src/mail.js` | Переписан: через emailQueue, fallback на лог при отсутствии Redis |
-| `server/src/routes/push.js` | sendPushToUser/sendPushToAll через pushQueue, fallback на прямой send |
-| `server/src/routes/upload.js` | processImage через imageQueue, fallback на прямой вызов |
-| `server/src/index.js` | initQueues() при старте, closeQueues() на SIGTERM |
-| `server/.env.example` | Добавлен комментарий про Bull Queue |
-| `server/package.json` | bull@4.16.5 добавлен в зависимости |
-| **Тесты:** server 117/117 ✅, Vite build 3581 modules 0 errors ✅ |
+## Запланировано — ждут реальных ключей
+- FCM_SERVER_KEY (Firebase проект)
+- RevenueCat webhook secret + IAP products
+- Twilio Account SID + Auth Token + Phone Number
+- AWS Rekognition / OpenAI ключи
+- Stripe LIVE keys
+- SMTP_USER / SMTP_PASS
+- S3 Bucket + AWS keys
+- Sentry DSN
 
-## Этап 21.4 — Redis Adapter for Socket.IO
-| Изменение | Файл |
-|-----------|------|
-| Redis pub/sub клиенты для adapter | `server/src/redis.js` — `getRedisPub()`, `getRedisSub()`, `disconnectRedis()` закрывает все 3 клиента |
-| Подключение `@socket.io/redis-adapter` к Socket.IO | `server/src/ws.js` — `io.adapter(createAdapter(pub, sub))`, graceful fallback если Redis нет |
-| Graceful shutdown | `server/index.js` — `disconnectRedis()` закрывает client + pub + sub |
-| Зависимости | `@socket.io/redis-adapter` + `ioredis` в `server/package.json` |
-| Тесты | server 117/117 ✅, Vite build 3581 modules 0 errors ✅ |
-
-## Этап 21.5 — Geospatial Search (MySQL Spatial)
-| Изменение | Файл |
-|-----------|------|
-| Миграция: POINT column + SPATIAL INDEX | `database/migrations/005_add_spatial_location.sql` |
-| Схема БД: location column + SPATIAL INDEX | `database/mysql_schema.sql` |
-| Поиск переписан на `ST_Distance_Sphere` с prepared statements | `server/src/routes/social.js` — geo-фильтр через spatial index |
-| Сохранение location при обновлении профиля | `server/src/routes/profile.js` — `ST_SRID(POINT(lng, lat), 4326)` |
-| Демо-данные: координаты Москвы для 16 пользователей | `database/demo_data.sql` |
-| Безопасность: больше нет конкатенации координат в SQL (была SQL-инъекция) | `social.js` — все параметры через prepared statements |
-| **Тесты** | server 117/117 ✅, Vite build 3581 modules 0 errors ✅ |
-
-## 4-я итерация (Laragon) — Health Checks + Seeding + Soft Deletes + Report + Referral
-
-### 28.2+28.3 — Health Checks + Graceful Shutdown
-| Изменение | Файл |
-|-----------|------|
-| `/health/live` — always 200 (сервер жив) | `server/src/index.js` |
-| `/health/ready` — DB + Redis check (200/503) | `server/src/index.js` |
-| SIGINT handler (Ctrl+C на Windows) | `server/src/index.js` |
-| Shutdown timeout 10s | `server/src/index.js` |
-
-### 22.2 — Database Seeding
-| Изменение | Файл |
-|-----------|------|
-| Seed script (50 users, 30 matches, 200 msgs, admin/banned/premium) | `server/src/seed.js` |
-| npm scripts: `db:seed`, `db:reset` | `server/package.json` |
-
-### 26.2 — Soft Deletes + Audit Log
-| Изменение | Файл |
-|-----------|------|
-| Миграция: deleted_at на 11 таблиц + audit_log | `database/migrations/006_add_soft_delete_audit.sql` |
-| Audit helper (auditLog, softDelete, softDeleteWhere) | `server/src/audit.js` |
-| Soft delete в DELETE /api/profile/me | `server/src/routes/profile.js` |
-| Soft delete в admin DELETE /users/:id + bulk | `server/src/routes/admin/users.js` |
-
-### 34.9 — Report Escalation Flow
-| Изменение | Файл |
-|-----------|------|
-| POST /api/reports (user-facing report endpoint) | `server/src/routes/report.js` |
-| Auto-ban: 3 reports → temp ban, 5+ → permanent | `server/src/routes/report.js` |
-| Severe categories (nudity, violence) → instant ban | `server/src/routes/report.js` |
-
-### 31.2 — Referral / Invite System
-| Изменение | Файл |
-|-----------|------|
-| Миграция: referral_code + referred_by на users | `database/migrations/007_add_referral.sql` |
-| GET /api/referral/code, POST /api/referral/apply, GET /api/referral/stats | `server/src/routes/referral.js` |
-| referralCode при регистрации | `server/src/routes/auth.js` |
-| **Тесты** | server 117/117 ✅ |
-
-## 5-я итерация (Laragon) — Redis + Geospatial + Backup + Seed
-
-### Redis — включён и работает
-| Изменение | Файл |
-|-----------|------|
-| REDIS_URL=redis://127.0.0.1:6379 в .env | `server/.env` |
-| Redis запущен (Laragon redis-x64-5.0.14.1, порт 6379) | — |
-| Служба Redis установлена с автостартом | — |
-| `withRedis` → cache.js (profile 60s, matches 30s) работает | `server/src/cache.js` |
-| Bull Queue (email/push/image) с Redis | `server/src/queue.js` |
-| Socket.IO Redis adapter (ws.js:23) | `server/src/ws.js` |
-
-### Миграции MySQL — исправлены и применены
-| Изменение | Файл |
-|-----------|------|
-| 001: `IF NOT EXISTS` → `information_schema` + `PREPARE` (MySQL 8.4) | `database/migrations/001_add_moderation_columns.sql` |
-| 005: SPATIAL INDEX с `NOT NULL`, idempotent | `database/migrations/005_add_spatial_location.sql` |
-| Все 6 миграций применены (001–007) | `_migrations` table |
-| Геопоиск: POINT SRID 4326 + SPATIAL INDEX | `user_profiles.location` |
-
-### Seed — успешно
-| `npm run db:seed` | 50 users, 30 matches, 200 messages |
-| ST_SRID(POINT(lng,lat),4326) для location | `server/src/seed.js` |
-
-### MySQL Backup — настроен
-| Скрипт | scripts/backup-mysql.ps1 (авто-детект mysqldump) |
-| Retention | 7 дней |
-| Установка | scripts/install-backup-task.bat (запустить как Administrator) |
-
-### Тесты
-| Redis ping | PONG |
-| Cache (getCached/setCached) | ✅ |
-| Redis pub/sub clients | ✅ |
-
-## Запланировано / не сделано
-- .env секреты (Stripe, SMTP, Sentry, S3) — ждём реальные credentials
-- **Push FCM для Android** — Firebase Cloud Messaging для Capacitor
-- **Pre-existing lint warnings (70+)** — не трогать
+## Запланировано — не начато
+- GDPR / Data Privacy Compliance
+- Background GPS + Geofence
+- Ghost Mode / Passport Mode (Premium)
+- Video Date Scheduling
+- Disappearing Messages (TTL)
+- AI Icebreakers (OpenAI в чаты)
+- A/B Testing + Product Analytics
+- Docker Compose production stack
+- Load Testing (k6)
+- Monitoring (Grafana + Prometheus)

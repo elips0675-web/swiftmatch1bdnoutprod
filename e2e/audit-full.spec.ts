@@ -4,7 +4,7 @@ import { apiCall, loginViaApi, healthCheck, getTokenFromStorage } from './helper
 
 const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:8081'
 const ADMIN_EMAIL = 'admin@mail.ru'
-const ADMIN_PASS = 'admin123'
+const ADMIN_PASS = 'demo123456'
 
 async function loginViaUI(page: { goto: (url: string) => Promise<void>; waitForLoadState: (state: string) => Promise<void>; fill: (selector: string, value: string) => Promise<void>; click: (selector: string) => Promise<void>; waitForURL: (regex: RegExp, opts?: { timeout: number }) => Promise<void> }, email: string, password: string) {
   await page.goto(`${BASE_URL}/login`)
@@ -88,8 +88,8 @@ test.describe('4. Like → Match → Chat (two users)', () => {
   test.use({ storageState: 'e2e/.auth/user4.json' })
 
   test('User A likes User B, creates match, sends message', async ({ browser, page, request }) => {
-    const tokenA = await loginViaApi(request, 'user4@demo.ru', 'admin123')
-    const tokenB = await loginViaApi(request, 'user5@demo.ru', 'admin123')
+    const tokenA = await loginViaApi(request, 'user4@mail.ru', 'demo123456')
+    const tokenB = await loginViaApi(request, 'user5@mail.ru', ADMIN_PASS)
     expect(tokenA).toBeTruthy()
     expect(tokenB).toBeTruthy()
 
@@ -270,7 +270,7 @@ test.describe('10. Negative & security tests', () => {
 
     // Use API to save XSS content in bio
     const loginRes = await request.post('http://localhost:3002/api/auth/login', {
-      data: { email: 'demo@mail.ru', password: 'admin123' },
+      data: { email: 'user2@mail.ru', password: 'demo123456' },
     })
     if (loginRes.ok) {
       const token = (await loginRes.json()).token
@@ -344,8 +344,8 @@ test.describe('11. WebSocket real-time', () => {
 // ============ 12. WS TWO-BROWSER ============
 test.describe('12. WebSocket two-browser real-time', () => {
   test('User A sends, User B receives without reload', async ({ browser, request }) => {
-    const tokenA = await loginViaApi(request, 'user4@demo.ru', 'admin123')
-    const tokenB = await loginViaApi(request, 'user5@demo.ru', 'admin123')
+    const tokenA = await loginViaApi(request, 'user4@mail.ru', 'demo123456')
+    const tokenB = await loginViaApi(request, 'user5@mail.ru', ADMIN_PASS)
     expect(tokenA).toBeTruthy()
     expect(tokenB).toBeTruthy()
 

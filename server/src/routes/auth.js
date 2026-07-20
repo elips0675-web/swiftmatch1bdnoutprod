@@ -128,9 +128,12 @@ async function createRefreshToken(userId) {
 }
 
 router.post('/api/auth/register', async (req, res) => {
-  const { email, password, displayName, referralCode } = req.body
+  const { email, password, displayName, referralCode, phone } = req.body
   if (!email || !password) return res.status(400).json({ message: 'Email and password required' })
   if (password.length < 6) return res.status(400).json({ message: 'Password must be at least 6 characters' })
+  if (phone && !/^\+?[1-9]\d{6,14}$/.test(phone)) {
+    return res.status(400).json({ message: 'Invalid phone number format' })
+  }
 
   try {
     const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email])
@@ -147,20 +150,26 @@ router.post('/api/auth/register', async (req, res) => {
     }
 
     const [result] = await pool.query(
-      'INSERT INTO users (email, password_hash, role, verification_token, referral_code, referred_by) VALUES (?, ?, ?, ?, ?, ?)',
-      [email, password_hash, 'user', verification_token, crypto.randomBytes(3).toString('hex'), referredBy],
+      'INSERT INTO users (email, password_hash, role, verification_token, referral_code, referred_by, phone) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [email, password_hash, 'user', verification_token, crypto.randomBytes(3).toString('hex'), referredBy, phone || null],
     )
     const userId = result.insertId
 
     await pool.query(
-      'INSERT INTO user_profiles (id, display_name, name, age) VALUES (?, ?, ?, 18)',
+      'INSERT INTO user_profiles (id, display_name, name, age, location) VALUES (?, ?, ?, 18, ST_SRID(POINT(0, 0), 4326))',
       [userId, displayName || email.split('@')[0], displayName || email.split('@')[0]],
     )
 
     const token = jwt.sign({ userId, role: 'user' }, JWT_SECRET, { expiresIn: '24h' })
     const refresh_token = await createRefreshToken(userId)
     sendVerificationEmail(email, verification_token)
-    res.status(201).json({ token, refresh_token, userId, message: 'Account created' })
+
+    res.status(201).json({
+      token, refresh_token, userId,
+      phone: phone || null,
+      phone_verified: false,
+      message: 'Account created',
+    })
   } catch (err) {
     logger.error('Register error:', err)
     res.status(500).json({ message: 'Failed to create account' })

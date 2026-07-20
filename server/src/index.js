@@ -13,8 +13,7 @@ import { initIO } from './ws.js'
 import { createLogger, rootLogger } from './logger.js'
 import { idempotency } from './middleware/idempotency.js'
 import { initSentry } from './sentry.js'
-import { getRedis, withRedis, disconnectRedis } from './redis.js'
-import { initQueues, closeQueues } from './queue.js'
+import { getRedis, disconnectRedis } from './redis.js'
 
 import adminDashboard from './routes/admin/dashboard.js'
 import adminUsers from './routes/admin/users.js'
@@ -33,8 +32,7 @@ import authRoutes, { createRefreshToken } from './routes/auth.js'
 import adminModerationRoutes from './routes/admin-moderation.js'
 import smsRoutes from './routes/sms.js'
 import moderationRoutes from './routes/moderation.js'
-import reportRoutes from './routes/report.js'
-import referralRoutes from './routes/referral.js'
+import iapRoutes from './routes/iap.js'
 import { JWT_SECRET } from './middleware.js'
 import { setupSwagger } from './swagger.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -100,7 +98,7 @@ app.post('/api/auth/login', async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      'SELECT id, email, role, password_hash FROM users WHERE email = ? AND is_active = 1',
+      'SELECT id, email, role, password_hash, email_verified_at FROM users WHERE email = ? AND is_active = 1',
       [email],
     )
     if (rows.length === 0) {
@@ -116,7 +114,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' })
     const refresh_token = await createRefreshToken(user.id)
-    res.json({ token, refresh_token, role: user.role, email_verified: true })
+    res.json({ token, refresh_token, role: user.role, email_verified: !!user.email_verified_at })
   } catch (err) {
     rootLogger.error('Login error: ' + err.message)
     res.status(500).json({ message: 'Internal server error' })
@@ -159,8 +157,7 @@ app.use(socialRoutes)
 app.use(authRoutes)
 app.use(smsRoutes)
 app.use(moderationRoutes)
-app.use(reportRoutes)
-app.use(referralRoutes)
+app.use(iapRoutes)
 
 app.use('/api/admin', adminAuth)
 
@@ -209,35 +206,6 @@ app.use((err, req, res, next) => {
 
 initSentry(app)
 
-initQueues()
-
-// Health checks
-app.get('/health/live', (req, res) => {
-  res.json({ status: 'ok' })
-})
-
-app.get('/health/ready', async (req, res) => {
-  const checks = { db: false, redis: false }
-  try {
-    await pool.query('SELECT 1')
-    checks.db = true
-  } catch {}
-  try {
-    checks.redis = await withRedis((r) => r.ping().then(v => v === 'PONG').catch(() => false)) ?? false
-  } catch {}
-  const allOk = checks.db
-  res.status(allOk ? 200 : 503).json({ status: allOk ? 'ok' : 'error', checks })
-})
-
-app.get('/health', async (req, res) => {
-  try {
-    await pool.query('SELECT 1')
-    res.json({ status: 'ok', db: 'connected' })
-  } catch {
-    res.status(503).json({ status: 'error', db: 'disconnected' })
-  }
-})
-
 const httpServer = createServer(app)
 initIO(httpServer)
 httpServer.listen(PORT, () => {
@@ -245,21 +213,9 @@ httpServer.listen(PORT, () => {
   getRedis() // lazy connect
 })
 
-const SHUTDOWN_TIMEOUT = 10_000
-
-async function shutdown(signal) {
-  rootLogger.info(`${signal} received — shutting down`)
-  const forceExit = setTimeout(() => {
-    rootLogger.error('Shutdown timeout — force exit')
-    process.exit(1)
-  }, SHUTDOWN_TIMEOUT)
-  httpServer.close(() => {})
-  await closeQueues()
+process.on('SIGTERM', async () => {
+  rootLogger.info('SIGTERM received — shutting down')
   await disconnectRedis()
   await pool.end().catch(() => {})
-  clearTimeout(forceExit)
-  process.exit(0)
-}
-
-process.on('SIGTERM', () => shutdown('SIGTERM'))
-process.on('SIGINT', () => shutdown('SIGINT'))
+  httpServer.close(() => process.exit(0))
+})

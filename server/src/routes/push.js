@@ -4,6 +4,7 @@ import pool from '../db.js'
 import { auth } from '../middleware.js'
 import logger from '../logger.js'
 import { pushQueue } from '../queue.js'
+import { isFCMConfigured, sendFcmToUser, sendFcmToAll } from '../fcm.js'
 
 const router = Router()
 
@@ -19,18 +20,30 @@ router.get('/api/push/vapid-public-key', (req, res) => {
 })
 
 router.post('/api/push/subscribe', async (req, res) => {
-  const { endpoint, p256dh, auth: authKey } = req.body
-  if (!endpoint || !p256dh || !authKey) {
-    return res.status(400).json({ message: 'endpoint, p256dh, and auth are required' })
+  const { endpoint, p256dh, auth: authKey, platform } = req.body
+  if (!endpoint) {
+    return res.status(400).json({ message: 'endpoint is required' })
   }
 
   try {
-    await pool.query(
-      `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
-       VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE p256dh = VALUES(p256dh), auth = VALUES(auth)`,
-      [req.userId || 1, endpoint, p256dh, authKey],
-    )
+    if (platform === 'fcm') {
+      await pool.query(
+        `INSERT INTO push_subscriptions (user_id, endpoint, platform)
+         VALUES (?, ?, 'fcm')
+         ON DUPLICATE KEY UPDATE platform = 'fcm'`,
+        [req.userId || 1, endpoint],
+      )
+    } else {
+      if (!p256dh || !authKey) {
+        return res.status(400).json({ message: 'p256dh and auth are required for web push' })
+      }
+      await pool.query(
+        `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, platform)
+         VALUES (?, ?, ?, ?, 'web')
+         ON DUPLICATE KEY UPDATE p256dh = VALUES(p256dh), auth = VALUES(auth), platform = 'web'`,
+        [req.userId || 1, endpoint, p256dh, authKey],
+      )
+    }
     res.status(201).json({ message: 'Subscribed' })
   } catch (err) {
     logger.error('Push subscribe error:', err)
@@ -58,12 +71,9 @@ export async function sendPushToUser(userId, title, body, url = '/') {
     return 1
   }
 
-  if (!vapidPublic || !vapidPrivate) {
-    logger.info('VAPID not configured — push skipped')
-    return 0
-  }
-
-  return sendPushDirect(userId, title, body, url)
+  const fcmSent = await sendPushFcm(userId, title, body, url)
+  const webSent = await sendPushWeb(userId, title, body, url)
+  return fcmSent + webSent
 }
 
 export async function sendPushToAll(title, body, url = '/') {
@@ -72,18 +82,57 @@ export async function sendPushToAll(title, body, url = '/') {
     return 1
   }
 
-  if (!vapidPublic || !vapidPrivate) {
-    logger.info('VAPID not configured — push skipped')
+  const fcmSent = await sendPushFcmAll(title, body, url)
+  const webSent = await sendPushAllDirect(title, body, url)
+  return fcmSent + webSent
+}
+
+async function sendPushFcm(userId, title, body, url) {
+  if (!isFCMConfigured()) return 0
+  try {
+    const [rows] = await pool.query(
+      "SELECT endpoint FROM push_subscriptions WHERE user_id = ? AND platform = 'fcm'",
+      [userId],
+    )
+    if (rows.length === 0) return 0
+    const result = await sendFcmToAll(
+      rows.map((r) => r.endpoint),
+      title, body, { url },
+    )
+    return result.sent || 0
+  } catch (err) {
+    logger.error('FCM push error:', err)
     return 0
   }
+}
 
-  return sendPushAllDirect(title, body, url)
+async function sendPushFcmAll(title, body, url) {
+  if (!isFCMConfigured()) return 0
+  try {
+    const [rows] = await pool.query(
+      "SELECT endpoint FROM push_subscriptions WHERE platform = 'fcm'",
+    )
+    if (rows.length === 0) return 0
+    const result = await sendFcmToAll(
+      rows.map((r) => r.endpoint),
+      title, body, { url },
+    )
+    return result.sent || 0
+  } catch (err) {
+    logger.error('FCM push all error:', err)
+    return 0
+  }
+}
+
+async function sendPushWeb(userId, title, body, url) {
+  if (!vapidPublic || !vapidPrivate) return 0
+  return sendPushDirect(userId, title, body, url)
 }
 
 async function sendPushDirect(userId, title, body, url) {
   try {
     const [rows] = await pool.query(
-      'SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?',
+      "SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ? AND platform = 'web'",
       [userId],
     )
     let sent = 0
@@ -110,7 +159,7 @@ async function sendPushDirect(userId, title, body, url) {
 async function sendPushAllDirect(title, body, url) {
   try {
     const [rows] = await pool.query(
-      'SELECT endpoint, p256dh, auth FROM push_subscriptions',
+      "SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE platform = 'web'",
     )
     let sent = 0
     for (const sub of rows) {

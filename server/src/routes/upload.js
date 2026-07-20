@@ -6,7 +6,8 @@ import fs from 'fs'
 import pool from '../db.js'
 import { optionalAuth } from '../middleware.js'
 import logger from '../logger.js'
-import { imageQueue } from '../queue.js'
+import { processImage } from '../image-pipeline.js'
+import { moderateImage } from '../ai-moderation.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const UPLOAD_DIR = path.resolve(__dirname, '../../uploads')
@@ -87,28 +88,41 @@ router.post('/api/upload', optionalAuth, async (req, res) => {
     const sortOrder = req.body.sort_order || 0
     const url = `/uploads/${req.file.filename}`
 
-    // Process image with Sharp via queue (resize + WebP)
+    // Process image with Sharp (resize + WebP)
     if (req.file.path) {
-      if (imageQueue) {
-        imageQueue.add({ filePath: req.file.path }).catch((err) => {
-          logger.error('Image queue error:', err)
-        })
-      } else {
-        // Fallback: process inline
-        const { processImage } = await import('../image-pipeline.js')
-        processImage(req.file.path).catch((err) => {
-          logger.error('Image pipeline error:', err)
-        })
-      }
+      processImage(req.file.path).catch((err) => {
+        logger.error('Image pipeline error:', err)
+      })
     }
 
     const [result] = await pool.query(
       'INSERT INTO user_photos (user_id, url, sort_order) VALUES (?, ?, ?)',
       [userId, url, parseInt(sortOrder)],
     )
+    const photoId = result.insertId
+
+    // AI Moderation check
+    if (req.file.path) {
+      moderateImage(req.file.path).then((modResult) => {
+        if (!modResult.safe) {
+          pool.query(
+            "UPDATE user_photos SET moderation_status = 'flagged', moderation_reason = ? WHERE id = ?",
+            [modResult.reasons.join(', '), photoId],
+          ).catch((e) => logger.error('AI moderation update failed:', e))
+          logger.warn(`Photo ${photoId} flagged by AI: ${modResult.reasons.join(', ')}`)
+        } else {
+          pool.query(
+            "UPDATE user_photos SET moderation_status = 'approved' WHERE id = ?",
+            [photoId],
+          ).catch((e) => logger.error('AI moderation approve failed:', e))
+        }
+      }).catch((err) => {
+        logger.error('AI moderation error:', err)
+      })
+    }
 
     res.json({
-      id: result.insertId,
+      id: photoId,
       url,
       sort_order: parseInt(sortOrder),
       is_avatar: false,

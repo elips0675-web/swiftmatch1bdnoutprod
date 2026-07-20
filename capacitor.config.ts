@@ -7,10 +7,14 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     cleartext: true,
+    hostname: 'swiftmatch.app',
   },
   plugins: {
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
+    },
+    DeepLinks: {
+      enabled: true,
     },
   },
 };

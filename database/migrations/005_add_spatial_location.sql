@@ -12,6 +12,9 @@ SET @exists_index := (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE T
 UPDATE user_profiles SET location = ST_SRID(POINT(COALESCE(lng, 0), COALESCE(lat, 0)), 4326)
   WHERE lat IS NOT NULL AND lng IS NOT NULL AND (location IS NULL OR ST_AsText(location) IS NULL);
 
+-- Set default location for remaining NULL rows
+UPDATE user_profiles SET location = ST_SRID(POINT(0, 0), 4326) WHERE location IS NULL;
+
 SET @sql = IF(@exists_index = 0,
   'ALTER TABLE user_profiles MODIFY COLUMN location POINT SRID 4326 NOT NULL, ADD SPATIAL INDEX idx_location (location)',
   'SELECT 1');

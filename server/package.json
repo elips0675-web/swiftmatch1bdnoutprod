@@ -6,7 +6,8 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "db:seed": "node src/seed.js",
-    "db:reset": "node src/seed.js"
+    "db:reset": "node src/seed.js",
+    "test": "vitest run"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.800.0",

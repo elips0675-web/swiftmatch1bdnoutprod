@@ -53,10 +53,10 @@ async function globalSetup() {
   await api.dispose()
 
   const authDir = 'e2e/.auth'
-  await saveStorageState('demo@mail.ru', 'admin123', `${authDir}/demo.json`)
-  await saveStorageState('admin@mail.ru', 'admin123', `${authDir}/admin.json`)
-  await saveStorageState('user4@demo.ru', 'admin123', `${authDir}/user4.json`)
-  await saveStorageState('user5@demo.ru', 'admin123', `${authDir}/user5.json`)
+  await saveStorageState('user2@mail.ru', 'demo123456', `${authDir}/demo.json`)
+  await saveStorageState('admin@mail.ru', 'demo123456', `${authDir}/admin.json`)
+  await saveStorageState('user4@mail.ru', 'demo123456', `${authDir}/user4.json`)
+  await saveStorageState('user5@mail.ru', 'demo123456', `${authDir}/user5.json`)
 }
 
 export default globalSetup

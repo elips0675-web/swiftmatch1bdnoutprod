@@ -1,8 +1,6 @@
 -- Soft Deletes: add deleted_at to main tables
 -- Audit Log: track all mutations
 
-SET @s = (SELECT IFNULL(MAX(id), 0) + 1 FROM audit_log);
-
 ALTER TABLE users ADD COLUMN deleted_at TIMESTAMP NULL DEFAULT NULL AFTER last_login;
 ALTER TABLE user_profiles ADD COLUMN deleted_at TIMESTAMP NULL DEFAULT NULL AFTER updated_at;
 ALTER TABLE user_photos ADD COLUMN deleted_at TIMESTAMP NULL DEFAULT NULL AFTER created_at;

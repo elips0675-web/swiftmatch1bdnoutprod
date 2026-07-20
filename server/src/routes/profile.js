@@ -4,8 +4,6 @@ import { auth } from '../middleware.js'
 import logger from '../logger.js'
 import { cacheRoute, invalidate } from '../cache.js'
 
-import { softDelete } from '../audit.js'
-
 const router = Router()
 
 /**
@@ -74,42 +72,6 @@ function parseJsonField(val, fallback) {
   return fallback || []
 }
 
-router.get('/api/profile/me', auth, async (req, res) => {
-  try {
-    const [rows] = await pool.query(
-      `SELECT up.*, u.email FROM user_profiles up
-       JOIN users u ON u.id = up.id
-       WHERE up.id = ?`,
-      [req.userId],
-    )
-    if (rows.length === 0) return res.status(404).json({ message: 'Profile not found' })
-
-    const [photos] = await pool.query(
-      'SELECT id, url, sort_order, is_avatar FROM user_photos WHERE user_id = ? ORDER BY sort_order',
-      [req.userId],
-    )
-
-    const [interests] = await pool.query(
-      `SELECT i.id, i.name_ru, i.name_en FROM interests i
-       JOIN user_interests ui ON ui.interest_id = i.id
-       WHERE ui.user_id = ?`,
-      [req.userId],
-    )
-
-    const profile = rows[0]
-    profile.photos = photos
-    profile.interests = interests.map(i => i.name_ru)
-    profile.lat = parseFloat(profile.lat)
-    profile.lng = parseFloat(profile.lng)
-    delete profile.location
-
-    res.json(profile)
-  } catch (err) {
-    logger.error('Profile me error:', err.message)
-    res.status(500).json({ message: 'Failed to fetch profile', detail: err.message })
-  }
-})
-
 router.get('/api/profile/:id', cacheRoute(60), async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -140,7 +102,7 @@ router.get('/api/profile/:id', cacheRoute(60), async (req, res) => {
 
 router.put('/api/profile/:id', async (req, res) => {
   try {
-    const { display_name, name, age, bio, gender, looking_for, dating_goal, height, city, country, lat, lng, zodiac, circadian, attachment_style, education, interests } = req.body
+    const { display_name, name, age, bio, gender, looking_for, dating_goal, height, city, country, zodiac, circadian, attachment_style, education, interests } = req.body
 
     await pool.query(
       `UPDATE user_profiles SET
@@ -154,22 +116,13 @@ router.put('/api/profile/:id', async (req, res) => {
         height = COALESCE(?, height),
         city = COALESCE(?, city),
         country = COALESCE(?, country),
-        lat = COALESCE(?, lat),
-        lng = COALESCE(?, lng),
         zodiac = COALESCE(?, zodiac),
         circadian = COALESCE(?, circadian),
         attachment_style = COALESCE(?, attachment_style),
         education = COALESCE(?, education)
       WHERE id = ?`,
-      [display_name, name, age, bio, gender, looking_for, dating_goal, height, city, country, lat ?? null, lng ?? null, zodiac, circadian, attachment_style, education, req.params.id],
+      [display_name, name, age, bio, gender, looking_for, dating_goal, height, city, country, zodiac, circadian, attachment_style, education, req.params.id],
     )
-
-    if (lat !== undefined && lng !== undefined) {
-      await pool.query(
-        'UPDATE user_profiles SET location = ST_SRID(POINT(?, ?), 4326) WHERE id = ?',
-        [lng, lat, req.params.id],
-      )
-    }
 
     if (interests && Array.isArray(interests)) {
       await pool.query('DELETE FROM user_interests WHERE user_id = ?', [req.params.id])
@@ -191,7 +144,6 @@ router.put('/api/profile/:id', async (req, res) => {
 // ─── Account deletion ──────────────────────────────────────────
 router.delete('/api/profile/me', auth, async (req, res) => {
   try {
-    await softDelete('users', req.userId, req.userId, req.ip)
     await pool.query('UPDATE users SET is_active = 0, email = CONCAT(email, \'.deleted\', UNIX_TIMESTAMP()) WHERE id = ?', [req.userId])
     res.json({ message: 'Account deleted' })
   } catch (err) {

@@ -1,12 +1,13 @@
 
 import { useState } from "react";
 import { useRouter } from "@/shims/next-navigation";
-import { 
-  Heart, 
-  Mail, 
-  Lock, 
-  ArrowRight, 
+import {
+  Heart,
+  Mail,
+  Lock,
+  ArrowRight,
   User,
+  Phone,
   ChevronLeft,
   Sparkles
 } from "lucide-react";
@@ -22,6 +23,7 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { t } = useLanguage();
 
@@ -59,7 +61,7 @@ export default function RegisterPage() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ email, password, displayName: name }), // Отправляем и имя
+            body: JSON.stringify({ email, password, displayName: name, phone: phone || undefined }),
         });
 
         const data = await response.json();
@@ -148,6 +150,17 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="h-14 pl-12 rounded-2xl bg-muted/30 border-0 focus-visible:ring-primary/20 font-bold"
                 required
+              />
+            </div>
+            <div className="relative">
+              <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+              <Input 
+                data-testid="phone"
+                type="tel" 
+                placeholder="+7 (999) 123-45-67"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="h-14 pl-12 rounded-2xl bg-muted/30 border-0 focus-visible:ring-primary/20 font-bold"
               />
             </div>
             

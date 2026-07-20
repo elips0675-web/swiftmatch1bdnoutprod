@@ -46,10 +46,11 @@ npx vite --port 8081 --host
 | Email | Пароль | Роль |
 |-------|--------|------|
 | `admin@mail.ru` | `demo123456` | Админ |
-| `demo@mail.ru` | `demo123456` | Анна (пользователь) |
-| `user4@demo.ru` … `user23@demo.ru` | `demo123456` | 18 демо-пользователей |
+| `user2@mail.ru` | `demo123456` | Обычный пользователь |
+| `user4@mail.ru` … `user50@mail.ru` | `demo123456` | 47 демо-пользователей |
+| `user1@mail.ru` | `demo123456` | Забанен (is_active=0) |
 
-> После `git pull` запустить `node seed-users.cjs` в `server/` если добавились новые demo-пользователи.
+> После `git pull` запустить `node seed-users.cjs` в `server/` если добавились новые demo-пользователи. Пароль всех demo-пользователей: `demo123456`.
 
 ---
 

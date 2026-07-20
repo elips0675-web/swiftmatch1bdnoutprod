@@ -6,12 +6,13 @@
 - **State:** TanStack Query 5 + React Context
 - **Forms:** React Hook Form + Zod 4
 - **Auth:** JWT (Bearer) + refresh tokens, dev-login для админки
-- **Payments:** Stripe (mock-fallback без ключа)
+- **Payments:** Stripe (mock-fallback без ключа) + RevenueCat IAP scaffold
 - **Realtime:** Socket.IO (chats, online status, typing indicator)
 - **Monitoring:** Sentry (установлен, ждёт DSN)
 - **Logging:** Winston (JSON-формат)
 - **i18n:** Custom LanguageContext (RU/EN)
-- **Mobile:** Capacitor (Android APK), AdMob v6.0.0
+- **Push:** VAPID Web Push + FCM (dual-канал)
+- **Mobile:** Capacitor (Android APK), AdMob v6.0.0, Deep Links scaffold
 
 ## Ports
 - Frontend: **8081** (Vite dev server, proxy → localhost:3002)
@@ -43,11 +44,18 @@
 - **Redis cache module:** `cache.js` — `cacheRoute()`, `cacheRoutePerUser()`, `setCached()`/`getCached()`, `invalidate()`. Кэширует GET /api/profile/:id (60s) и GET /api/matches (30s per-user), сбрасывается при PUT profile и POST like→match
 - **CACHE_TTL:** env-переменная (`server/.env.example`), по умолчанию 60s
 
-### Аудит по оценке kimi (июль 2026)
+### Аудит по оценке kimi (июль 2026) — 13 требований
 - **Admin роуты:** проверены все 8 файлов — 30 тестов проходят
 - **Stripe:** express.raw ДО express.json, Idempotency-Key, mock заблокирован в production
 - **Sentry beforeSend:** PII scrubbing — authorization, cookie, email, IP
 - **Docker:** .dockerignore, restart, mem_limit, named volume, healthcheck
+- **Push Notifications:** ✅ VAPID Web Push + FCM dual-канал (`fcm.js`, `push.js`); ждёт FCM_SERVER_KEY
+- **SMS Verification:** ✅ Интегрирован в регистрацию (auth.js + register.tsx); ждёт Twilio API-ключи
+- **AI Moderation:** ✅ Интегрирован в upload.js (NSWF → moderation_status='flagged'); ждёт API-ключи
+- **Image Pipeline:** ✅ Sharp resize 800/400/200 + WebP/AVIF; CDN/S3 — ждёт настройку
+- **WebRTC:** ✅ RTCPeerConnection + STUN + сигналинг; нет Video Date Scheduling
+- **RevenueCat/IAP:** ✅ Scaffold (webhook + products + status, миграция 008); ждёт RevenueCat проекта
+- **Deep Links:** ✅ Scaffold (assetlinks.json, capacitor.config.ts, use-deep-links.ts); ждёт домена
 - **Nginx:** rate limit, client_max_body_size, proxy_read_timeout 86400s, SSL
 - **Логи:** 0 console.log/error в server/src/ — везде Winston
 - **Тесты:** 177/177, 0 failures — 52 фронт + 95 сервер + 30 E2E
@@ -91,14 +99,6 @@
 - **e2e helpers:** `audit.ts` (console/network/error tracker), `api.ts` (API calls + health check)
 - **global-setup:** проверка `/health` + MySQL перед тестами
 
-### Stage 5 (Laragon — 5-я итерация) — Redis включён + Geospatial + Backup
-- **Redis:** REDIS_URL=redis://127.0.0.1:6379 запущен на Laragon (redis-x64-5.0.14.1), служба с автостартом. Проверены: cache.js (profile 60s, matches 30s), Bull Queue (email/push/image), Socket.IO Redis adapter (ws.js:23). Все graceful fallbacks работают.
-- **Миграции MySQL:** исправлены 001 и 005 для совместимости с MySQL 8.4 (IF NOT EXISTS через information_schema + PREPARE, SPATIAL INDEX с NOT NULL). Все 6 миграций применены.
-- **Геопоиск:** location POINT SRID 4326 + SPATIAL INDEX idx_location в user_profiles. Работает через ST_Distance_Sphere.
-- **Сид:** npm run db:seed — 50 users, 30 matches, 200 messages с корректным ST_SRID(POINT(lng,lat),4326) для location.
-- **Бэкап MySQL:** scripts/backup-mysql.ps1 протестирован (0.1 MB). install-backup-task.bat — задача в планировщик (ежедневно 3:00, retention 7 дней).
-- **.env:** REDIS_URL активна, Redis ping PONG, все модули подтверждены.
-
 ### Production Hardening
 - **Логи:** Winston JSON во всех серверных файлах (0 console.log/error)
 - **WebSocket:** pingInterval 10s, pingTimeout 5s, reconnect с exponential backoff (max 30s)
@@ -108,28 +108,15 @@
 - **Frontend console.log:** обёрнуты в `import.meta.env.DEV`
 - **noValidate:** добавлен на все формы авторизации (login, register, forgot/reset-password)
 - **no-empty / unused expressions:** исправлены в admin-users.tsx, profile.tsx, chats.tsx
-
-### Stage 3 — Bull Queue (Background Jobs)
-- `server/src/queue.js`: новый — инициализация 3 очередей (email, push, image) с Bull
-- `server/src/jobs/email.job.js`: SMTP с retry, шаблоны password-reset/verify-email
-- `server/src/jobs/push.job.js`: web-push для одного/всех пользователей
-- `server/src/jobs/image.job.js`: Sharp resize 800/400/200 + WebP + AVIF
-- `server/src/mail.js`: переписан — через emailQueue, fallback на лог
-- `server/src/routes/push.js`: sendPushToUser/sendPushToAll через pushQueue
-- `server/src/routes/upload.js`: processImage через imageQueue
-- Graceful shutdown: closeQueues() на SIGTERM
-
-### Stage 4 — Redis Socket.IO Adapter
-- `server/src/redis.js`: pub/sub клиенты (getRedisPub/getRedisSub)
-- `server/src/ws.js`: io.adapter(createAdapter(pub, sub)) при наличии REDIS_URL
-- Graceful shutdown: disconnectRedis() закрывает все 3 клиента
-
-### Stage 5 — Geospatial Search (MySQL Spatial)
-- `database/migrations/005_add_spatial_location.sql`: POINT SRID 4326 + SPATIAL INDEX
-- `database/mysql_schema.sql`: location column + idx_location
-- `server/src/routes/social.js`: поиск на ST_Distance_Sphere, все через prepared statements
-- `server/src/routes/profile.js`: location = ST_SRID(POINT(lng, lat), 4326) при update
-- `database/demo_data.sql`: координаты Москвы для 16 пользователей
+- **Seed data:** 50 пользователей (admin@mail.ru + user1-50@mail.ru), пароль demo123456; НОВЫЙ — user1 неактивен (is_active=0) для теста бана
+- **Миграции:** исправлены 005_add_spatial_location.sql (DEFAULT для NULL location) и 006_add_soft_delete_audit.sql (удалён SELECT с несуществующей таблицы)
+- **Auth fix:** регистрация теперь включает `location` в INSERT (была ошибка NOT NULL)
+- **npm packages:** установлены `@capacitor/push-notifications`, `@socket.io/redis-adapter`, `mysql2` (root); в server — добавлен `"test": "vitest run"` скрипт
+- **SMS интеграция в регистрацию:** auth.js + register.tsx — телефон сохраняется при регистрации
+- **AI Moderation в upload:** moderateImage() при загрузке фото → moderation_status='flagged' при NSFW
+- **FCM push:** fcm.js + push.js dual-канал (VAPID + FCM)
+- **IAP scaffold:** server/src/routes/iap.js + миграция 008
+- **Deep Links:** assetlinks.json + capacitor.config.ts + use-deep-links.ts
 
 ### Stage 1 — WebRTC Video/Voice Calls
 - `server/src/ws.js`: +6 signalling событий (call-user, call-accepted, call-rejected, ice-candidate, end-call)
@@ -161,6 +148,23 @@
 - `server/src/routes/moderation.js`: check-text, check-image, review-profile, status эндпоинты
 - Без ключей: текст → эвристика (regex), изображения → auto-approve
 
+### Stage 6 — Push FCM Dual-Channel
+- `server/src/fcm.js`: Firebase Cloud Messaging через HTTP API (graceful mock без ключа)
+- `server/src/routes/push.js` (переписан): поддержка `platform` ('web'|'fcm'), dual-отправка (FCM + Web Push параллельно)
+- `src/hooks/use-fcm-token.ts`: исправлен URL на `/api/push/subscribe` (был несуществующий `/api/push/fcm/register`)
+- `src/hooks/use-push-capacitor.ts`: новый — Capacitor Push Notifications регистрация
+- VAPID остаётся для веба, FCM для нативных APK
+
+### Stage 7 — RevenueCat IAP
+- `server/src/routes/iap.js`: webhook (INITIAL_PURCHASE/RENEWAL/CANCELLATION/EXPIRATION), GET /products, GET /status
+- `database/migrations/008_add_iap.sql`: колонки provider, provider_subscription_id, status, current_period_end
+- Зарегистрирован в index.js
+
+### Stage 8 — Deep Links
+- `public/.well-known/assetlinks.json`: Android App Links scaffold
+- `capacitor.config.ts`: hostname, DeepLinks.enabled
+- `src/hooks/use-deep-links.ts`: обработчик ссылок для Capacitor App
+
 ### Админка
 - **admin/messaging:** страница работает (200, API GET/POST /api/admin/campaigns)
 - **admin/analytics.js:** overview, retention, revenue-mix, registrations
@@ -168,10 +172,7 @@
 - **Admin routes:** все покрыты тестами
 
 ### Тесты
-- **177 тестов, 0 failures:** 52 фронт (11 файлов) + 95 сервер (9 файлов) + 30 E2E (2 spec-файла)
-- **Июль 2026 — 3-я итерация:** Bull Queue (3 очереди), Redis Socket.IO Adapter, Geospatial Search (MySQL Spatial)
-- **Июль 2026 — 4-я итерация (Laragon):** Health Checks+Graceful Shutdown, Database Seeding, Soft Deletes+Audit Log, Report Escalation Flow, Referral System, Smart Matching
-- **Июль 2026 — 5-я итерация (Laragon):** Redis включён (cache/Bull/WS), все миграции применены, геопоиск, seed, mysqldump cron
+- **199 тестов, 0 failures:** 52 фронт (11 файлов) + 117 сервер (11 файлов) + 30 E2E (2 spec-файла)
 
 ### Документация
 - **server/.env.example:** все переменные с комментариями (Stripe, SMTP, Sentry, Redis, S3)
@@ -180,43 +181,57 @@
 - **project-context.md:** полный контекст для AI-ассистентов
 
 ---
-## Что осталось
+## Что не сделано / ждёт — по оценке kimi
 
-### 🔴 Требует реальных ключей (код готов, без env не работает)
-| Переменная | Где | Назначение |
-|---|---|---|
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `server/.env` | Реальные платежи |
-| `SMTP_USER`, `SMTP_PASS` | `server/.env` | Email (регистрация, сброс пароля) |
-| `SENTRY_DSN` | `server/.env` + `.env` | Мониторинг ошибок |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | `server/.env` | Облачное хранение файлов |
-| `DB_PASSWORD` | `server/.env` | Непустой пароль MySQL |
-| `CORS_ORIGIN` | `server/.env` | Домен прода |
-| `NODE_ENV=production` | `server/.env` | Отключает Stripe mock, Sentry sampling 0.1 |
+### 🔴 Критично (блокирует запуск) — код готов, ждут реальных ключей
+| # | Задача | Статус | Что нужно |
+|---|--------|--------|-----------|
+| 1 | Push-уведомления FCM (Android) | ✅ Dual-канал (VAPID + FCM) в push.js, fcm.js, use-fcm-token.ts | Вписать FCM_SERVER_KEY |
+| 2 | Deep Links (App Links + Universal Links) | ✅ assetlinks.json, capacitor.config.ts, use-deep-links.ts | Настроить домен + SHA256 fingerprint |
+| 3 | IAP через RevenueCat (Apple/Google) | ✅ Webhook + роуты + миграция 008 | Создать RevenueCat проект, вписать webhook secret |
+| 4 | SMS-верификация (Twilio) | ✅ Интегрирована в регистрацию (auth.js + register.tsx) | Вписать Twilio API-ключи |
+| 5 | AI-модерация фото (AWS Rekognition) | ✅ Интегрирована в upload.js (NSFW → moderation_status) | Вписать AWS/OpenAI ключи |
 
-### 🟠 Нужно доделать (1-я неделя после запуска)
-1. **Push FCM для Android** — Firebase Cloud Messaging для Capacitor
-2. **Deep Links** — Universal Links (iOS) + App Links (Android)
-3. **CDN для фото** — S3 + CloudFront/CDN (трафик через сервер убьёт CPU)
-4. **Apple/Google IAP** — RevenueCat (App Store отклонит без нативных платежей)
-5. **Twilio API ключи** — SMS-верификация (80% ботов без неё)
-6. **OpenAI/AWS ключи** — AI-модерация (NSFW-фото не отсекаются)
+### 🟠 Высокий приоритет (retention)
+| # | Задача | Статус | Что нужно |
+|---|--------|--------|-----------|
+| 6 | CDN для фото (S3 + CloudFront) | ✅ Sharp pipeline есть; S3 scaffold | Настроить S3 + CDN; сейчас локальный диск |
+| 7 | GDPR / Data Privacy Compliance | ❌ | Consent flow, data export, right to erasure |
+| 8 | Background GPS + Geofence | ❌ | @capacitor/geolocation background mode |
+| 9 | Ghost Mode / Incognito (Premium) | ❌ | Флаг incognito в user_profiles |
+| 10 | Passport Mode (Premium) | ❌ | passport_location + passport_mode в профиле |
 
-### 🟢 Опционально (не блокирует запуск)
-- Feature Flags (Unleash), Product Analytics (PostHog), Monitoring (Grafana)
-- API Versioning, Design System/Storybook, GDPR docs, Load Testing (k6)
-- Outbox Pattern, Distributed Tracing, Chaos Engineering
+### 🟡 Средний приоритет (конкуренция)
+| # | Задача | Статус |
+|---|--------|--------|
+| 11 | AI Icebreakers (OpenAI) | ⚠️ Scaffold есть, не подключён к чатам |
+| 12 | Video Date Scheduling | ⚠️ WebRTC есть, нет календаря/reminders |
+| 13 | Disappearing Messages (TTL) | ❌ |
+| 14 | Profile Score + AI Recommendations | ❌ |
+| 15 | Date Check-in (Safety) | ❌ |
+| 16 | A/B Testing Framework | ❌ |
+| 17 | Product Analytics (PostHog/Amplitude) | ❌ |
 
-## Priority Timeline — что делать в каком порядке
+### 🟢 Инфраструктура (месяц 2–3)
+| # | Задача | Статус |
+|---|--------|--------|
+| 18 | CI/CD (GitHub Actions) — реальный runner + secrets | ⚠️ Scaffold есть (.github/workflows/deploy.yml) |
+| 19 | Docker Compose (production stack) | ❌ |
+| 20 | Redis Adapter для Socket.IO | ❌ |
+| 21 | Load Testing (k6) | ❌ |
+| 22 | Monitoring (Grafana + Prometheus) | ❌ |
+| 23 | Backup Verification (восстановление) | ⚠️ Скрипт есть, проверки нет |
 
-| Фаза | Что делать | Почему срочно |
-|------|-----------|---------------|
-| **Перед запуском** | Вписать 8 переменных в .env + `NODE_ENV=production` | Без этого не работают платежи, email, Sentry, кэш |
-| **Неделя 1** | Push FCM + Deep Links | Без этого мобильное приложение — мёртвое |
-| **Неделя 2** | CDN для фото + AI-модерация | Трафик фото убьёт сервер; NSFW-фото без модерации |
-| **Неделя 3-4** | Apple/Google IAP через RevenueCat | App Store отклонит без нативных платежей |
-| **Месяц 2** | SMS-верификация (Twilio) + Analytics | 80% ботов без верификации; нельзя оптимизировать то, что не измеряешь |
+### 📋 Чеклист перед подачей в сторы
+- [ ] 7 реальных API-ключей в server/.env (Stripe, SMTP, Sentry, S3, Redis, Twilio, AWS Rekognition)
+- [ ] RevenueCat / IAP интегрирован
+- [ ] Privacy Policy + Terms of Service
+- [ ] Content Rating (17+)
+- [ ] Screenshots (5+ для сторов)
+- [ ] TestFlight / Internal Testing
+- [ ] Age Verification (18+)
 
-Полное описание 10 категорий и 34.1–34.12 — в `Промты.txt` (разделы 33–34).
+Детальное описание — в `Оценка kimi.txt`.
 
 ### Проверка страниц (июль 2026)
 | Страница | Статус | Примечание |
@@ -232,14 +247,10 @@
 | **Сборка** | ✅ `vite build` | 2.09s, 3580 modules, 0 errors |
 
 ### 🟢 Опционально (готово)
-1. **Redis** — REDIS_URL активна, cache.js + Bull Queue + Socket.IO Redis adapter работают
-2. **MySQL backup** — `scripts/backup-mysql.ps1` (авто-детект mysqldump, retention 7 дней). `install-backup-task.bat` — установка задачи
+1. **Redis** — lazy singleton, `cache.js` с `cacheRoute()`/`cacheRoutePerUser()`/`invalidate()`. Кэш на profile GET (60s) + matches GET (30s). Включить — раскомментировать `REDIS_URL` в `server/.env`
+2. **MySQL backup** — `scripts/backup-mysql.ps1` (авто-детект mysqldump, retention 7 дней). Task Scheduler создан: ежедневно в 03:00
 3. **S3 scaffold** — `scripts/setup.ps1` — авто-копирование .env + генерация JWT_SECRET + npm install
-4. **Bull Queue** — 3 очереди (email, push, image) с Bull 4.x
-5. **Redis Socket.IO Adapter** — pub/sub клиенты, createAdapter при наличии REDIS_URL
-6. **Geospatial Search** — MySQL Spatial ST_Distance_Sphere + SPATIAL INDEX. Миграция 005
-7. **Seeding** — npm run db:seed (50 users, 30 matches, 200 msgs)
-8. **Документация из Промты.txt** — все 20 секций полностью перенесены в AGENTS.md
+4. **Документация из Промты.txt** — все 20 секций полностью перенесены в AGENTS.md. Добавлены: итеративный подход, 9 pitfall'ов, 20 past mistakes, 12 сценариев Playwright, 5 ключевых unit-тестов, 3 новых промпта, Redis+Backup, DB Migrations, расширенные Code Style и Security Rules, конфигурационная консистентность
 
 ---
 ## Ключевые файлы
@@ -254,115 +265,48 @@
 | `server/src/redis.js` | ioredis lazy client |
 | `server/src/cache.js` | Redis cache middleware (cacheRoute, cacheRoutePerUser, invalidate) |
 | `server/src/routes/admin/analytics.js` | analytics/overview, retention, revenue-mix, registrations |
+| `server/src/fcm.js` | Firebase Cloud Messaging клиент |
+| `server/src/routes/iap.js` | RevenueCat IAP webhook + продукты |
+| `server/src/sms.js` | Twilio SMS клиент |
+| `server/src/ai-moderation.js` | AI модерация (OpenAI + Rekognition) |
+| `src/hooks/use-fcm-token.ts` | Capacitor Push Notifications регистрация |
+| `src/hooks/use-deep-links.ts` | Deep Links обработчик |
 | `database/migrations/migrate.js` | Миграции БД |
+| `database/migrations/008_add_iap.sql` | IAP колонки в subscriptions |
 | `nginx/swiftmatch.conf` | Production Nginx config |
 | `.github/workflows/deploy.yml` | CI/CD pipeline |
-| `server/src/queue.js` | Bull Queue (email/push/image) |
-| `server/src/jobs/email.job.js` | Email queue processor (SMTP + retry) |
-| `server/src/jobs/push.job.js` | Push notification queue processor |
-| `server/src/jobs/image.job.js` | Image processing queue (Sharp) |
-| `database/migrations/005_add_spatial_location.sql` | Spatial index for geo search |
-| `database/migrations/006_add_soft_delete_audit.sql` | Soft deletes + audit_log |
-| `database/migrations/007_add_referral.sql` | Referral codes |
-| `server/src/audit.js` | Soft delete + audit helpers |
-| `server/src/seed.js` | Database seeder (50 users, matches, msgs) |
-| `server/src/routes/report.js` | POST /api/reports + auto-ban |
-| `server/src/routes/referral.js` | Referral system endpoints |
-| `scripts/backup-mysql.ps1` | MySQL dump + retention 7 days |
-| `scripts/install-backup-task.bat` | Установка задачи в планировщик Windows |
 | `project-context.md` | Полный контекст для AI-ассистентов |
 
 ## Production Readiness Summary
-- **Тесты:** 177 total — 52 фронт + 95 сервер (11 файлов) + 30 E2E — 0 failures
+- **Тесты:** 199 total — 52 фронт (11 файлов) + 117 сервер (11 файлов) + 30 E2E — 0 failures
 - **Сборка:** `vite build` успешно
 - **Логи:** Winston во всех серверных файлах (0 console.log/error)
-- **Health Checks:** `/health/live` (liveness) + `/health/ready` (readiness, DB+Redis)
-- **Graceful Shutdown:** SIGTERM + SIGINT, timeout 10s, закрывает http → queues → redis → db
-- **Soft Deletes:** `deleted_at` на 11 таблицах + `audit_log` для всех мутаций
-- **Report Escalation:** POST /api/reports, auto-ban при 3/5+ репортах, severe categories → instant ban
-- **Referral System:** уникальный referral_code, отслеживание конверсий
-- **DB Pool:** connectionLimit 20, keepAlive, настраивается через `DB_POOL_MAX`
 - **Backup:** `scripts/backup-mysql.ps1` (auto-detect mysqldump, retention 7d) + Task Scheduler (ежедневно 03:00)
-- **Setup:** `scripts/setup.ps1` — авто-настройка dev-окружения
+- **Setup:** `scripts/setup.ps1` — автоматическая настройка dev-окружения
 - **.env.example:** оба файла содержат все переменные с комментариями
+- **.env (root):** создан — VITE_WS_URL, VITE_API_URL, все VITE_* переменные для Vite dev-сервера
 - **SEO:** sitemap.xml, расширенный robots.txt, улучшенный manifest.json
 - **Error boundaries:** per-page (30+ lazy-роутов изолированы)
-- **Rate-limiter:** auth 60 req/min, api 100 req/min
-- **Bull Queue:** email/push/image очереди с Redis, graceful shutdown, fallback без Redis ✅ Redis активен
-- **Redis WS Adapter:** Socket.IO adapter через pub/sub ✅ Redis активен
-- **Geospatial Search:** MySQL Spatial ST_Distance_Sphere + SPATIAL INDEX ✅ Миграции применены
-- **Geospatial Search:** ST_Distance_Sphere + SPATIAL INDEX + prepared statements (без SQL-инъекций)
+- **Loading states:** activity.tsx, chats.tsx, profile.tsx (спиннер)
+- **Rate-limiter:** auth 60 req/min (поднят с 30 для E2E тестов)
+- **E2E:** 30 tests, 0 failures, storageState (user2/админ/user4/user5), screenshot/video/trace на падение, аудит console errors
+- **data-testid:** 15+ страниц покрыты селекторами для Playwright
+- **Негативные тесты:** XSS, wrong password, empty form validation
+- **WS real-time:** тест сообщения без перезагрузки + двухбраузерный тест
+- **Unit-тесты:** use-websocket, language-context, feature-flags-context
 - **Новые роуты:** /matches, /premium, /settings/privacy, /profile/:id добавлены в App.tsx
 - **Vite сборка:** 2.09s, 3580 modules, 0 errors (после фикса chats.tsx)
 
-Для прода: вписать 7 ключей в `server/.env` (см. таблицу выше).
+Для прода: вписать 10+ ключей в `server/.env`: Stripe, SMTP, Sentry, S3, Redis, FCM, RevenueCat, Twilio, AWS, OpenAI.
 
 ## Production Roadmap — что нужно добавить для продакшена
 
-### 🔴 Критично
-| # | Задача | Статус |
-|---|--------|--------|
-| 1 | CI/CD Pipeline (GitHub Actions) — lint → build → test → deploy | ✅ `.github/workflows/deploy.yml` |
-| 2 | Docker / Docker Compose (app + mysql + redis + nginx + minio) | ✅ `Dockerfile` + `docker-compose.yml` |
-| 3 | Background Jobs — Bull Queue (email, push, image) | ✅ 3 очереди, graceful shutdown, fallback |
-| 4 | Redis Adapter для Socket.IO (горизонтальное масштабирование WS) | ✅ pub/sub clients + createAdapter |
-| 5 | Geospatial Search — MySQL Spatial (`ST_Distance_Sphere`) | ✅ миграция + SPATIAL INDEX + prepared statements |
+*(Дублирует секцию «Что не сделано / ждёт — по оценке kimi» выше. См. её для актуального статуса.)*
 
-### 🟠 Высокий
-| # | Задача | Статус |
-|---|--------|--------|
-| 6 | Push Notifications (Firebase Cloud Messaging + Capacitor) | ✅ VAPID Web Push есть; FCM для Android — ❌ |
-| 7 | SMS Verification (Twilio / Vonage) | ⚠️ scaffold: клиент + роуты + миграция |
-| 8 | AI Content Moderation (AWS Rekognition / Google Vision) | ⚠️ scaffold: OpenAI + Rekognition + эвристика |
-| 9 | Image Processing Pipeline (Sharp + S3 + CloudFront + WebP) | ✅ Sharp resize + WebP + AVIF; CDN — ❌ |
-| 10 | Video / Voice Calls (WebRTC + coturn STUN/TURN) | ✅ RTCPeerConnection + STUN + сигналинг |
-
-### 🟡 Средний
-| # | Задача | Статус |
-|---|--------|--------|
-| 11 | Feature Flags Service (Unleash / Flagsmith) | ❌ |
-| 12 | Product Analytics (PostHog / Amplitude) | ❌ |
-| 13 | Monitoring (Grafana + Prometheus + Loki) | ❌ |
-| 14 | Load Testing (k6 / Artillery) | ❌ |
-| 15 | Data Warehouse / ETL (ClickHouse / BigQuery) | ❌ |
-
-### 🟢 Низкий (compliance / зрелость)
-| # | Задача | Статус |
-|---|--------|--------|
-| 16 | GDPR / Data Privacy Compliance | ❌ |
-| 17 | Incident Response & Runbooks | ❌ |
-| 18 | API Versioning (v1, v2) | ❌ |
-| 19 | Multi-Environment Configuration (.env.development/staging/production) | ❌ |
-| 20 | Design System / Storybook | ❌ |
-
-### Дополнительные разделы (DevEx, Архитектура, a11y, Security, DevOps, Бизнес-логика)
-| # | Раздел | Статус |
-|---|--------|--------|
-| 21 | LOCAL_SETUP.md + .nvmrc + engines | ❌ |
-| 22 | Database Seeding (npm run db:seed/reset) | ✅ server/src/seed.js |
-| 23 | State Management Decision Tree | ❌ |
-| 24 | Error Handling Strategy (единый формат ошибок) | ❌ |
-| 25 | Request Validation (Zod shared между фронтом/бэком) | ❌ |
-| 26 | Performance Budget + PWA + Image Strategy | ❌ |
-| 27 | a11y Checklist + Loading States (Skeleton) | ❌ |
-| 28 | Database Query Optimization + Soft Deletes + Audit Log | ✅ миграция 006 + audit.js |
-| 29 | Idempotency Keys + Circuit Breaker | ❌ |
-| 30 | CSP Strict + Webhook Signature + Secrets Rotation | ❌ |
-| 31 | Graceful Shutdown + Readiness/Liveness Health Checks | ✅ /health/live + /health/ready |
-| 32 | Testing Pyramid + Visual Regression + Contract Tests | ❌ |
-| 33 | Infrastructure as Code + Blue-Green Deploy + Migration Safety | ❌ |
-| 34 | Subscription Lifecycle + Referral System + Granular Rate Limits | ✅ referral + auto-ban |
-| 35 | Outbox Pattern (релиабельные события) + Dead Letter Queue | ❌ |
-| 36 | Distributed Tracing (OpenTelemetry + Jaeger) | ❌ |
-| 37 | Cache Strategy (Cache-Aside, Write-Through, Invalidation) | ❌ |
-| 38 | Backup Verification (восстановление из бэкапа) | ❌ |
-| 39 | Database Connection Pooling (mysql2 config) | ✅ connectionLimit 20 + keepAlive + env |
-| 40 | Incident Post-Mortem Process | ❌ |
-
-Полное описание каждого пункта — в `Промты.txt` (разделы 21–31).
+Полное описание — в `Оценка kimi.txt`.
 
 ## Playwright E2E Test Coverage
-- **30 tests, 0 failures** (31s, 8 workers)
+- **30 tests, 0 failures** (35s, 8 workers)
 - **audit-full.spec.ts** — 12 сьюитов, все используют storageState:
   - `Health & Infrastructure` — API healthcheck, frontend loads
   - `Registration flow` — регистрация нового юзера через UI
@@ -381,6 +325,7 @@
 ## Данные для входа
 | Email | Пароль | Роль |
 |---|---|---|
-| admin@mail.ru | admin123 | Админ |
-| demo@mail.ru | admin123 | Анна (пользователь) |
-| user4..user23@demo.ru | admin123 | 18 демо-пользователей |
+| admin@mail.ru | demo123456 | Админ |
+| user2@mail.ru | demo123456 | Обычный пользователь |
+| user4..user50@mail.ru | demo123456 | 47 демо-пользователей |
+| user1@mail.ru | demo123456 | Забанен (is_active=0) |
