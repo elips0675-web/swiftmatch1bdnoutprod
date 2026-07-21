@@ -10,7 +10,7 @@ const options = {
       description: 'Dating app REST API documentation',
     },
     servers: [
-      { url: 'http://localhost:3002', description: 'Development' },
+      { url: process.env.SWAGGER_URL || process.env.API_URL || `http://localhost:${process.env.PORT || 3002}`, description: 'API' },
     ],
     components: {
       securitySchemes: {

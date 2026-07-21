@@ -37,6 +37,7 @@ import gdprRoutes from './routes/gdpr.js'
 import fcmRoutes from './routes/push-fcm.js'
 import locationRoutes from './routes/location.js'
 import scheduleRoutes from './routes/schedule.js'
+import dateCheckinRoutes from './routes/date-checkin.js'
 import { metricsMiddleware, metricsRoute } from './metrics.js'
 import { JWT_SECRET } from './middleware.js'
 import { setupSwagger } from './swagger.js'
@@ -199,6 +200,7 @@ app.use('/api/admin', adminMessaging)
 app.use('/api/admin', adminMonetization)
 app.use('/api/admin', adminModerationRoutes)
 app.use(gdprRoutes)
+app.use('/api/checkin', dateCheckinRoutes)
 
 app.get('/health', async (req, res) => {
   try {

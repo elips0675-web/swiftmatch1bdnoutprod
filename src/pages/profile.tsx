@@ -74,7 +74,9 @@ export default function ProfilePage() {
   // Boost Dialog
   const [isBoostDialogOpen, setIsBoostDialogOpen] = useState(false);
 
-function normalizeInterests(interests: any): string[] {
+type InterestInput = string | { name_ru?: string; name_en?: string };
+
+function normalizeInterests(interests: InterestInput[]): string[] {
   if (!Array.isArray(interests)) return []
   if (interests.length === 0) return []
   if (typeof interests[0] === 'string') return interests.filter((i: string) => !BANNED_WORDS.includes(i))
@@ -102,10 +104,10 @@ function normalizeInterests(interests: any): string[] {
     'Sport': 'interest.sport', 'Животные': 'interest.animals',
     'Питомцы': 'interest.pets', 'Pets': 'interest.pets',
   }
-  return interests.map((i: any) => {
+  return interests.map((i: InterestInput) => {
     if (typeof i === 'string') return i
     const ru = i.name_ru && !/^\?+$/.test(i.name_ru) ? i.name_ru : i.name_en
-    return nameToKey[ru] || ru
+    return nameToKey[ru || ''] || ru || ''
   }).filter((i: string) => !BANNED_WORDS.includes(i))
 }
 
@@ -182,7 +184,7 @@ function normalizeInterests(interests: any): string[] {
         if (res.ok) {
           const data = await res.json()
           if (data.length > 0) {
-            setPhotos(data.map((p: any) => p.url))
+            setPhotos(data.map((p: { url: string }) => p.url))
             return
           }
         }

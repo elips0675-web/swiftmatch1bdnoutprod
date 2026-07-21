@@ -61,6 +61,7 @@ const User = lazy(() => import("./pages/user"))
 const PremiumSuccess = lazy(() => import("./pages/premium-success"))
 const PremiumCancel = lazy(() => import("./pages/premium-cancel"))
 const Schedule = lazy(() => import("./pages/schedule"))
+const Safety = lazy(() => import("./pages/safety"))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -193,6 +194,7 @@ const App = () => (
                             <Route path="/settings" element={<Settings />} />
                             <Route path="/settings/privacy" element={<SettingsPrivacy />} />
                             <Route path="/schedule" element={<Schedule />} />
+                            <Route path="/safety" element={<Safety />} />
                             <Route path="/support-chat" element={<SupportChat />} />
                             <Route path="/user" element={<User />} />
                             <Route path="*" element={<NotFound />} />

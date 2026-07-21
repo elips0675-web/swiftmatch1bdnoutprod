@@ -53,7 +53,30 @@ function calculateAttachmentCompatibility(style1?: AttachmentStyle, style2?: Att
     return attachmentCompatibilityScores[style1][style2];
 }
 
-function performAutosearch(filters: any, allUsers: any[], currentUser: any) {
+interface AutoSearchFilters {
+  ageRange: [number, number];
+  selectedCity: string;
+  selectedCountry: string;
+  distance: [number];
+  selectedDatingGoal: string;
+  selectedInterests: string[];
+}
+interface SearchUser {
+  id: number;
+  isSystem?: boolean;
+  gender: string;
+  lookingFor: string;
+  age: number;
+  city: string;
+  distance: number;
+  interests: string[];
+  goal?: string;
+  circadian?: string;
+  attachmentStyle?: AttachmentStyle;
+  boost?: { boostedUntil?: string };
+}
+
+function performAutosearch(filters: AutoSearchFilters, allUsers: SearchUser[], currentUser: SearchUser) {
     if (!filters || !currentUser) return [];
 
     const { ageRange, selectedCity, selectedCountry, distance, selectedDatingGoal, selectedInterests } = filters;

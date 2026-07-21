@@ -73,13 +73,13 @@ export default function ActivityPage() {
       fetch('/api/activity', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
       fetch('/api/invites', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
     ]).then(([activityData, invitesData]) => {
-      setActivity(activityData.map((a: any) => ({
+      setActivity(activityData.map((a: { id: number; user_id: number; user_name: string; user_avatar?: string; action_type: string; created_at: string }) => ({
         id: a.id, userId: a.user_id, user: a.user_name, img: a.user_avatar || '',
         type: a.action_type === 'profile_view' ? 'visit' : a.action_type,
         time: timeAgo(a.created_at, t), seen: false,
         blurred: a.action_type === 'profile_view',
       })));
-      setInvites(invitesData.map((i: any) => ({
+      setInvites(invitesData.map((i: { id: number; sender_id: number; sender_name: string; sender_avatar?: string; type: string; created_at: string; status: string }) => ({
         id: i.id, userId: i.sender_id, user: i.sender_name, img: i.sender_avatar || '',
         type: i.type, time: timeAgo(i.created_at, t), seen: i.status !== 'pending',
       })));
