@@ -42,12 +42,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ATTACHMENT_STYLE_INFO } from "@/lib/attachment-styles";
 
 const interestIconsMap: Record<string, any> = {
-  "Фотография": Camera, "Путешествия": Globe, "Кофе": Coffee, "Музыка": Music, "Спорт": Dumbbell, "Искусство": Palette, "Кино": Film, "Йога": Flower2, "Бизнес": Briefcase, "Игры": Gamepad2, "Кошки": Dog,
   "Photography": Camera, "Travel": Globe, "Sports": Dumbbell, "Art": Palette, "Movies": Film, "Yoga": Flower2, "Business": Briefcase, "Gaming": Gamepad2, "Cats": Dog,
   "interest.photography": Camera, "interest.travel": Globe, "interest.coffee": Coffee, "interest.music": Music, "interest.sport": Dumbbell, "interest.art": Palette, "interest.movies": Film, "interest.yoga": Flower2, "interest.games": Gamepad2, "interest.animals": Dog, "interest.books": Heart, "interest.cooking": Coffee, "interest.design": Palette, "interest.nature": Flower2, "interest.fashion": Briefcase, "interest.dance": Music, "interest.tech": Briefcase, "interest.volunteering": Heart, "interest.politics": Briefcase, "interest.psychology": Heart, "interest.philosophy": Heart, "interest.meditation": Flower2, "interest.gardening": Flower2, "interest.cars": Briefcase, "interest.science": Briefcase, "interest.history": Heart, "interest.architecture": Briefcase
 };
-
-const BANNED_WORDS = ["Хуй"];
 
 export default function ProfilePage() {
   const router = useRouter();

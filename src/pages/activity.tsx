@@ -36,15 +36,15 @@ import { usePremium } from "@/hooks/use-premium";
 const PremiumDialog = dynamic(() => import('@/components/dialogs/premium-dialog').then(mod => mod.PremiumDialog), { ssr: false });
 const AdDialog = dynamic(() => import('@/components/dialogs/ad-dialog').then(mod => mod.AdDialog), { ssr: false });
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string, t: (key: string) => string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'только что';
-  if (mins < 60) return `${mins} мин назад`;
+  if (mins < 1) return t('time.just_now');
+  if (mins < 60) return `${mins}${t('time.min_ago')}`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} ч назад`;
+  if (hrs < 24) return `${hrs}${t('time.hour_ago')}`;
   const days = Math.floor(hrs / 24);
-  return `${days} дн назад`;
+  return `${days}${t('time.day_ago')}`;
 }
 
 export default function ActivityPage() {
@@ -76,12 +76,12 @@ export default function ActivityPage() {
       setActivity(activityData.map((a: any) => ({
         id: a.id, userId: a.user_id, user: a.user_name, img: a.user_avatar || '',
         type: a.action_type === 'profile_view' ? 'visit' : a.action_type,
-        time: timeAgo(a.created_at), seen: false,
+        time: timeAgo(a.created_at, t), seen: false,
         blurred: a.action_type === 'profile_view',
       })));
       setInvites(invitesData.map((i: any) => ({
         id: i.id, userId: i.sender_id, user: i.sender_name, img: i.sender_avatar || '',
-        type: i.type, time: timeAgo(i.created_at), seen: i.status !== 'pending',
+        type: i.type, time: timeAgo(i.created_at, t), seen: i.status !== 'pending',
       })));
     }).catch(() => {}).finally(() => setIsActivityLoading(false));
   }, []);

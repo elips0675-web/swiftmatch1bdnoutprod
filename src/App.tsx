@@ -60,6 +60,7 @@ const SupportChat = lazy(() => import("./pages/support-chat"))
 const User = lazy(() => import("./pages/user"))
 const PremiumSuccess = lazy(() => import("./pages/premium-success"))
 const PremiumCancel = lazy(() => import("./pages/premium-cancel"))
+const Schedule = lazy(() => import("./pages/schedule"))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -105,6 +106,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/matches": "Мои совпадения — SwiftMatch",
   "/premium": "Премиум — SwiftMatch",
   "/settings/privacy": "Конфиденциальность — SwiftMatch",
+  "/schedule": "Видеосвидания — SwiftMatch",
 }
 
 function DocumentTitle() {
@@ -186,6 +188,7 @@ const App = () => (
                             <Route path="/search/filters" element={<SearchFilters />} />
                             <Route path="/settings" element={<Settings />} />
                             <Route path="/settings/privacy" element={<SettingsPrivacy />} />
+                            <Route path="/schedule" element={<Schedule />} />
                             <Route path="/support-chat" element={<SupportChat />} />
                             <Route path="/user" element={<User />} />
                             <Route path="*" element={<NotFound />} />

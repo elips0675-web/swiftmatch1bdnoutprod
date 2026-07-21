@@ -799,6 +799,30 @@ CREATE TABLE IF NOT EXISTS data_erase_requests (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- -----------------------------------------------------------
+-- 23. DATE SCHEDULES (Video Date Scheduling)
+-- -----------------------------------------------------------
+CREATE TABLE date_schedules (
+  id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  chat_id             INT UNSIGNED NOT NULL,
+  proposer_id         INT UNSIGNED NOT NULL,
+  invitee_id          INT UNSIGNED NOT NULL,
+  scheduled_at        DATETIME NOT NULL,
+  duration_minutes    INT UNSIGNED NOT NULL DEFAULT 60,
+  message             TEXT DEFAULT NULL,
+  status              ENUM('pending','accepted','declined','cancelled','completed') NOT NULL DEFAULT 'pending',
+  created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
+  FOREIGN KEY (proposer_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (invitee_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_schedule_chat (chat_id),
+  INDEX idx_schedule_proposer (proposer_id),
+  INDEX idx_schedule_invitee (invitee_id),
+  INDEX idx_schedule_status (status),
+  INDEX idx_schedule_date (scheduled_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Feature flags (single row)
 INSERT INTO feature_flags (id) VALUES (1) ON DUPLICATE KEY UPDATE id=id;
 

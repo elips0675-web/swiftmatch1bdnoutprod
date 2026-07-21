@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { Search, ChevronLeft, Send, MoveVertical as MoreVertical, Smile, Heart, Laugh, Zap, Flame, Star, Ghost, Rocket, Crown, Music, Phone, Video, Flag, Info, ChevronRight, Trash2, ThumbsUp, PartyPopper, Eye, Frown, Award, Compass, Coffee, MessageSquareQuote, PawPrint, Globe, Film, BookOpen, Baby, Sun, Timer, Clock } from "lucide-react";
+import { Search, ChevronLeft, Send, MoveVertical as MoreVertical, Smile, Heart, Laugh, Zap, Flame, Star, Ghost, Rocket, Crown, Music, Phone, Video, Flag, Info, ChevronRight, Trash2, ThumbsUp, PartyPopper, Eye, Frown, Award, Compass, Coffee, MessageSquareQuote, PawPrint, Globe, Film, BookOpen, Baby, Sun, Timer, Clock, Calendar } from "lucide-react";
 import Image from "@/shims/next-image";
 import { useSearchParams, useRouter } from "@/shims/next-navigation";
 import dynamic from "@/shims/next-dynamic";
@@ -190,6 +190,12 @@ function ChatsContent() {
   const [reactionMsgId, setReactionMsgId] = useState<number | null>(null);
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [reportReason, setReportReason] = useState('');
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('');
+  const [scheduleDuration, setScheduleDuration] = useState(30);
+  const [scheduleMessage, setScheduleMessage] = useState('');
+  const [isScheduling, setIsScheduling] = useState(false);
   const [reportDescription, setReportDescription] = useState('');
   const [isVideoCall, setIsVideoCall] = useState(false);
   const [isVoiceCall, setIsVoiceCall] = useState(false);  
@@ -358,6 +364,33 @@ function ChatsContent() {
     return () => { wsSocket.off('chat:message', handler); };
   }, [wsSocket, authToken]);
 
+  const handleProposeDate = async () => {
+    if (!scheduleDate || !scheduleTime || !selectedChat) return
+    setIsScheduling(true)
+    try {
+      const scheduledAt = `${scheduleDate}T${scheduleTime}:00`
+      const res = await fetch(`/api/schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ chat_id: selectedChat.id, scheduled_at: scheduledAt, duration_minutes: scheduleDuration, message: scheduleMessage || undefined }),
+      })
+      if (res.ok) {
+        toast({ title: t('schedule.propose'), variant: 'default' })
+        setShowScheduleDialog(false)
+        setScheduleDate('')
+        setScheduleTime('')
+        setScheduleMessage('')
+        setScheduleDuration(30)
+      } else {
+        const err = await res.json()
+        toast({ variant: 'destructive', title: err.message || t('error.generic_title') })
+      }
+    } catch {
+      toast({ variant: 'destructive', title: t('error.generic_title') })
+    }
+    setIsScheduling(false)
+  }
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !selectedChat) return;
@@ -522,6 +555,7 @@ function ChatsContent() {
           <div className="flex items-center">
             {!selectedChat.isGroup && videoCallsEnabled && <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-muted/50" onClick={() => setIsVideoCall(true)}><Video size={18} /></Button>}
             {!selectedChat.isGroup && <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-muted/50" onClick={() => setIsVoiceCall(true)}><Phone size={18} /></Button>}
+            {!selectedChat.isGroup && <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-muted/50" onClick={() => setShowScheduleDialog(true)}><Calendar size={18} /></Button>}
             <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-muted/50" onClick={() => setShowTopicsDialog(true)}><Info size={18} /></Button>
             <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
@@ -627,6 +661,37 @@ function ChatsContent() {
         {selectedChat && selectedChat.isGroup && isVideoCall && <VideoCallDialog open={isVideoCall} onOpenChange={setIsVideoCall} user={selectedChat} />}
         {selectedChat && selectedChat.isGroup && isVoiceCall && <VoiceCallDialog open={isVoiceCall} onOpenChange={setIsVoiceCall} user={selectedChat} />}
 
+        <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+          <DialogContent className="max-w-sm rounded-2xl border-0 p-6 bg-white app-shadow">
+            <DialogTitle className="text-lg font-black text-center">{t('schedule.propose')}</DialogTitle>
+            <div className="space-y-4 mt-4">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 block">{t('schedule.date')}</label>
+                <input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="w-full h-11 px-4 bg-muted/50 border-0 rounded-xl text-sm font-medium" min={new Date().toISOString().split('T')[0]} />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 block">{t('chats.online')}</label>
+                <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} className="w-full h-11 px-4 bg-muted/50 border-0 rounded-xl text-sm font-medium" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 block">{t('schedule.duration')}</label>
+                <select value={scheduleDuration} onChange={e => setScheduleDuration(Number(e.target.value))} className="w-full h-11 px-4 bg-muted/50 border-0 rounded-xl text-sm font-medium">
+                  {[15, 30, 45, 60, 90, 120].map(m => (
+                    <option key={m} value={m}>{t('schedule.minutes', { n: m })}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 block">{t('schedule.message')}</label>
+                <textarea value={scheduleMessage} onChange={e => setScheduleMessage(e.target.value)} className="w-full h-20 px-4 py-3 bg-muted/50 border-0 rounded-xl text-sm font-medium resize-none" placeholder={t('chats.placeholder')} />
+              </div>
+              <Button onClick={handleProposeDate} disabled={!scheduleDate || !scheduleTime || isScheduling} className="w-full h-11 rounded-xl gradient-bg text-white font-bold gap-2">
+                {isScheduling ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Calendar size={16} />}
+                {t('schedule.propose_btn')}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
         <Dialog open={showTopicsDialog} onOpenChange={setShowTopicsDialog}>
           <DialogContent className="max-w-sm rounded-2xl border-0 p-6 bg-white app-shadow">
             <DialogTitle className="text-lg font-black text-center">{t('chats.popular_topics')}</DialogTitle>
