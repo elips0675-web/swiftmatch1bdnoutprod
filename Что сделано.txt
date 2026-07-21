@@ -83,6 +83,15 @@
 | Баг | Фикс | Статус |
 |-----|------|--------|
 | JWT_SECRET const hoisting — тесты не могли переопределить secret | middleware.js → `getJwtSecret()` функция, все потребители `JWT_SECRET()` | ✅ Исправлен |
+| BANNED_WORDS undefined в profile.tsx — ReferenceError | вынесен в `src/lib/constants.ts`, импортирован в оба файла | ✅ Исправлен |
+| use-websocket.ts хардкод `localhost:3002` | URL из `VITE_WS_URL` / `window.location` | ✅ Исправлен |
+| ErrorBoundary русский хардкод | пропсы fallbackTitle/Message/Button, `SuspenseWrapper` передаёт `t()` | ✅ Исправлен |
+| Дубликат `/premium` роута в App.tsx | удалён дубликат внутри `AppContainer` | ✅ Исправлен |
+| search.tsx — `"Все"` vs `"all"` в фильтре города | обе стороны приведены к `"all"` | ✅ Исправлен |
+| Хардкодный русский текст в 5 компонентах (contest, profile, profile-edit, photo-uploader, app-header) | заменены на `t()` с ~40 новыми translation keys | ✅ Исправлен |
+| mail.js хардкод `noreply@swiftmatch.app` | добавлен `EMAIL_FROM` env + warning в production | ✅ Исправлен |
+| profile-edit.tsx DEFAULT_PROFILE с русскими строками | функция `getDefaultProfile(t)` с `t()` внутри | ✅ Исправлен |
+| premium-dialog.tsx хардкод `'ru-RU'` в formatPrice | locale параметр + вызов с `language` из контекста | ✅ Исправлен |
 
 ## Запланировано — ждут реальных ключей
 - FCM_SERVER_KEY (Firebase проект)

@@ -495,6 +495,13 @@ const stripe = process.env.STRIPE_SECRET_KEY
 25. **GDPR отсутствовал** — не было API для экспорта/удаления данных по требованию GDPR. **Fix:** создан `server/src/routes/gdpr.js` с 5 endpoints (data export, erase request/confirm, consent log/history), миграция `010_add_gdpr.sql`, UI кнопки в settings-privacy.tsx.
 26. **Что сделано.txt устарел** — не содержал Ghost Mode, Passport Mode, GDPR. **Fix:** добавлены строки 7–9 в Этап 2, перенесены из «не начато».
 27. **JWT_SECRET getter()** — `middleware.js` экспортировал `JWT_SECRET` как константу (`const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key'`), но ES modules hoist'ят import выше любого кода. Тесты не могли переопределить `process.env.JWT_SECRET` до момента импорта. **Fix:** middleware.exports.JWT_SECRET = функция `() => process.env.JWT_SECRET || 'dev-secret-key'`, все 6 потребителей обновлены на `JWT_SECRET()`.
+28. **BANNED_WORDS undefined в profile.tsx** — `BANNED_WORDS` использовался в `normalizeInterests()` и фильтрах, но был определён только в `profile-edit.tsx`. Вызывал ReferenceError при загрузке профиля. **Fix:** вынесен в `src/lib/constants.ts` как `export const BANNED_WORDS`, импортирован в оба файла.
+29. **use-websocket.ts хардкод WS URL** — fallback `http://localhost:3002` не работал в production. **Fix:** в production URL выводится из `VITE_WS_URL` env или `window.location`.
+30. **ErrorBoundary русский хардкод** — класс-компонент ErrorBoundary содержал русский fallback-текст без `t()`. **Fix:** добавлены пропсы `fallbackTitle/Message/Button`, `SuspenseWrapper` передаёт `t()`.
+31. **Дубликат /premium роута в App.tsx** — два объявления `<Route path="/premium">` (строки 156 и 182). **Fix:** удалён дубликат внутри `AppContainer`.
+32. **search.tsx/"Все" vs "all"** — `search-filters.tsx` использовал `"all"` как sentinel "все города", а `search.tsx` проверял `"Все"`. Фильтр города никогда не работал. **Fix:** обе стороны приведены к `"all"`.
+33. **Хардкодные русские строки (i18n)** — `profile.tsx`, `profile-edit.tsx`, `contest.tsx`, `photo-uploader.tsx`, `app-header.tsx` содержали прямые русские строки. **Fix:** все заменены на `t()` с новыми translation keys (~40 keys в `language-context.tsx`).
+34. **mail.js хардкод sender** — `FROM = 'noreply@swiftmatch.app'` без fallback на env. **Fix:** добавлен `EMAIL_FROM` env, warning в production.
 
 ---
 
