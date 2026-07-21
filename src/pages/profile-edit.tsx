@@ -23,8 +23,7 @@ import { ZODIAC_SIGNS } from "@/lib/constants";
 import { useContentConfig } from "@/lib/useContentConfig";
 import { useLanguage } from "@/context/language-context";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-
-const BANNED_WORDS = ["Хуй"];
+import { BANNED_WORDS } from "@/lib/constants";
 
 const INTEREST_KEY_TO_ID: Record<string, number> = {
   'interest.sport': 1, 'interest.music': 2, 'interest.movies': 3, 'interest.books': 4,

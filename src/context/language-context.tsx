@@ -690,6 +690,9 @@ const translations = {
     'common.error': 'Ошибка',
     'common.or': 'Или',
     'common.success': 'Успешно',
+    'common.error_boundary.title': 'Что-то пошло не так',
+    'common.error_boundary.message': 'Произошла непредвиденная ошибка',
+    'common.error_boundary.retry': 'Попробовать снова',
 
     // Filters
     'filters.age': 'Возраст',
@@ -1861,6 +1864,9 @@ const translations = {
     'common.error': 'Error',
     'common.or': 'Or',
     'common.success': 'Success',
+    'common.error_boundary.title': 'Something went wrong',
+    'common.error_boundary.message': 'An unexpected error occurred',
+    'common.error_boundary.retry': 'Try again',
 
     // Filters
     'filters.age': 'Age',

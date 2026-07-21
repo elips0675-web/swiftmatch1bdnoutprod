@@ -4,7 +4,7 @@ import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom"
 import { Toaster as Sonner } from "@/components/ui/sonner"
 import { Toaster } from "@/components/ui/toaster"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { LanguageProvider } from "@/context/language-context"
+import { LanguageProvider, useLanguage } from "@/context/language-context"
 import { FeatureFlagsProvider } from "@/context/feature-flags-context"
 import { AuthProvider } from "@/context/auth-context"
 import { ErrorBoundary } from "@/components/shared/error-boundary"
@@ -123,8 +123,13 @@ function FcmInit() {
 }
 
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
+  const { t } = useLanguage()
   return (
-    <ErrorBoundary>
+    <ErrorBoundary
+      fallbackTitle={t('common.error_boundary.title')}
+      fallbackMessage={t('common.error_boundary.message')}
+      fallbackButton={t('common.error_boundary.retry')}
+    >
       <Suspense fallback={<PageLoading />}>{children}</Suspense>
     </ErrorBoundary>
   )
@@ -179,7 +184,6 @@ const App = () => (
                             <Route path="/onboarding" element={<Onboarding />} />
                             <Route path="/profile" element={<Profile />} />
                             <Route path="/matches" element={<Matches />} />
-                            <Route path="/premium" element={<Premium />} />
                             <Route path="/profile/edit" element={<ProfileEdit />} />
                             <Route path="/profile/:id" element={<ProfileById />} />
                             <Route path="/profile/attachment-test" element={<ProfileAttachmentTest />} />

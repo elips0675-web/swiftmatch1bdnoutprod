@@ -3,6 +3,9 @@ import { Component, type ErrorInfo, type ReactNode } from 'react'
 interface Props {
   children: ReactNode
   fallback?: ReactNode
+  fallbackTitle?: string
+  fallbackMessage?: string
+  fallbackButton?: string
   onError?: (error: Error, info: ErrorInfo) => void
 }
 
@@ -53,16 +56,16 @@ export class ErrorBoundary extends Component<Props, State> {
             </svg>
           </div>
           <h2 className="mt-4 text-lg font-semibold text-gray-800">
-            Что-то пошло не так
+            {this.props.fallbackTitle || 'Что-то пошло не так'}
           </h2>
           <p className="mt-2 text-sm text-gray-500">
-            {this.state.error?.message || 'Произошла непредвиденная ошибка'}
+            {this.state.error?.message || this.props.fallbackMessage || 'Произошла непредвиденная ошибка'}
           </p>
           <button
             onClick={this.handleRetry}
             className="mt-6 rounded-lg bg-rose-500 px-6 py-2 text-sm font-medium text-white transition hover:bg-rose-600"
           >
-            Попробовать снова
+            {this.props.fallbackButton || 'Попробовать снова'}
           </button>
         </div>
       )

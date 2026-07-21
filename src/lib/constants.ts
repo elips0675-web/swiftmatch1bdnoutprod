@@ -190,3 +190,5 @@ export const ALL_TITLES: TitleMetadata[] = [
         description_ru: 'Освоил искусство мэтчинга с совместимостью более 90%.',
     },
 ];
+
+export const BANNED_WORDS: readonly string[] = ["Хуй"];

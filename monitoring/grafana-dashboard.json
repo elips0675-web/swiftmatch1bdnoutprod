@@ -1,0 +1,104 @@
+{
+  "title": "SwiftMatch API Dashboard",
+  "uid": "swiftmatch-api",
+  "tags": ["swiftmatch", "api"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "auto",
+  "panels": [
+    {
+      "title": "HTTP Requests/sec",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(http_requests_total[1m])",
+          "legendFormat": "{{method}} {{route}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "HTTP Response Time (p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[1m]))",
+          "legendFormat": "{{method}} {{route}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Active Users (WebSocket)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "ws_connections_active",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "DB Query Duration (p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 4, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, rate(db_query_duration_seconds_bucket[1m]))",
+          "legendFormat": "{{query}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Error Rate (4xx+5xx)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{status=~\"4..|5..\"}[1m])) / sum(rate(http_requests_total[1m])) * 100",
+          "legendFormat": "Error %",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Active Chats (WebSocket rooms)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 8 },
+      "targets": [
+        {
+          "expr": "ws_rooms_active",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Message Rate (WebSocket)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "rate(ws_messages_total[1m])",
+          "legendFormat": "messages/sec",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Cache Hit Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "rate(cache_hits_total[1m]) / (rate(cache_hits_total[1m]) + rate(cache_misses_total[1m])) * 100",
+          "legendFormat": "Hit Rate %",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

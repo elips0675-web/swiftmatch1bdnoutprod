@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { useAuth } from '@/context/auth-context'
 
-let WS_URL = `http://localhost:3002`
+let WS_URL: string | undefined
 if (typeof window !== 'undefined') {
+  const envWs = import.meta.env.VITE_WS_URL as string | undefined
   const isNative = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform()
   if (isNative) {
-    const envWs = import.meta.env.VITE_WS_URL as string | undefined
     WS_URL = envWs || 'wss://swiftmatch.app'
-  } else if (window.location.hostname !== 'localhost') {
-    WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`
+  } else {
+    WS_URL = envWs || `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`
   }
 }
 

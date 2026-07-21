@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/context/language-context";
 import { cn, getUserTitles } from "@/lib/utils";
+import { BANNED_WORDS } from "@/lib/constants";
 import { ZodiacIcon } from "@/components/shared/zodiac-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";

@@ -37,6 +37,7 @@ import gdprRoutes from './routes/gdpr.js'
 import fcmRoutes from './routes/push-fcm.js'
 import locationRoutes from './routes/location.js'
 import scheduleRoutes from './routes/schedule.js'
+import { metricsMiddleware, metricsRoute } from './metrics.js'
 import { JWT_SECRET } from './middleware.js'
 import { setupSwagger } from './swagger.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -58,6 +59,8 @@ app.use((req, res, next) => {
   next()
 })
 
+app.use(metricsMiddleware)
+app.get('/metrics', metricsRoute)
 app.use('/api/premium/webhook', express.raw({ type: 'application/json' }))
 app.use(express.json())
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')))

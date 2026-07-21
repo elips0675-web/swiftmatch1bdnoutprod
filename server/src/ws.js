@@ -5,6 +5,7 @@ import { JWT_SECRET } from './middleware.js'
 import { getRedisPub, getRedisSub } from './redis.js'
 import { rootLogger } from './logger.js'
 import pool from './db.js'
+import { wsConnectionsGauge, wsRoomsGauge, trackWsMessage } from './metrics.js'
 
 let io = null
 const CLEANUP_INTERVAL = 10000
@@ -72,9 +73,17 @@ export function initIO(httpServer) {
   io.on('connection', (socket) => {
     const userId = socket.userId
     socket.join(`user:${userId}`)
+    wsConnectionsGauge.inc()
+    wsRoomsGauge.set(io.sockets.adapter.rooms.size)
     rootLogger.info(`WS user:${userId} connected`)
 
+    socket.onAny((event) => {
+      trackWsMessage(event)
+    })
+
     socket.on('disconnect', () => {
+      wsConnectionsGauge.dec()
+      wsRoomsGauge.set(io.sockets.adapter.rooms.size)
       rootLogger.info(`WS user:${userId} disconnected`)
       // Notify call partner if in a call
       if (socket.callPartnerId) {
