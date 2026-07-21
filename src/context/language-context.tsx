@@ -697,6 +697,10 @@ const translations = {
     'common.error_boundary.message': 'Произошла непредвиденная ошибка',
     'common.error_boundary.retry': 'Попробовать снова',
 
+    // App
+    'app.lang.ru': 'Русский (RU)',
+    'app.lang.en': 'English (EN)',
+
     // Filters
     'filters.age': 'Возраст',
     'filters.all_cities': 'Все города',
@@ -876,6 +880,17 @@ const translations = {
     'time.suffix_day': 'д',
     'units.cm': 'см',
     'units.d': 'д',
+
+    // Upload
+    'upload.error': 'Ошибка загрузки',
+    'upload.failed': 'Не удалось загрузить {name}.',
+    'upload.network_error': 'Сетевая ошибка',
+    'upload.network_failed': 'Проблема с загрузкой {name}.',
+    'upload.cannot_delete': 'Нельзя удалить',
+    'upload.min_photo_required': 'В профиле должна быть хотя бы одна фотография.',
+    'upload.photos': 'Фотографии',
+    'upload.upload': 'Загрузить',
+    'upload.photo_alt': 'Фото профиля {num}',
     'units.d_short': 'дн',
     'units.h': 'ч',
     'units.km': 'км',
@@ -1880,6 +1895,10 @@ const translations = {
     'common.error_boundary.message': 'An unexpected error occurred',
     'common.error_boundary.retry': 'Try again',
 
+    // App
+    'app.lang.ru': 'Русский (RU)',
+    'app.lang.en': 'English (EN)',
+
     // Filters
     'filters.age': 'Age',
     'filters.all_cities': 'All cities',
@@ -2067,6 +2086,17 @@ const translations = {
     'units.min': 'min',
     'units.month_short': 'mo',
     'units.per_month': '/mo',
+
+    // Upload
+    'upload.error': 'Upload error',
+    'upload.failed': 'Failed to upload {name}.',
+    'upload.network_error': 'Network error',
+    'upload.network_failed': 'Network problem uploading {name}.',
+    'upload.cannot_delete': 'Cannot delete',
+    'upload.min_photo_required': 'Profile must have at least one photo.',
+    'upload.photos': 'Photos',
+    'upload.upload': 'Upload',
+    'upload.photo_alt': 'Profile photo {num}',
     'units.ruble': '₽',
 
     // Toast messages

@@ -140,8 +140,8 @@ npx vite --port 8081 --host
 - `GET /api/referral/code`, `POST /api/referral/apply`, `GET /api/referral/stats`
 
 ### 🧪 Тестирование
-- **Фронтенд (Vitest):** 52 теста, 11 файлов
-- **Сервер (Vitest):** 117 тестов, 11 файлов — **0 failures**
+- **Фронтенд (Vitest):** 55 тестов, 13 файлов
+- **Сервер (Vitest):** 124 теста, 12 файлов — **0 failures**
 - **E2E (Playwright):** 30 тестов, 2 spec-файла (audit-full, helpers) — **0 failures**
 - **Swagger:** OpenAPI-документация с JSDoc-аннотациями
 
@@ -161,11 +161,23 @@ npx vite --port 8081 --host
 - Миграция `005_add_spatial_location.sql`
 
 ### 🐳 DevOps
-- **Docker:** multi-stage (node:20-alpine), healthcheck, USER node, `.dockerignore`, `restart: unless-stopped`
+- **Docker:** multi-stage (node:22-alpine), healthcheck на `/health`, USER node, `.dockerignore`, `restart: unless-stopped`
+- **Docker Compose:** app + nginx + Prometheus (`:9090`) + Grafana (`:3001`), named volumes
 - **Nginx:** rate limiting (api 30r/s, auth 5r/s), `client_max_body_size 20M`, WebSocket 86400s, SSL, SPA fallback
-- **CI/CD:** GitHub Actions (lint → build → test с MySQL-сервисом)
+- **CI/CD:** GitHub Actions (lint → frontend test → server test с MySQL-сервисом → E2E → deploy)
+- **Monitoring:** Prometheus-метрики (HTTP rps, p50/p95/p99, DB queries, WS events, cache), 7-panel Grafana dashboard
+- **Load Testing:** k6-скрипт (`k6/load-test.js`, ramp-up 10→100 users, 6 endpoints)
 - **Git hooks:** Husky + lint-staged (prettier + eslint на staged файлах)
 - **Логирование:** Winston (JSON, timestamp/level/msg/rid)
+
+### 📱 Новые фичи (июль 2026)
+- **Background GPS + Geofence** — 5min polling, PUT/GET /api/location, Capacitor geolocation
+- **Disappearing Messages (TTL)** — таймер самоудаления 5s-24h, WS cleanup каждые 10s, Popover-селектор
+- **Video Date Scheduling** — предложение/принятие/отклонение дат с календарём, WS sync
+- **Profile Score** — рейтинг полноты анкеты (0-100), бейдж на странице профиля + рекомендации
+- **CI/CD** — GitHub Actions: lint → frontend test → server test (MySQL) → E2E → deploy
+- **Load Testing (k6)** — ramp-up до 100 пользователей, 6 endpoints
+- **Monitoring** — Prometheus (`:9090`) + Grafana (`:3001`), HTTP/DB/WS/cache метрики
 
 ### 📱 Capacitor Android
 - Нативная камера (`@capacitor/camera`), файлы (`@capacitor/filesystem`), Preferences
@@ -209,10 +221,9 @@ npx vite --port 8081 --host
 
 ### 🟢 Ещё не начато
 
-- Feature Flags (Unleash), Product Analytics (PostHog), Monitoring (Grafana)
-- API Versioning, Design System/Storybook, Load Testing (k6)
-- Disappearing Messages (TTL), Video Date Scheduling, AI Icebreakers
-- Background GPS + Geofence
+- AI Icebreakers (OpenAI в чаты)
+- A/B Testing + Product Analytics
+- API Versioning, Design System/Storybook
 
 ---
 

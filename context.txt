@@ -45,7 +45,12 @@
 - **CACHE_TTL:** env-переменная (`server/.env.example`), по умолчанию 60s
 - **Disappearing Messages (TTL):** миграция `011_add_disappearing_messages.sql`, колонка `ttl_seconds` на `messages`, `startMessageCleanup()` в `ws.js` (интервал 10s, удаление истёкших + WS `chat:message-deleted→user:{id}`), POST /api/chats/:chatId/messages принимает `ttl_seconds`, TTL selector Popover в чатах (Off/5s/30s/1m/5m/1h/24h)
 - **Video Date Scheduling:** миграция `012_add_date_schedules.sql`, роуты `/api/schedule` (GET/POST/PUT), WS `schedule:updated`, `src/pages/schedule.tsx` (список + фильтр + accept/decline/cancel), Calendar button в заголовках чатов, диалог предложения даты с выбором времени/длительности/сообщения
-- **Profile Score:** миграция `013_add_profile_score.sql`, колонка `profile_score` в `user_profiles`, `calculateProfileScore()` (полнота анкеты: аватар, био, рост, образование, знак зодиака, стиль привязанности, цель, город, пол, кого ищет, 3+ фото), `GET /api/profile/:id/score` возвращает score + рекомендации, UI-бейдж в профиле (зелёный ≥80, жёлтый ≥50, красный <50) + список рекомендаций с потенциальными баллами
+- **Profile Score:** миграция `014_add_profile_score.sql`, колонка `profile_score` в `user_profiles`, `calculateProfileScore()` (полнота анкеты: аватар, био, рост, образование, знак зодиака, стиль привязанности, цель, город, пол, кого ищет, 3+ фото), `GET /api/profile/:id/score` возвращает score + рекомендации, UI-бейдж в профиле (зелёный ≥80, жёлтый ≥50, красный <50) + список рекомендаций с потенциальными баллами
+- **Background GPS + Geofence:** миграция `011_add_background_gps.sql`, `PUT/GET /api/location`, `use-background-geolocation.ts` (Capacitor geolocation + fallback watchPosition, 5min polling), geofence-события
+- **CI/CD:** `.github/workflows/deploy.yml` — lint → frontend test (55) → server test (MySQL контейнер, 124) → E2E (Playwright, 30) → deploy (SCP + pm2, только main)
+- **Docker Compose:** `docker-compose.yml` — app (node:22-alpine, healthcheck `/health`) + nginx + Prometheus (`:9090`) + Grafana (`:3001`), named volumes
+- **Monitoring:** `server/src/metrics.js` (prom-client: http_requests_total/duration, db_queries_total/duration, ws_events_total, cache_hits/misses), `monitoring/prometheus.yml` (scrape `/metrics` every 15s), `monitoring/grafana-dashboard.json` (7 panels: HTTP rps, p50/p95/p99, DB queries, WS events, cache, memory, CPU)
+- **Load Testing:** `k6/load-test.js` — ramp-up 10→100 users over 60s, checks 6 endpoints (health, login, search, premium, matches, chats)
 
 ### Аудит по оценке kimi (июль 2026) — 13 требований
 - **Admin роуты:** проверены все 8 файлов — 30 тестов проходят
@@ -61,7 +66,7 @@
 - **Deep Links:** ✅ Scaffold (assetlinks.json, capacitor.config.ts, use-deep-links.ts); ждёт домена
 - **Nginx:** rate limit, client_max_body_size, proxy_read_timeout 86400s, SSL
 - **Логи:** 0 console.log/error в server/src/ — везде Winston
-- **Тесты:** 199/199, 0 failures — 52 фронт + 117 сервер + 30 E2E
+- **Тесты:** 209/209, 0 failures — 55 фронт + 124 сервер + 30 E2E
 
 ### Функциональный аудит (июль 2026)
 Проверены все 8 разделов через работающий API (сервер localhost:3002):
@@ -124,6 +129,7 @@
 - **Passport Mode:** `passport_mode/city/lat/lng` в user_profiles, авто-использование passport_location в поиске, премиум-гейтинг, UI toggle + city input
 - **Incognito в активности:** activity route фильтрует `up.incognito = 0` — скрыты визиты инкогнито-пользователей
 - **GDPR Compliance:** `GET /api/data/export` (экспорт всех данных), `POST /api/data/erase/request` + `/confirm` (полное удаление с подтверждением), `POST /api/consent` + `GET /api/consent/history` (логирование согласий); миграция 010; UI кнопки в /settings/privacy
+- **JWT_SECRET lazy getter:** middleware.js экспортирует `JWT_SECRET()` (функцию), а не константу. Тесты должны устанавливать `process.env.JWT_SECRET` ДО вызова `jwt.sign()`. Все 6 потребителей обновлены на `JWT_SECRET()`
 
 ### Stage 1 — WebRTC Video/Voice Calls
 - `server/src/ws.js`: +6 signalling событий (call-user, call-accepted, call-rejected, ice-candidate, end-call)
@@ -179,7 +185,7 @@
 - **Admin routes:** все покрыты тестами
 
 ### Тесты
-- **199 тестов, 0 failures:** 52 фронт (11 файлов) + 117 сервер (11 файлов) + 30 E2E (2 spec-файла)
+- **209 тестов, 0 failures:** 55 фронт (13 файлов) + 124 сервер (12 файлов) + 30 E2E (2 spec-файла)
 
 ### Документация
 - **server/.env.example:** все переменные с комментариями (Stripe, SMTP, Sentry, Redis, S3)
@@ -203,27 +209,24 @@
 1. **Real API ключи:** вписать 10+ ключей в `server/.env`: Stripe, SMTP, Sentry, S3, Redis, FCM, RevenueCat, Twilio, AWS, OpenAI
 2. **Deep Links:** настроить Universal Links (iOS) + App Links (Android)
 3. **Background sync:** сообщения в offline → отправка при возвращении
-4. **Background GPS + Geofence:** `@capacitor/geolocation` background mode (требует нативных разрешений)
 
 ### 🟡 Средний приоритет (конкуренция)
 | # | Задача | Статус |
 |---|--------|--------|
 | 11 | AI Icebreakers (OpenAI) | ⚠️ Scaffold есть, не подключён к чатам |
-| 12 | Video Date Scheduling | ⚠️ WebRTC есть, нет календаря/reminders |
-| 13 | Disappearing Messages (TTL) | ❌ |
-| 14 | Profile Score + AI Recommendations | ❌ |
-| 15 | Date Check-in (Safety) | ❌ |
-| 16 | A/B Testing Framework | ❌ |
-| 17 | Product Analytics (PostHog/Amplitude) | ❌ |
+| 12 | Profile Score → AI Recommendations | ✅ Score есть, AI рекомендации ждут ключа |
+| 13 | Date Check-in (Safety) | ❌ |
+| 14 | A/B Testing Framework | ❌ |
+| 15 | Product Analytics (PostHog/Amplitude) | ❌ |
 
 ### 🟢 Инфраструктура (месяц 2–3)
 | # | Задача | Статус |
 |---|--------|--------|
-| 18 | CI/CD (GitHub Actions) — реальный runner + secrets | ⚠️ Scaffold есть (.github/workflows/deploy.yml) |
-| 19 | Docker Compose (production stack) | ❌ |
-| 20 | Redis Adapter для Socket.IO | ❌ |
-| 21 | Load Testing (k6) | ❌ |
-| 22 | Monitoring (Grafana + Prometheus) | ❌ |
+| 18 | CI/CD (GitHub Actions) | ✅ lint → frontend test → server test (MySQL) → E2E → deploy |
+| 19 | Docker Compose (production stack) | ✅ app + nginx + Prometheus + Grafana |
+| 20 | Redis Adapter для Socket.IO | ⚠️ Код есть в ws.js, требует REDIS_URL |
+| 21 | Load Testing (k6) | ✅ ramp-up 10→100 users, 6 endpoints |
+| 22 | Monitoring (Grafana + Prometheus) | ✅ HTTP/DB/WS/cache metrics, 7-panel dashboard |
 | 23 | Backup Verification (восстановление) | ⚠️ Скрипт есть, проверки нет |
 
 ### 📋 Чеклист перед подачей в сторы
@@ -283,12 +286,23 @@
 | `database/migrations/010_add_gdpr.sql` | GDPR: consent_log + data_erase_requests |
 | `server/src/routes/gdpr.js` | GDPR API (data export, erase, consent) |
 | `server/src/routes/profile.js` | Профиль + GET/PUT `/api/settings/privacy` |
+| `server/src/routes/schedule.js` | Video Date Scheduling API |
+| `server/src/metrics.js` | Prometheus HTTP/DB/WS/cache metrics |
+| `server/src/ws.js` | Socket.IO + TTL message cleanup + WS metrics |
 | `nginx/swiftmatch.conf` | Production Nginx config |
 | `.github/workflows/deploy.yml` | CI/CD pipeline |
+| `monitoring/prometheus.yml` | Prometheus scrape config |
+| `monitoring/grafana-dashboard.json` | Grafana dashboard (7 panels) |
+| `k6/load-test.js` | Load testing script (10→100 users) |
 | `project-context.md` | Полный контекст для AI-ассистентов |
 
 ## Production Readiness Summary
-- **Тесты:** 199 total — 52 фронт (11 файлов) + 117 сервер (11 файлов) + 30 E2E — 0 failures
+- **Тесты:** 209 total — 55 фронт (13 файлов) + 124 сервер (12 файлов) + 30 E2E — 0 failures
+- **Сборка:** `vite build` успешно (1.83s, 3582 modules)
+- **CI/CD:** GitHub Actions — lint → frontend test → server test (MySQL) → E2E → deploy (SCP + pm2)
+- **Monitoring:** Prometheus (`:9090`) + Grafana (`:3001`), HTTP/DB/WS/cache metrics, 7-panel dashboard
+- **Docker Compose:** app + nginx + Prometheus + Grafana, named volumes
+- **Load Testing:** k6 script, ramp-up 10→100 users over 60s
 - **Сборка:** `vite build` успешно (1.83s, 3582 modules)
 - **Логи:** Winston во всех серверных файлах (0 console.log/error)
 - **Backup:** `scripts/backup-mysql.ps1` (auto-detect mysqldump, retention 7d) + Task Scheduler (ежедневно 03:00)
@@ -304,7 +318,7 @@
 - **Негативные тесты:** XSS, wrong password, empty form validation
 - **WS real-time:** тест сообщения без перезагрузки + двухбраузерный тест
 - **Unit-тесты:** use-websocket, language-context, feature-flags-context
-- **Новые роуты:** /matches, /premium, /settings/privacy, /profile/:id добавлены в App.tsx
+- **Новые роуты:** /matches, /premium, /settings/privacy, /profile/:id, /schedule, /profile/:userId/score добавлены в App.tsx
 - **Vite сборка:** 1.91s, 3582 modules, 0 errors (после фикса chats.tsx)
 
 Для прода: вписать 10+ ключей в `server/.env`: Stripe, SMTP, Sentry, S3, Redis, FCM, RevenueCat, Twilio, AWS, OpenAI.

@@ -160,13 +160,13 @@ export function AppHeader() {
               onClick={() => handleLangChange("RU")}
               className="rounded-xl font-bold text-[11px] uppercase tracking-wider cursor-pointer py-2.5 px-4"
             >
-              Русский (RU)
+              {t('app.lang.ru')}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => handleLangChange("EN")}
               className="rounded-xl font-bold text-[11px] uppercase tracking-wider cursor-pointer py-2.5 px-4"
             >
-              English (EN)
+              {t('app.lang.en')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -118,6 +118,7 @@ import { cn } from "@/lib/utils"
   <Route path="/verify-email" element={<VerifyEmail />} />
   <Route path="/schedule" element={<Schedule />} />
   <Route path="/profile/:userId/score" element={<ProfileScore />} />
+  <Route path="/schedule" element={<Schedule />} />
 </Routes>
 ```
 
@@ -141,15 +142,18 @@ src/
 server/
 ├── src/
 │   ├── routes/      # Express роуты
-│   │   └── admin/   # Админ API
+│   │   ├── admin/   # Админ API
+│   │   └── schedule.js  # Video Date Scheduling
 │   ├── middleware/   # idempotency, auth
 │   ├── index.js     # Server entry
 │   ├── db.js        # MySQL pool
 │   ├── mail.js      # SMTP
-│   ├── ws.js        # Socket.IO
+│   ├── ws.js        # Socket.IO (+ TTL cleanup, WS metrics)
 │   ├── logger.js    # Winston
 │   ├── sentry.js    # Sentry init
-│   └── redis.js     # ioredis client
+│   ├── redis.js     # ioredis client
+│   ├── metrics.js   # Prometheus HTTP/DB/WS/cache metrics
+│   ├── cache.js     # Redis cache middleware
 ```
 
 ## Vite Config Highlights
@@ -163,7 +167,7 @@ build: { target: 'es2020', minify: 'esbuild', chunkSizeWarningLimit: 600 }
 ## Feature Flags
 
 Загружаются из `GET /api/admin/features`:
-`videoCalls`, `aiIcebreakers`, `aiCompatibility`, `groupsPage`, `contest`, `showAds`, `autosearch`
+`videoCalls`, `aiIcebreakers`, `aiCompatibility`, `groupsPage`, `contest`, `showAds`, `autosearch`, `ttlMessages`, `dateScheduling`, `profileScore`
 
 ## Translation Keys
 
@@ -209,3 +213,62 @@ build: { target: 'es2020', minify: 'esbuild', chunkSizeWarningLimit: 600 }
 | `/api/consent/history` | GET | История согласий |
 
 Таблицы: `consent_log`, `data_erase_requests` — миграция `010_add_gdpr.sql`.
+
+## Background GPS + Geofence
+
+| Фича | Колонки | API | Описание |
+|------|---------|-----|----------|
+| **GPS tracking** | `user_locations.lat`, `lng`, `accuracy`, `geofence_events` | `PUT /api/location`, `GET /api/location` | 5min polling, geofence alerts |
+| Хук | `use-background-geolocation.ts` | Capacitor geolocation + fallback watchPosition |
+
+Миграция `011_add_background_gps.sql`.
+
+## Disappearing Messages (TTL)
+
+| Параметр | Описание |
+|----------|----------|
+| `ttl_seconds` | 0 (off), 5, 30, 60, 300, 3600, 86400 |
+| Cleanup | `startMessageCleanup()` в ws.js (интервал 10s) |
+| WS event | `chat:message-deleted` → `user:{id}` |
+| UI | TTL selector Popover (Off/5s/30s/1m/5m/1h/24h) + timer icon |
+
+Миграция `012_add_disappearing_messages.sql`.
+
+## Video Date Scheduling
+
+| API | Метод | Описание |
+|-----|-------|----------|
+| `/api/schedule` | GET | Список дат (фильтр: pending/accepted/declined/cancelled) |
+| `/api/schedule` | POST | Предложить дату (user_id, scheduled_at, duration_min, message) |
+| `/api/schedule/:id` | PUT | Принять/отклонить/отменить |
+| WS | `schedule:updated` | Синхронизация между участниками |
+
+Миграция `013_add_date_schedules.sql`. UI: `src/pages/schedule.tsx`, Calendar button в чатах.
+
+## Profile Score
+
+| API | Описание |
+|-----|----------|
+| `GET /api/profile/:id/score` | Score (0-100) + массив recommendations + potential_gain |
+| `calculateProfileScore()` | Полнота: аватар (15), био (15), рост (10), образование (10), zodiac (10), attach (10), goal (10), city (5), gender (5), lookingFor (5), 3+ фото (5) |
+
+UI: зелёный badge ≥80, жёлтый ≥50, красный <50; список рекомендаций с potential_gain.
+
+## CI/CD Pipeline
+
+`.github/workflows/deploy.yml`:
+1. **lint** — eslint + prettier check
+2. **frontend test** — `npx vitest run` (55 tests)
+3. **server test** — `cd server && npm test` с MySQL-сервисом (124 tests)
+4. **E2E** — `npx playwright test` с webServer (30 tests)
+5. **deploy** — SCP + pm2 на продакшен (только main)
+
+## Monitoring
+
+| Сервис | Порт | Описание |
+|--------|------|----------|
+| Prometheus | `:9090` | Сбор метрик с `/metrics` endpoint |
+| Grafana | `:3001` | 7-panel dashboard (HTTP rps, p50/p95/p99, DB queries, WS events, cache hit/miss, memory, CPU) |
+| k6 | CLI | `k6/load-test.js` — ramp-up 10→100 users, 6 endpoints |
+
+`server/src/metrics.js` использует prom-client: counters (http_requests_total, db_queries_total, ws_events_total) + histograms (http_request_duration_ms, db_query_duration_ms).

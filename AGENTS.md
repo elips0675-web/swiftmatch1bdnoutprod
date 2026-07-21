@@ -51,6 +51,7 @@
 7. **vi.mock factory + hoisting** — `vi.mock()` hoist'ится выше `const`. Всегда использовать `vi.hoisted(() => vi.fn())`.
 8. **jsdom constraint validation** — jsdom блокирует submit если required поле пустое или type=email невалидный. Всегда noValidate на формах с кастомной JS-валидацией.
 9. **INTEREST_KEY_TO_ID и NAME_TO_KEY** в profile-edit.tsx — синхронизировать при добавлении новых интересов.
+10. **JWT_SECRET lazy getter** — middleware экспортирует `JWT_SECRET()` (функцию), а не константу. Тестовые файлы должны устанавливать `process.env.JWT_SECRET` ДО вызова `jwt.sign()`, потому что в ES modules import выполняется раньше любого кода теста. Вызов `JWT_SECRET()` читает `process.env.JWT_SECRET` в момент вызова, а не в момент импорта.
 
 ### Data Rules (i18n)
 
@@ -493,6 +494,7 @@ const stripe = process.env.STRIPE_SECRET_KEY
 24. **Фронт incognito только в localStorage** — settings.tsx и settings-privacy.tsx не синхронизировали состояние с сервером. **Fix:** при загрузке — fetch GET /api/settings/privacy, при изменении — PUT с телом.
 25. **GDPR отсутствовал** — не было API для экспорта/удаления данных по требованию GDPR. **Fix:** создан `server/src/routes/gdpr.js` с 5 endpoints (data export, erase request/confirm, consent log/history), миграция `010_add_gdpr.sql`, UI кнопки в settings-privacy.tsx.
 26. **Что сделано.txt устарел** — не содержал Ghost Mode, Passport Mode, GDPR. **Fix:** добавлены строки 7–9 в Этап 2, перенесены из «не начато».
+27. **JWT_SECRET getter()** — `middleware.js` экспортировал `JWT_SECRET` как константу (`const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key'`), но ES modules hoist'ят import выше любого кода. Тесты не могли переопределить `process.env.JWT_SECRET` до момента импорта. **Fix:** middleware.exports.JWT_SECRET = функция `() => process.env.JWT_SECRET || 'dev-secret-key'`, все 6 потребителей обновлены на `JWT_SECRET()`.
 
 ---
 

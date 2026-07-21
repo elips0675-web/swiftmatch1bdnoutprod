@@ -1,6 +1,6 @@
 # Что сделано
 
-> Актуально на июль 2026. Все тесты: 199/199 (52 фронт + 117 сервер + 30 E2E). Vite build: ✅
+> Актуально на июль 2026. Все тесты: 209/209 (55 фронт + 124 сервер + 30 E2E). Vite build: ✅
 
 ## Этап 1: 🔴 Мобильный запуск (код готов, ждут ключи)
 
@@ -23,7 +23,7 @@
 | console.log на фронте → import.meta.env.DEV | ✅ Готово |
 | Per-page ErrorBoundary через SuspenseWrapper | ✅ Готово |
 | Stripe mock blocked for NODE_ENV=production | ✅ Готово |
-| Тесты (199/199) | ✅ Все проходят |
+| Тесты (209/209) | ✅ Все проходят |
 | SEO/PWA (sitemap, robots, manifest) | ✅ Готово |
 | Swagger/OpenAPI (JSDoc + swagger-jsdoc) | ✅ Готово |
 | Docker (healthcheck, jwt из env) | ✅ Готово |
@@ -70,6 +70,19 @@
 | 7 | **Ghost Mode** — инкогнито + premium gate | `migrations/009_add_ghost_passport.sql`, `profile.js`, `social.js`, `settings-privacy.tsx` | ✅ Реализовано |
 | 8 | **Passport Mode** — показ в другом городе + premium gate | те же файлы, что Ghost Mode | ✅ Реализовано |
 | 9 | **GDPR Compliance** — export, erase, consent | `migrations/010_add_gdpr.sql`, `routes/gdpr.js`, `settings-privacy.tsx` | ✅ Реализовано |
+| 10 | **Background GPS + Geofence** — 5min polling | `migrations/011_add_background_gps.sql`, `use-background-geolocation.ts` | ✅ Реализовано |
+| 11 | **Disappearing Messages (TTL)** — таймер 5s-24h | `migrations/012_add_disappearing_messages.sql`, `ws.js`, TTL selector | ✅ Реализовано |
+| 12 | **Video Date Scheduling** — propose/accept/decline | `migrations/013_add_date_schedules.sql`, `routes/schedule.js`, `pages/schedule.tsx` | ✅ Реализовано |
+| 13 | **Profile Score** — completeness 0-100 | `migrations/014_add_profile_score.sql`, `PUT /api/profile/score`, UI badge | ✅ Реализовано |
+| 14 | **CI/CD (GitHub Actions)** — lint→test→E2E→deploy | `.github/workflows/deploy.yml` | ✅ Реализовано |
+| 15 | **Docker Compose** — app + nginx + Prometheus + Grafana | `docker-compose.yml`, `monitoring/` | ✅ Реализовано |
+| 16 | **Load Testing (k6)** — 10→100 users, 6 endpoints | `k6/load-test.js` | ✅ Реализовано |
+| 17 | **Monitoring** — Prometheus+Grafana, 7-panel dashboard | `server/src/metrics.js`, `monitoring/prometheus.yml`, `monitoring/grafana-dashboard.json` | ✅ Реализовано |
+
+## Багфиксы (продолжение)
+| Баг | Фикс | Статус |
+|-----|------|--------|
+| JWT_SECRET const hoisting — тесты не могли переопределить secret | middleware.js → `getJwtSecret()` функция, все потребители `JWT_SECRET()` | ✅ Исправлен |
 
 ## Запланировано — ждут реальных ключей
 - FCM_SERVER_KEY (Firebase проект)
@@ -82,11 +95,5 @@
 - Sentry DSN
 
 ## Запланировано — не начато
-- Background GPS + Geofence
-- Video Date Scheduling
-- Disappearing Messages (TTL)
 - AI Icebreakers (OpenAI в чаты)
 - A/B Testing + Product Analytics
-- Docker Compose production stack
-- Load Testing (k6)
-- Monitoring (Grafana + Prometheus)

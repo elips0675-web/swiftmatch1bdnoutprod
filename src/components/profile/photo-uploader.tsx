@@ -5,6 +5,7 @@ import { Camera, Trash2, Loader as Loader2, CloudUpload as UploadCloud } from 'l
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { getToken } from '@/lib/token';
+import { useLanguage } from '@/context/language-context';
 
 interface PhotoUploaderProps {
   photos: string[];
@@ -12,6 +13,7 @@ interface PhotoUploaderProps {
 }
 
 export const PhotoUploader = ({ photos, onPhotosChange }: PhotoUploaderProps) => {
+  const { t } = useLanguage();
   const [isUploading, setIsUploading] = useState<boolean[]>(new Array(photos.length).fill(false));
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,12 +51,12 @@ export const PhotoUploader = ({ photos, onPhotosChange }: PhotoUploaderProps) =>
             } else {
                 // Удаляем плейсхолдер в случае ошибки
                 newPhotos.splice(placeholderIndex, 1);
-                toast({ title: "Ошибка загрузки", description: `Не удалось загрузить ${file.name}.`, variant: "destructive" });
+                toast({ title: t('upload.error'), description: t('upload.failed', { name: file.name }), variant: "destructive" });
             }
         } catch (error) {
             newPhotos.splice(placeholderIndex, 1);
             if (import.meta.env.DEV) console.error('Upload error:', error);
-            toast({ title: "Сетевая ошибка", description: `Проблема с загрузкой ${file.name}.`, variant: "destructive" });
+            toast({ title: t('upload.network_error'), description: t('upload.network_failed', { name: file.name }), variant: "destructive" });
         } finally {
             newUploadingStates[placeholderIndex] = false;
         }
@@ -67,7 +69,7 @@ export const PhotoUploader = ({ photos, onPhotosChange }: PhotoUploaderProps) =>
 
   const handleRemovePhoto = (indexToRemove: number) => {
     if (photos.length <= 1) {
-      toast({ title: "Нельзя удалить", description: "В профиле должна быть хотя бы одна фотография.", variant: "destructive" });
+      toast({ title: t('upload.cannot_delete'), description: t('upload.min_photo_required'), variant: "destructive" });
       return;
     }
     const newPhotos = photos.filter((_, index) => index !== indexToRemove);
@@ -79,7 +81,7 @@ export const PhotoUploader = ({ photos, onPhotosChange }: PhotoUploaderProps) =>
       <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center text-red-600"><Camera size={14} /></div>
-                <h3 className="font-black text-[10px] uppercase tracking-widest text-muted-foreground">Фотографии</h3>
+                <h3 className="font-black text-[10px] uppercase tracking-widest text-muted-foreground">{t('upload.photos')}</h3>
           </div>
           <input
             type="file"
@@ -90,7 +92,7 @@ export const PhotoUploader = ({ photos, onPhotosChange }: PhotoUploaderProps) =>
             className="hidden"
           />
           <Button asChild variant="ghost" size="sm">
-            <label htmlFor="photo-upload-input" className="cursor-pointer text-primary font-bold text-xs uppercase tracking-widest">Загрузить</label>
+            <label htmlFor="photo-upload-input" className="cursor-pointer text-primary font-bold text-xs uppercase tracking-widest">{t('upload.upload')}</label>
           </Button>
       </div>
       <div className="grid grid-cols-3 gap-3">
@@ -101,7 +103,7 @@ export const PhotoUploader = ({ photos, onPhotosChange }: PhotoUploaderProps) =>
                 <Loader2 className="animate-spin text-primary" />
               </div>
             ) : (
-              <Image src={photo} alt={`Profile photo ${index + 1}`} fill className="object-cover" />
+              <Image src={photo} alt={t('upload.photo_alt', { num: index + 1 })} fill className="object-cover" />
             )}
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <Button
