@@ -43,7 +43,7 @@ describe('auth middleware', () => {
   })
 
   it('calls next with valid token', () => {
-    const token = jwt.sign({ userId: 1, role: 'user' }, JWT_SECRET, { expiresIn: '1h' })
+    const token = jwt.sign({ userId: 1, role: 'user' }, JWT_SECRET(), { expiresIn: '1h' })
     const { req, res, next } = mockReqRes()
     req.headers.authorization = `Bearer ${token}`
     auth(req, res, next)
@@ -52,7 +52,7 @@ describe('auth middleware', () => {
   })
 
   it('sets userId from token payload', () => {
-    const token = jwt.sign({ userId: 42, role: 'admin' }, JWT_SECRET, { expiresIn: '1h' })
+    const token = jwt.sign({ userId: 42, role: 'admin' }, JWT_SECRET(), { expiresIn: '1h' })
     const { req, res, next } = mockReqRes()
     req.headers.authorization = `Bearer ${token}`
     auth(req, res, next)
@@ -69,7 +69,7 @@ describe('optionalAuth middleware', () => {
   })
 
   it('sets userId with valid token', () => {
-    const token = jwt.sign({ userId: 7, role: 'user' }, JWT_SECRET, { expiresIn: '1h' })
+    const token = jwt.sign({ userId: 7, role: 'user' }, JWT_SECRET(), { expiresIn: '1h' })
     const { req, res, next } = mockReqRes()
     req.headers.authorization = `Bearer ${token}`
     optionalAuth(req, res, next)

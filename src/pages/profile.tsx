@@ -132,15 +132,15 @@ function normalizeInterests(interests: any): string[] {
       }
     } else {
       setProfile({
-        displayName: "Анна",
+        displayName: t('profile.demo_name'),
         age: 24,
-        city: "Москва",
+        city: t('profile.demo_city'),
         height: 172,
         gender: "female",
         lookingFor: "male",
         datingGoal: "goal.serious_relationship",
         zodiac: "common.zodiac.leo",
-        bio: "Люблю закаты, хороший кофе и интересные разговоры.",
+        bio: t('profile.demo_bio'),
         interests: ["interest.photography", "interest.travel", "interest.coffee", "interest.music", "interest.sport"].filter(i => !BANNED_WORDS.includes(i)),
         match: 87,
         attachmentStyle: null,
@@ -157,7 +157,7 @@ function normalizeInterests(interests: any): string[] {
             const updated = {
               displayName: data.display_name || prev?.displayName || t('profile.someone'),
               age: data.age || prev?.age || 24,
-              city: data.city || prev?.city || 'Москва',
+              city: data.city || prev?.city || t('profile.demo_city'),
               height: data.height || prev?.height || 172,
               gender: data.gender || prev?.gender || 'female',
               lookingFor: data.looking_for || prev?.lookingFor || 'male',

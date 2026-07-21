@@ -87,6 +87,9 @@ const translations = {
     'profile.height': 'Рост',
     'profile.pro': 'PRO 💎',
     'profile.someone': 'Кто-то',
+    'profile.demo_name': 'Анна',
+    'profile.demo_city': 'Москва',
+    'profile.demo_bio': 'Люблю закаты, хороший кофе и интересные разговоры.',
     'profile.groups': 'Мои группы',
     'profile.rank': 'Звание',
     'profile.score': 'Заполненность профиля',
@@ -840,6 +843,12 @@ const translations = {
     // Contest
     'contest.previous_winners': 'Прошлые победители',
     'contest.days_left': '{count} дн. осталось',
+    'contest.photo_viewer': 'Просмотр фото',
+
+    // Months
+    'month.february': 'Февраль',
+    'month.march': 'Март',
+    'month.april': 'Апрель',
 
     // Home
     'home.popular_groups': 'Популярные группы',
@@ -1261,6 +1270,9 @@ const translations = {
     'profile.height': 'Height',
     'profile.pro': 'PRO 💎',
     'profile.someone': 'Someone',
+    'profile.demo_name': 'Anna',
+    'profile.demo_city': 'Moscow',
+    'profile.demo_bio': 'Love sunsets, good coffee, and interesting conversations.',
     'profile.groups': 'My Groups',
     'profile.rank': 'Title',
     'profile.score': 'Profile completeness',
@@ -2016,6 +2028,12 @@ const translations = {
     // Contest
     'contest.previous_winners': 'Previous Winners',
     'contest.days_left': '{count} days left',
+    'contest.photo_viewer': 'Photo Viewer',
+
+    // Months
+    'month.february': 'February',
+    'month.march': 'March',
+    'month.april': 'April',
 
     // Home
     'home.popular_groups': 'Popular Groups',

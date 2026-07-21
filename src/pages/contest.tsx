@@ -29,15 +29,15 @@ const MALE_ENTRIES = [
 ];
 
 const PAST_FEMALE_WINNERS = [
-  { id: 'pfw1', name: 'Мария', photo: PlaceHolderImages[6].imageUrl, month: 'Апрель' },
-  { id: 'pfw2', name: 'Елена', photo: PlaceHolderImages[2].imageUrl, month: 'Март' },
-  { id: 'pfw3', name: 'Ксения', photo: PlaceHolderImages[8].imageUrl, month: 'Февраль' },
+  { id: 'pfw1', name: 'Мария', photo: PlaceHolderImages[6].imageUrl, monthKey: 'month.april' },
+  { id: 'pfw2', name: 'Елена', photo: PlaceHolderImages[2].imageUrl, monthKey: 'month.march' },
+  { id: 'pfw3', name: 'Ксения', photo: PlaceHolderImages[8].imageUrl, monthKey: 'month.february' },
 ];
 
 const PAST_MALE_WINNERS = [
-  { id: 'pmw1', name: 'Александр', photo: PlaceHolderImages[1].imageUrl, month: 'Апрель' },
-  { id: 'pmw2', name: 'Дмитрий', photo: PlaceHolderImages[3].imageUrl, month: 'Март' },
-  { id: 'pmw3', name: 'Артем', photo: PlaceHolderImages[5].imageUrl, month: 'Февраль' },
+  { id: 'pmw1', name: 'Александр', photo: PlaceHolderImages[1].imageUrl, monthKey: 'month.april' },
+  { id: 'pmw2', name: 'Дмитрий', photo: PlaceHolderImages[3].imageUrl, monthKey: 'month.march' },
+  { id: 'pmw3', name: 'Артем', photo: PlaceHolderImages[5].imageUrl, monthKey: 'month.february' },
 ];
 
 export default function ContestPage() {
@@ -203,7 +203,7 @@ export default function ContestPage() {
                   </div>
                 </div>
                 <p className="text-[10px] font-black text-center truncate">{winner.name}</p>
-                <p className="text-[8px] text-muted-foreground text-center uppercase font-bold">{winner.month}</p>
+                <p className="text-[8px] text-muted-foreground text-center uppercase font-bold">{t(winner.monthKey)}</p>
               </div>
             ))}
           </div>
@@ -248,7 +248,7 @@ export default function ContestPage() {
 
       <Dialog open={!!viewerPhoto} onOpenChange={(open) => !open && setViewerPhoto(null)}>
         <DialogContent className="max-w-[440px] w-[95vw] p-0 border-0 bg-transparent shadow-none flex flex-col items-center justify-center [&>button]:hidden">
-          <DialogTitle className="sr-only">Photo Viewer</DialogTitle>
+          <DialogTitle className="sr-only">{t('contest.photo_viewer')}</DialogTitle>
           <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden app-shadow">
             {viewerPhoto && (
               <Image src={viewerPhoto} alt="Contest entry" fill sizes="(max-width: 480px) 100vw, 440px" className="object-cover" />

@@ -62,7 +62,7 @@ export function initIO(httpServer) {
     const token = socket.handshake.auth?.token || socket.handshake.query?.token
     if (!token) return next(new Error('Authentication required'))
     try {
-      const decoded = jwt.verify(token, JWT_SECRET)
+      const decoded = jwt.verify(token, JWT_SECRET())
       socket.userId = decoded.userId
       next()
     } catch {

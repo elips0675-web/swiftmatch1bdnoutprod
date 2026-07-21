@@ -64,7 +64,7 @@ export default function Home() {
     if (!currentUser) return;
     const filters = {
         ageRange: [18, 40],
-        selectedCity: currentUser.city || "Все",
+        selectedCity: currentUser.city || "all",
         selectedCountry: "",
         distance: [50],
         genderPref: currentUser.gender === 'female' ? 'male' : 'female',

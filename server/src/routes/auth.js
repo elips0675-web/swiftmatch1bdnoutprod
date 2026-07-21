@@ -160,7 +160,7 @@ router.post('/api/auth/register', async (req, res) => {
       [userId, displayName || email.split('@')[0], displayName || email.split('@')[0]],
     )
 
-    const token = jwt.sign({ userId, role: 'user' }, JWT_SECRET, { expiresIn: '24h' })
+    const token = jwt.sign({ userId, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
     const refresh_token = await createRefreshToken(userId)
     sendVerificationEmail(email, verification_token)
 
@@ -286,7 +286,7 @@ router.post('/api/auth/refresh', async (req, res) => {
     const { userId } = rows[0]
     await pool.query('DELETE FROM refresh_tokens WHERE token = ?', [refresh_token])
 
-    const token = jwt.sign({ userId, role: 'user' }, JWT_SECRET, { expiresIn: '24h' })
+    const token = jwt.sign({ userId, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
     const new_refresh_token = await createRefreshToken(userId)
     res.json({ token, refresh_token: new_refresh_token })
   } catch (err) {

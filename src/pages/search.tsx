@@ -73,7 +73,7 @@ function performAutosearch(filters: any, allUsers: any[], currentUser: any) {
             }
             
             const matchesAge = user.age >= ageRange[0] && user.age <= ageRange[1];
-            const matchesCity = selectedCity === "Все" || user.city === selectedCity;
+            const matchesCity = selectedCity === "all" || user.city === selectedCity;
             const matchesCountry = !countryCityList || countryCityList.includes(user.city);
             const matchesDistance = user.distance <= distance[0];
             return matchesAge && matchesCity && matchesCountry && matchesDistance;

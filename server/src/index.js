@@ -75,7 +75,7 @@ async function adminAuth(req, res, next) {
   }
   try {
     const token = authHeader.split(' ')[1]
-    const decoded = jwt.verify(token, JWT_SECRET)
+    const decoded = jwt.verify(token, JWT_SECRET())
 
     const [rows] = await pool.query(
       'SELECT id, role FROM users WHERE id = ? AND role = ? AND is_active = 1',
@@ -93,7 +93,7 @@ async function adminAuth(req, res, next) {
 
 // Dev route: auto-login as demo user (id=2, has chats in demo data)
 app.post('/api/auth/dev-login', async (req, res) => {
-  const token = jwt.sign({ userId: 2, role: 'user' }, JWT_SECRET, { expiresIn: '24h' })
+  const token = jwt.sign({ userId: 2, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
   res.json({ token, role: 'user' })
 })
 
@@ -119,7 +119,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' })
     }
 
-    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' })
+    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET(), { expiresIn: '24h' })
     const refresh_token = await createRefreshToken(user.id)
     res.json({ token, refresh_token, role: user.role, email_verified: !!user.email_verified_at })
   } catch (err) {
@@ -177,7 +177,7 @@ app.get('/api/admin/me', async (req, res) => {
     return res.status(401).json({ message: 'No token' })
   }
   try {
-    const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET)
+    const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET())
     const [rows] = await pool.query(
       'SELECT u.id, u.role, up.display_name as name, u.email FROM users u LEFT JOIN user_profiles up ON u.id = up.id WHERE u.id = ?',
       [decoded.userId],

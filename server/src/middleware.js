@@ -1,9 +1,11 @@
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex')
-if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
-  throw new Error('JWT_SECRET must be set in environment for production')
+function getJwtSecret() {
+  if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET must be set in environment for production')
+  }
+  return process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex')
 }
 
 export function auth(req, res, next) {
@@ -12,7 +14,7 @@ export function auth(req, res, next) {
     return res.status(401).json({ message: 'Authentication required' })
   }
   try {
-    const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET)
+    const decoded = jwt.verify(authHeader.split(' ')[1], getJwtSecret())
     req.userId = decoded.userId
     next()
   } catch {
@@ -27,7 +29,7 @@ export function optionalAuth(req, res, next) {
     return next()
   }
   try {
-    const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET)
+    const decoded = jwt.verify(authHeader.split(' ')[1], getJwtSecret())
     req.userId = decoded.userId
   } catch {
     req.userId = null
@@ -35,4 +37,4 @@ export function optionalAuth(req, res, next) {
   next()
 }
 
-export { JWT_SECRET }
+export { getJwtSecret as JWT_SECRET }

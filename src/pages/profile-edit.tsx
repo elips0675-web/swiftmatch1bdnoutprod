@@ -39,23 +39,25 @@ const INTEREST_KEY_TO_ID: Record<string, number> = {
 const PROFILE_API = '/api/profile'
 const DEMO_USER_ID = 2
 
-const DEFAULT_PROFILE = {
-  displayName: "Анна",
-  age: 24,
-  city: "Москва",
-  height: 172,
-  gender: "female",
-  lookingFor: "male",
-  datingGoal: "goal.serious_relationship",
-  zodiac: "common.zodiac.leo",
-  bio: "Люблю закаты, хороший кофе и интересные разговоры.",
-  interests: ["interest.photography", "interest.travel", "interest.music", "interest.sport"].filter(i => !BANNED_WORDS.includes(i)),
-  match: 87,
-  attachmentStyle: null,
-  birthDate: "2001-08-10",
-  location: "Москва",
-  photos: [PlaceHolderImages[0].imageUrl, PlaceHolderImages[2].imageUrl, PlaceHolderImages[4].imageUrl],
-};
+function getDefaultProfile(t: (key: string) => string) {
+  return {
+    displayName: t('profile.demo_name'),
+    age: 24,
+    city: t('profile.demo_city'),
+    height: 172,
+    gender: "female" as const,
+    lookingFor: "male" as const,
+    datingGoal: "goal.serious_relationship",
+    zodiac: "common.zodiac.leo",
+    bio: t('profile.demo_bio'),
+    interests: ["interest.photography", "interest.travel", "interest.music", "interest.sport"].filter(i => !BANNED_WORDS.includes(i)),
+    match: 87,
+    attachmentStyle: null as string | null,
+    birthDate: "2001-08-10",
+    location: t('profile.demo_city'),
+    photos: [PlaceHolderImages[0].imageUrl, PlaceHolderImages[2].imageUrl, PlaceHolderImages[4].imageUrl],
+  };
+}
 
 const NAME_TO_KEY: Record<string, string> = {
   'Спорт': 'interest.sport', 'Музыка': 'interest.music', 'Фотография': 'interest.photography',
@@ -165,22 +167,23 @@ export default function EditProfilePage() {
           parsed.displayName = parsed.displayName || parsed.name || t('profile.someone');
         } catch (e) {
           if (import.meta.env.DEV) console.error("Failed to parse profile", e);
-          parsed = { ...DEFAULT_PROFILE };
+          parsed = { ...getDefaultProfile(t) };
         }
       } else {
-        parsed = { ...DEFAULT_PROFILE };
+        parsed = { ...getDefaultProfile(t) };
       }
       setProfile(parsed);
 
+      const defaultProfile = getDefaultProfile(t);
       const savedPhotos = localStorage.getItem('userProfileGallery');
       if (savedPhotos) {
         try {
           setPhotos(JSON.parse(savedPhotos));
         } catch {
-          setPhotos(parsed.photos || DEFAULT_PROFILE.photos);
+          setPhotos(parsed.photos || defaultProfile.photos);
         }
       } else {
-        setPhotos(parsed.photos || DEFAULT_PROFILE.photos);
+        setPhotos(parsed.photos || defaultProfile.photos);
       }
 
       setIsLoading(false);
