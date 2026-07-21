@@ -1,0 +1,2 @@
+ALTER TABLE user_profiles
+  ADD COLUMN IF NOT EXISTS last_location_update TIMESTAMP NULL DEFAULT NULL AFTER lng;

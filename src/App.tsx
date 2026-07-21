@@ -16,6 +16,7 @@ import { ClientOnly } from "@/components/shared/client-only"
 import { CookieConsent } from "@/components/shared/cookie-consent"
 import { PwaInstallBanner } from "@/components/shared/pwa-install-banner"
 import { useFcmToken } from "@/hooks/use-fcm-token"
+import { GeolocationInit } from "@/components/shared/geolocation-init"
 
 const Home = lazy(() => import("./pages/Home"))
 const NotFound = lazy(() => import("./pages/NotFound"))
@@ -139,6 +140,7 @@ const App = () => (
                 <FeatureFlagsProvider>
                   <DocumentTitle />
                   <FcmInit />
+                  <GeolocationInit />
                   <Routes>
                     <Route path="/admin" element={<AdminGuard><AdminLayout><SuspenseWrapper><Admin /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/analytics" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminAnalytics /></SuspenseWrapper></AdminLayout></AdminGuard>} />

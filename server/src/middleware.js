@@ -1,6 +1,10 @@
 import jwt from 'jsonwebtoken'
+import crypto from 'crypto'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production'
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex')
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET must be set in environment for production')
+}
 
 export function auth(req, res, next) {
   const authHeader = req.headers.authorization

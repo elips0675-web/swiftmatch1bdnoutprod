@@ -56,6 +56,7 @@ CREATE TABLE user_profiles (
   passport_city   VARCHAR(100) NULL,
   passport_lat    DECIMAL(10,7) NULL,
   passport_lng    DECIMAL(10,7) NULL,
+  last_location_update TIMESTAMP NULL DEFAULT NULL,
   online          BOOLEAN NOT NULL DEFAULT FALSE,
   last_seen       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

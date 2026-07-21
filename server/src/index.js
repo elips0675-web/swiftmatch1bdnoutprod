@@ -35,12 +35,13 @@ import moderationRoutes from './routes/moderation.js'
 import iapRoutes from './routes/iap.js'
 import gdprRoutes from './routes/gdpr.js'
 import fcmRoutes from './routes/push-fcm.js'
+import locationRoutes from './routes/location.js'
 import { JWT_SECRET } from './middleware.js'
 import { setupSwagger } from './swagger.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT || 3002
 
 const limiter = rateLimit({ windowMs: 60_000, max: 100, message: { message: 'Too many requests' } })
 const authLimiter = rateLimit({ windowMs: 60_000, max: 60, message: { message: 'Too many auth attempts' } })
@@ -161,6 +162,7 @@ app.use(smsRoutes)
 app.use(moderationRoutes)
 app.use(iapRoutes)
 app.use(fcmRoutes)
+app.use(locationRoutes)
 
 app.use('/api/admin', adminAuth)
 

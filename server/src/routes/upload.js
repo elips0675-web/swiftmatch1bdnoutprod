@@ -4,7 +4,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs'
 import pool from '../db.js'
-import { optionalAuth } from '../middleware.js'
+import { auth, optionalAuth } from '../middleware.js'
 import logger from '../logger.js'
 import { processImage } from '../image-pipeline.js'
 import { moderateImage } from '../ai-moderation.js'
@@ -84,7 +84,10 @@ router.post('/api/upload', optionalAuth, async (req, res) => {
 
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' })
 
-    const userId = req.userId || req.body.user_id || 17
+    if (!req.userId && !req.body.user_id) {
+      return res.status(401).json({ message: 'Authentication required' })
+    }
+    const userId = req.userId || req.body.user_id
     const sortOrder = req.body.sort_order || 0
     const url = `/uploads/${req.file.filename}`
 
@@ -133,7 +136,7 @@ router.post('/api/upload', optionalAuth, async (req, res) => {
   }
 })
 
-router.delete('/api/photos/:id', async (req, res) => {
+router.delete('/api/photos/:id', auth, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT url FROM user_photos WHERE id = ?', [req.params.id])
     if (rows.length === 0) return res.status(404).json({ message: 'Photo not found' })
@@ -162,7 +165,7 @@ router.delete('/api/photos/:id', async (req, res) => {
   }
 })
 
-router.get('/api/photos/:userId', async (req, res) => {
+router.get('/api/photos/:userId', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT id, url, sort_order, is_avatar FROM user_photos WHERE user_id = ? ORDER BY sort_order',

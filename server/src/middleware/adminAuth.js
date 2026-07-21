@@ -1,8 +1,7 @@
 import jwt from 'jsonwebtoken'
 import pool from '../db.js'
 import { rootLogger } from '../logger.js'
-
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key'
+import { JWT_SECRET } from '../middleware.js'
 
 export async function adminAuth(req, res, next) {
   const authHeader = req.headers.authorization
