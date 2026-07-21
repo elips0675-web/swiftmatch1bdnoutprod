@@ -9,7 +9,10 @@ async function queueMail(data) {
   }
 }
 
-const FROM = process.env.SMTP_FROM || 'noreply@swiftmatch.app'
+const FROM = process.env.SMTP_FROM || process.env.EMAIL_FROM || 'noreply@swiftmatch.app'
+if (!process.env.SMTP_FROM && !process.env.EMAIL_FROM && process.env.NODE_ENV === 'production') {
+  rootLogger.warn('[mail] SMTP_FROM not configured — using default noreply@swiftmatch.app')
+}
 
 export async function sendPasswordResetEmail(to, token) {
   return queueMail({

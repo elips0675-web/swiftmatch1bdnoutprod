@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +41,7 @@ export default function AdminMessagingPage() {
   const [channel, setChannel] = useState('push');
   const [isSending, setIsSending] = useState(false);
 
-  const fetchCampaigns = async () => {
+  const fetchCampaigns = useCallback(async () => {
     try {
       const token = getToken();
       const res = await fetch('/api/admin/campaigns', {
@@ -55,9 +55,9 @@ export default function AdminMessagingPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchCampaigns(); }, []);
+  useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
 
   const handleSend = async () => {
     if (!title || !body) { toast.error(t('admin.messaging.fill_all')); return; }

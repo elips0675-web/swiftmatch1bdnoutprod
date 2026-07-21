@@ -218,11 +218,11 @@ function ChatsContent() {
       img: c.avatar_url || '',
       online: c.online,
       lastMessage: c.last_message || '',
-      time: c.updated_at ? formatRelativeTime(c.updated_at) : '',
+      time: c.updated_at ? formatRelativeTime(c.updated_at, language) : '',
       last_read_at: c.last_read_at,
       unread_count: c.unread_count || 0,
     }));
-  }, [apiChats]);
+  }, [apiChats, language]);
 
   const filteredData = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();

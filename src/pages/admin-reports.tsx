@@ -53,7 +53,7 @@ export default function AdminReportsPage() {
   const [bannedUsers, setBannedUsers] = useState<BannedUser[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const token = getToken();
@@ -72,9 +72,9 @@ export default function AdminReportsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const updateReport = async (id: number, status: string) => {
     try {

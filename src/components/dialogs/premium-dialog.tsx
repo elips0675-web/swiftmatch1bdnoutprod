@@ -28,12 +28,12 @@ const DURATIONS = [
   { months: 12, discount: 40 },
 ];
 
-function formatPrice(price: number): string {
-  return price.toLocaleString('ru-RU') + ' ₽';
+function formatPrice(price: number, locale: string = 'ru-RU'): string {
+  return price.toLocaleString(locale === 'EN' ? 'en-US' : 'ru-RU') + ' ₽';
 }
 
 export function PremiumDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [selectedTier, setSelectedTier] = useState('');
   const [selectedDuration, setSelectedDuration] = useState(DURATIONS[0].months);
@@ -128,7 +128,7 @@ export function PremiumDialog({ open, onOpenChange }: { open: boolean, onOpenCha
                   <div>
                     <h6 className="font-bold text-[10px] text-foreground/80">{tier.name}</h6>
                     <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="text-lg font-black text-foreground">{formatPrice(tier.price)}</span>
+                      <span className="text-lg font-black text-foreground">{formatPrice(tier.price, language)}</span>
                       <span className="text-[7px] text-muted-foreground font-bold">/ {t('units.month_short')}</span>
                     </div>
                   </div>
@@ -157,7 +157,7 @@ export function PremiumDialog({ open, onOpenChange }: { open: boolean, onOpenCha
                           )}
                         >
                           <div className="text-[9px] font-black">{dur.months} {t('units.month_short')}</div>
-                          <div className="text-[8px] text-muted-foreground font-bold">{formatPrice(durMonthly)}{t('units.per_month')}</div>
+                          <div className="text-[8px] text-muted-foreground font-bold">{formatPrice(durMonthly, language)}{t('units.per_month')}</div>
                           {dur.discount > 0 && (
                             <div className="text-[7px] font-black text-green-500">-{dur.discount}%</div>
                           )}
@@ -190,8 +190,8 @@ export function PremiumDialog({ open, onOpenChange }: { open: boolean, onOpenCha
           <div className="px-5 pb-1">
             <div className="p-2 rounded-xl bg-muted/30 text-center">
               <span className="text-[9px] font-black">{activeTier.name} · {selectedDuration} {t('units.month_short')}</span>
-              <span className="text-[11px] font-black ml-2">{formatPrice(Math.round(totalPrice))}</span>
-              <span className="text-[7px] text-muted-foreground ml-1">({formatPrice(monthlyPrice)}{t('units.per_month')})</span>
+              <span className="text-[11px] font-black ml-2">{formatPrice(Math.round(totalPrice), language)}</span>
+              <span className="text-[7px] text-muted-foreground ml-1">({formatPrice(monthlyPrice, language)}{t('units.per_month')})</span>
             </div>
           </div>
         )}

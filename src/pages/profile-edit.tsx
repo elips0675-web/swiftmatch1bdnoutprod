@@ -485,6 +485,38 @@ export default function EditProfilePage() {
         </div>
 
         <div className="mt-8 px-2">
+          {(() => {
+            const p = profile
+            let score = 0
+            if (p?.displayName) score += 10
+            if (p?.bio) score += Math.min(15, Math.floor((p.bio?.length || 0) / 15))
+            if (p?.gender) score += 5
+            if (p?.city) score += 10
+            if (p?.zodiac) score += 5
+            if (p?.education) score += 5
+            if (p?.datingGoal) score += 10
+            if (p?.height) score += 5
+            if (p?.attachmentStyle) score += 5
+            const photoCount = photos?.length || 0
+            score += Math.min(15, photoCount * 5)
+            const interestCount = p?.interests?.length || 0
+            score += Math.min(15, interestCount * 3)
+            score = Math.min(100, score)
+            const label = score < 40 ? 'profile.score_low' : score < 70 ? 'profile.score_medium' : score < 90 ? 'profile.score_high' : 'profile.score_perfect'
+            const color = score < 40 ? 'bg-red-500' : score < 70 ? 'bg-amber-500' : score < 90 ? 'bg-green-500' : 'bg-primary'
+            return (
+              <div className="mb-6 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-black text-[10px] uppercase tracking-widest text-muted-foreground">{t('profile.score')}</h4>
+                  <span className="text-xs font-black">{score}%</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div className={cn("h-full rounded-full transition-all", color)} style={{ width: `${score}%` }} />
+                </div>
+                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{t(label)}</p>
+              </div>
+            )
+          })()}
           <Button data-testid="save-profile" onClick={handleSave} disabled={isSaving} className="w-full h-14 rounded-2xl gradient-bg text-white font-black uppercase tracking-widest shadow-xl shadow-primary/30 border-0 hover:brightness-110 active:scale-95 transition-all">
             {isSaving ? <Loader2 className="animate-spin mr-2" /> : null}
             {t('profile.save_all')}
