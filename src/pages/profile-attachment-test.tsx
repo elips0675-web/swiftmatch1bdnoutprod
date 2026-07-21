@@ -68,7 +68,7 @@ export default function AttachmentStyleTestPage() {
         }
         toast({ title: t('attach.toast.saved'), description: `${t('attach.toast.your_style')} ${t(ATTACHMENT_STYLE_INFO[result].labelKey)}` });
     } catch (error) {
-        console.error("Error saving attachment style:", error);
+        if (import.meta.env.DEV) console.error("Error saving attachment style:", error);
         toast({ title: t('attach.toast.save_error'), variant: "destructive" });
     } finally {
         setIsSaving(false);

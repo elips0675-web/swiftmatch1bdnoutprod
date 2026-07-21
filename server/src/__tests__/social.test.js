@@ -1,3 +1,7 @@
+vi.hoisted(() => {
+  process.env.JWT_SECRET = 'test-secret'
+})
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import request from 'supertest'
 import express from 'express'
@@ -29,7 +33,7 @@ vi.mock('./push.js', () => ({
 import pool from '../db.js'
 import socialRoutes from '../routes/social.js'
 
-const JWT_SECRET = 'change-me-in-production'
+const JWT_SECRET = process.env.JWT_SECRET || 'test-secret'
 
 function createApp() {
   const app = express()

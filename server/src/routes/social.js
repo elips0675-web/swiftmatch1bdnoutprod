@@ -586,11 +586,12 @@ router.get('/api/chats/:chatId/messages', auth, async (req, res) => {
     if (participant.length === 0) return res.status(403).json({ message: 'Not a participant' })
 
     const [rows] = await pool.query(
-      `SELECT m.id, m.sender_id, m.text, m.image_url, m.reply_to, m.created_at,
+      `SELECT m.id, m.sender_id, m.text, m.image_url, m.reply_to, m.ttl_seconds, m.created_at,
               up.display_name as sender_name
        FROM messages m
        JOIN user_profiles up ON m.sender_id = up.id
        WHERE m.chat_id = ?
+         AND (m.ttl_seconds IS NULL OR m.created_at > DATE_SUB(NOW(), INTERVAL m.ttl_seconds SECOND))
        ORDER BY m.created_at ASC
        LIMIT 100`,
       [req.params.chatId],
@@ -630,12 +631,16 @@ router.get('/api/chats/:chatId/messages', auth, async (req, res) => {
 })
 
 router.post('/api/chats/:chatId/messages', auth, async (req, res) => {
-  const { text, image_url } = req.body
+  const { text, image_url, ttl_seconds } = req.body
   if (!text && !image_url) return res.status(400).json({ message: 'Text or image is required' })
 
-  const bannedWords = await getBannedWords()
-  if (containsBannedWord(text, bannedWords)) {
-    return res.status(403).json({ message: 'Message contains prohibited content' })
+  try {
+    const bannedWords = await getBannedWords()
+    if (containsBannedWord(text, bannedWords)) {
+      return res.status(403).json({ message: 'Message contains prohibited content' })
+    }
+  } catch (err) {
+    logger.error('Banned words check error:', err)
   }
 
   try {
@@ -645,9 +650,10 @@ router.post('/api/chats/:chatId/messages', auth, async (req, res) => {
     )
     if (participant.length === 0) return res.status(403).json({ message: 'Not a participant' })
 
+    const ttl = ttl_seconds > 0 ? ttl_seconds : null
     const [result] = await pool.query(
-      'INSERT INTO messages (chat_id, sender_id, text, image_url) VALUES (?, ?, ?, ?)',
-      [req.params.chatId, req.userId, text || null, image_url || null],
+      'INSERT INTO messages (chat_id, sender_id, text, image_url, ttl_seconds) VALUES (?, ?, ?, ?, ?)',
+      [req.params.chatId, req.userId, text || null, image_url || null, ttl],
     )
 
     const preview = image_url ? '📷 Photo' : (text || '')
@@ -657,7 +663,7 @@ router.post('/api/chats/:chatId/messages', auth, async (req, res) => {
     )
 
     const [[msg]] = await pool.query(
-      `SELECT m.id, m.sender_id, m.text, m.image_url, m.reply_to, m.created_at,
+      `SELECT m.id, m.sender_id, m.text, m.image_url, m.reply_to, m.ttl_seconds, m.created_at,
               up.display_name as sender_name
        FROM messages m
        JOIN user_profiles up ON m.sender_id = up.id

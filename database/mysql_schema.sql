@@ -199,6 +199,7 @@ CREATE TABLE messages (
   text        TEXT NOT NULL,
   image_url   VARCHAR(500) DEFAULT NULL,
   reply_to    INT UNSIGNED DEFAULT NULL,
+  ttl_seconds INT UNSIGNED DEFAULT NULL COMMENT 'Auto-delete after N seconds',
   read_by     JSON DEFAULT NULL COMMENT 'Array of user_ids who read this message',
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,

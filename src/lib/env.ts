@@ -39,7 +39,7 @@ export function getConfig(): EnvConfig {
     const required = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'] as const
     for (const key of required) {
       if (!import.meta.env[key]) {
-        console.error(`Missing required env var: ${key}`)
+        if (import.meta.env.DEV) console.error(`Missing required env var: ${key}`)
       }
     }
   }

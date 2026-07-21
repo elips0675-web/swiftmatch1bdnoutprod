@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getToken } from '@/lib/token';
 
 // Определяем общие типы для API-хука
@@ -68,14 +68,17 @@ export function useApi<T>(path: string, options: UseApiOptions = {}): UseApiStat
       } catch (e) {
         const errorMessage = e instanceof Error ? e.message : 'An unexpected error occurred.';
         setError(errorMessage);
-        console.error(`API call to ${path} failed:`, e);
+        if (import.meta.env.DEV) console.error(`API call to ${path} failed:`, e);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [path, method, JSON.stringify(body), skip, trigger]); // Зависимость от строкового представления body
+  const bodyKey = useMemo(() => JSON.stringify(body), [body]); // Стабильный ключ для зависимости
+
+    fetchData();
+  }, [path, method, bodyKey, skip, trigger]);
 
   return { data, loading, error, refetch };
 }
@@ -123,7 +126,7 @@ export function useApiMutation<T, TBody = any>() {
       const errorMessage = e instanceof Error ? e.message : 'An unexpected error occurred.';
       setError(errorMessage);
       setLoading(false);
-      console.error(`API mutation to ${path} failed:`, e);
+      if (import.meta.env.DEV) console.error(`API mutation to ${path} failed:`, e);
       throw new Error(errorMessage);
     }
   };

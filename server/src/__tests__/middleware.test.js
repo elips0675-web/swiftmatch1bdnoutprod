@@ -1,12 +1,10 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest'
-import jwt from 'jsonwebtoken'
-import { auth, optionalAuth } from '../middleware.js'
-
-const JWT_SECRET = 'change-me-in-production'
-
-beforeAll(() => {
-  process.env.JWT_SECRET = JWT_SECRET
+vi.hoisted(() => {
+  process.env.JWT_SECRET = 'test-secret'
 })
+
+import { describe, it, expect, vi } from 'vitest'
+import jwt from 'jsonwebtoken'
+import { auth, optionalAuth, JWT_SECRET } from '../middleware.js'
 
 function mockReqRes() {
   const req = { headers: {} }

@@ -159,7 +159,7 @@ router.post('/api/premium/cancel', auth, async (req, res) => {
   }
 })
 
-router.post('/api/premium/webhook', (req, res) => {
+router.post('/api/premium/webhook', async (req, res) => {
   const stripeKey = process.env.STRIPE_SECRET_KEY
   if (!stripeKey) return res.status(200).json({ received: true })
 
@@ -169,7 +169,7 @@ router.post('/api/premium/webhook', (req, res) => {
 
   let event
   try {
-    const Stripe = require('stripe')
+    const { default: Stripe } = await import('stripe')
     const stripe = new Stripe(stripeKey)
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret)
   } catch (err) {
@@ -181,13 +181,17 @@ router.post('/api/premium/webhook', (req, res) => {
     const session = event.data.object
     const { userId, tier, duration_months } = session.metadata
     if (userId && tier) {
-      const tierConfig = TIERS.find(t => t.id === tier)
-      const price = tierConfig ? tierConfig.price * Number(duration_months || 1) : 0
-      pool.query(
-        `INSERT INTO subscriptions (user_id, tier, duration_months, price, expires_at, is_active)
-         VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MONTH), 1)`,
-        [Number(userId), tier, Number(duration_months || 1), price, Number(duration_months || 1)],
-      ).catch(err => logger.error('Webhook insert error:', err))
+      try {
+        const tierConfig = TIERS.find(t => t.id === tier)
+        const price = tierConfig ? tierConfig.price * Number(duration_months || 1) : 0
+        await pool.query(
+          `INSERT INTO subscriptions (user_id, tier, duration_months, price, expires_at, is_active)
+           VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MONTH), 1)`,
+          [Number(userId), tier, Number(duration_months || 1), price, Number(duration_months || 1)],
+        )
+      } catch (err) {
+        logger.error('Webhook insert error:', err)
+      }
     }
   }
 

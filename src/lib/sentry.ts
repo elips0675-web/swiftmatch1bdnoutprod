@@ -4,7 +4,7 @@ const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN
 
 export function initSentry() {
   if (!SENTRY_DSN) {
-    console.warn('[Sentry] DSN not configured, skipping initialization')
+    if (import.meta.env.DEV) console.warn('[Sentry] DSN not configured, skipping initialization')
     return false
   }
 

@@ -130,7 +130,7 @@ function normalizeInterests(interests: any): string[] {
           lookingFor: parsed.gender === 'female' ? 'male' : parsed.lookingFor,
         });
       } catch (e) {
-        console.error("Failed to parse profile", e);
+        if (import.meta.env.DEV) console.error("Failed to parse profile", e);
       }
     } else {
       setProfile({
@@ -279,7 +279,7 @@ function normalizeInterests(interests: any): string[] {
           });
         })
         .catch((e) => {
-          console.error("Photo convert error:", e);
+          if (import.meta.env.DEV) console.error("Photo convert error:", e);
           // Если конвертация не удалась, оставляем preview, но оно не переживет перезагрузку.
         })
         .finally(() => {

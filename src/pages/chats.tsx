@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { Search, ChevronLeft, Send, MoveVertical as MoreVertical, Smile, Heart, Laugh, Zap, Flame, Star, Ghost, Rocket, Crown, Music, Phone, Video, Flag, Info, ChevronRight, Trash2, ThumbsUp, PartyPopper, Eye, Frown, Award, Compass, Coffee, MessageSquareQuote, PawPrint, Globe, Film, BookOpen, Baby, Sun } from "lucide-react";
+import { Search, ChevronLeft, Send, MoveVertical as MoreVertical, Smile, Heart, Laugh, Zap, Flame, Star, Ghost, Rocket, Crown, Music, Phone, Video, Flag, Info, ChevronRight, Trash2, ThumbsUp, PartyPopper, Eye, Frown, Award, Compass, Coffee, MessageSquareQuote, PawPrint, Globe, Film, BookOpen, Baby, Sun, Timer, Clock } from "lucide-react";
 import Image from "@/shims/next-image";
 import { useSearchParams, useRouter } from "@/shims/next-navigation";
 import dynamic from "@/shims/next-dynamic";
@@ -168,9 +168,21 @@ function ChatsContent() {
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [inputValue, setInputValue] = useState("");
+  const [selectedTtl, setSelectedTtl] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [showTopicsDialog, setShowTopicsDialog] = useState(false);
+
+  useEffect(() => {
+    if (!wsSocket) return
+    const handler = (data: { chatId: number; messageIds: number[] }) => {
+      if (selectedChat?.id === data.chatId) {
+        setMessages(prev => prev.filter(m => !data.messageIds.includes(m.id)))
+      }
+    }
+    wsSocket.on('chat:message-deleted', handler)
+    return () => { wsSocket.off('chat:message-deleted', handler) }
+  }, [wsSocket, selectedChat?.id])
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const openingChatRef = useRef<number | null>(null);
@@ -395,15 +407,18 @@ function ChatsContent() {
       return;
     }
 
+    const body: Record<string, unknown> = { text: textToSend }
+    if (selectedTtl) body.ttl_seconds = selectedTtl
+
     fetch(`/api/chats/${selectedChat.id}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-      body: JSON.stringify({ text: textToSend }),
+      body: JSON.stringify(body),
     })
       .then(res => res.ok ? res.json() : null)
       .then(msg => {
         if (msg) {
-          const newMessage = { id: msg.id, text: msg.text, sender: 'me', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+          const newMessage = { id: msg.id, text: msg.text, sender: 'me', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), ttl_seconds: msg.ttl_seconds };
           const updated = [...messages, newMessage];
           setMessages(updated);
         }
@@ -566,7 +581,7 @@ function ChatsContent() {
                     })}
                   </div>
                 )}
-                <span className="text-[9px] text-muted-foreground mt-1 px-1 font-bold uppercase tracking-tighter opacity-60">{msg.time}</span>
+                <span className="flex items-center gap-1 text-[9px] text-muted-foreground mt-1 px-1 font-bold uppercase tracking-tighter opacity-60">{msg.ttl_seconds && <Clock size={10} className="inline" />}{msg.time}</span>
               </motion.div>
             )})}</AnimatePresence></div>
             {isTyping && (<motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-1.5 text-muted-foreground"><div className="flex gap-1 bg-white px-3 py-2.5 rounded-lg border border-border/40 shadow-sm rounded-bl-none"><span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce"></span><span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce [animation-delay:0.2s]"></span><span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce [animation-delay:0.4s]"></span></div><span className="text-[9px] font-bold uppercase tracking-widest">{t('chats.typing')}</span></motion.div>)}
@@ -576,13 +591,25 @@ function ChatsContent() {
         <div className="shrink-0 px-4 py-3 bg-white border-t border-border">
           <div className="flex items-center gap-3">
             <div className="flex-1 relative">
-              <Input data-testid="message-input" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onFocus={() => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 300)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder={t('chats.placeholder')} className="pr-12 h-11 bg-muted/50 border-0 rounded-2xl font-medium px-5 text-sm" />
-              <Popover>
-                <PopoverTrigger asChild><button className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"><Smile size={20} /></button></PopoverTrigger>
-                <PopoverContent className="w-full max-w-[280px] p-2 rounded-2xl border-0 shadow-2xl bg-white" side="top" align="end">
-                  <div className="grid grid-cols-5 gap-1">{QUICK_REACTIONS.map(reaction => { const ReactionIcon = reaction.icon; return (<button key={reaction.id} onClick={() => handleSendMessage(reaction.label)} className="w-10 h-10 flex items-center justify-center hover:bg-muted rounded-xl transition-all active:scale-90"><span className="[transform:translateZ(0)]"><ReactionIcon size={24} className={reaction.color} /></span></button>); })}</div>
-                </PopoverContent>
-              </Popover>
+              <Input data-testid="message-input" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onFocus={() => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 300)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder={t('chats.placeholder')} className="pr-20 h-11 bg-muted/50 border-0 rounded-2xl font-medium px-5 text-sm" />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <Popover>
+                  <PopoverTrigger asChild><button className={cn("text-muted-foreground hover:text-primary transition-colors", selectedTtl && "text-primary")}><Timer size={16} /></button></PopoverTrigger>
+                  <PopoverContent className="w-40 p-1.5 rounded-2xl border-0 shadow-2xl bg-white" side="top" align="end">
+                    <div className="space-y-0.5">
+                      {[{label: t('chats.ttl_off'), value: null}, {label: t('chats.ttl_5s'), value: 5}, {label: t('chats.ttl_30s'), value: 30}, {label: t('chats.ttl_1m'), value: 60}, {label: t('chats.ttl_5m'), value: 300}, {label: t('chats.ttl_1h'), value: 3600}, {label: t('chats.ttl_24h'), value: 86400}].map(opt => (
+                        <button key={String(opt.value)} onClick={() => setSelectedTtl(opt.value)} className={cn("w-full text-left px-3 py-1.5 text-xs font-bold rounded-xl transition-all", selectedTtl === opt.value ? "gradient-bg text-white" : "text-muted-foreground hover:bg-muted")}>{opt.label}</button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <Popover>
+                  <PopoverTrigger asChild><button className="text-muted-foreground"><Smile size={16} /></button></PopoverTrigger>
+                  <PopoverContent className="w-full max-w-[280px] p-2 rounded-2xl border-0 shadow-2xl bg-white" side="top" align="end">
+                    <div className="grid grid-cols-5 gap-1">{QUICK_REACTIONS.map(reaction => { const ReactionIcon = reaction.icon; return (<button key={reaction.id} onClick={() => handleSendMessage(reaction.label)} className="w-10 h-10 flex items-center justify-center hover:bg-muted rounded-xl transition-all active:scale-90"><span className="[transform:translateZ(0)]"><ReactionIcon size={24} className={reaction.color} /></span></button>); })}</div>
+                  </PopoverContent>
+                </Popover>
+              </div>
               {selectedChat?.isGroup && (
                 <>
                   <input id="group-image-upload" type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />

@@ -49,7 +49,7 @@ export default function FiltersPage() {
           }
         }
       } catch (e) {
-        console.error("Failed to parse filters from localStorage", e);
+        if (import.meta.env.DEV) console.error("Failed to parse filters from localStorage", e);
       }
     }
   }, []);

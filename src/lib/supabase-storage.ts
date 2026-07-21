@@ -11,7 +11,7 @@ export async function uploadPhoto(
     upsert: false,
   })
   if (error) {
-    console.error('Upload error:', error.message)
+    if (import.meta.env.DEV) console.error('Upload error:', error.message)
     return null
   }
   const { data: url } = supabase.storage.from(bucket).getPublicUrl(path)

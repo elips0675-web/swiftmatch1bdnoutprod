@@ -30,7 +30,7 @@ export function AdDialog({ open, onOpenChange }: { open: boolean, onOpenChange: 
         const { AdMob } = await import('@capacitor-community/admob');
         await AdMob.showRewardedVideoAd();
       } catch (err) {
-        console.warn('[AdMob] SDK not available, using timer fallback:', err);
+        if (import.meta.env.DEV) console.warn('[AdMob] SDK not available, using timer fallback:', err);
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
     } else {

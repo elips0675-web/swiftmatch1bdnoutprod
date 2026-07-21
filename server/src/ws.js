@@ -4,8 +4,41 @@ import jwt from 'jsonwebtoken'
 import { JWT_SECRET } from './middleware.js'
 import { getRedisPub, getRedisSub } from './redis.js'
 import { rootLogger } from './logger.js'
+import pool from './db.js'
 
 let io = null
+const CLEANUP_INTERVAL = 10000
+
+export function startMessageCleanup() {
+  setInterval(async () => {
+    if (!io) return
+    try {
+      const [expired] = await pool.query(
+        `SELECT m.id, m.chat_id, cp.user_id
+         FROM messages m
+         JOIN chat_participants cp ON m.chat_id = cp.chat_id
+         WHERE m.ttl_seconds IS NOT NULL
+           AND m.created_at < DATE_SUB(NOW(), INTERVAL m.ttl_seconds SECOND)`
+      )
+      if (expired.length === 0) return
+
+      const ids = [...new Set(expired.map(r => r.id))]
+      await pool.query('DELETE FROM messages WHERE id IN (?)', [ids])
+
+      const chatIds = [...new Set(expired.map(r => r.chat_id))]
+      for (const chatId of chatIds) {
+        const deletedIds = expired.filter(r => r.chat_id === chatId).map(r => r.id)
+        const users = [...new Set(expired.filter(r => r.chat_id === chatId).map(r => r.user_id))]
+        for (const userId of users) {
+          io.to(`user:${userId}`).emit('chat:message-deleted', { chatId, messageIds: deletedIds })
+        }
+      }
+    } catch (err) {
+      rootLogger.error('[ws] Message cleanup error:', err)
+    }
+  }, CLEANUP_INTERVAL)
+  rootLogger.info('[ws] Message TTL cleanup started every 10s')
+}
 
 export function initIO(httpServer) {
   io = new Server(httpServer, {

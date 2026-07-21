@@ -49,12 +49,12 @@ export async function subscribeToPush() {
       }),
     })
     if (!res.ok) {
-      console.error('Push subscribe server error:', await res.text())
+      if (import.meta.env.DEV) console.error('Push subscribe server error:', await res.text())
       return false
     }
     return true
   } catch (err) {
-    console.error('Push subscribe failed:', err)
+    if (import.meta.env.DEV) console.error('Push subscribe failed:', err)
     return false
   }
 }
@@ -76,6 +76,6 @@ export async function unsubscribeFromPush() {
       await subscription.unsubscribe()
     }
   } catch (err) {
-    console.error('Push unsubscribe failed:', err)
+    if (import.meta.env.DEV) console.error('Push unsubscribe failed:', err)
   }
 }

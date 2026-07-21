@@ -9,7 +9,7 @@ import crypto from 'crypto'
 import rateLimit from 'express-rate-limit'
 import helmet from 'helmet'
 import pool from './db.js'
-import { initIO } from './ws.js'
+import { initIO, startMessageCleanup } from './ws.js'
 import { createLogger, rootLogger } from './logger.js'
 import { idempotency } from './middleware/idempotency.js'
 import { initSentry } from './sentry.js'
@@ -214,6 +214,7 @@ initSentry(app)
 
 const httpServer = createServer(app)
 initIO(httpServer)
+startMessageCleanup()
 httpServer.listen(PORT, () => {
   rootLogger.info(`SwiftMatch API running on port ${PORT}`)
   getRedis() // lazy connect

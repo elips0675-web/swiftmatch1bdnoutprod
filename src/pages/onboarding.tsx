@@ -118,7 +118,7 @@ export default function OnboardingPage() {
             toast({ title: `${t('onboarding.loc.success')}${city}` });
           }
         } catch (error) {
-          console.error("Geocoding error:", error);
+          if (import.meta.env.DEV) console.error("Geocoding error:", error);
         } finally {
           setIsDetectingLocation(false);
         }
@@ -140,7 +140,7 @@ export default function OnboardingPage() {
         toast({ title: t('onboarding.toast.bio_ai') });
       }
     } catch (error) {
-      console.error("AI Bio error:", error);
+      if (import.meta.env.DEV) console.error("AI Bio error:", error);
     } finally {
       setIsGeneratingBio(false);
     }
@@ -194,7 +194,7 @@ export default function OnboardingPage() {
         toast({ title: t('onboarding.toast.finish_title'), description: t('onboarding.toast.finish_desc') });
         router.push("/"); 
     } catch (error) {
-        console.error("Error saving profile:", error);
+        if (import.meta.env.DEV) console.error("Error saving profile:", error);
         toast({ title: t('onboarding.save_error'), variant: "destructive" });
     }
   };

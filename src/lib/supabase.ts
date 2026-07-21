@@ -14,7 +14,7 @@ export function getSupabase(): SupabaseClient<Database> | null {
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
   if (!url || !anonKey) {
-    console.warn(
+    if (import.meta.env.DEV) console.warn(
       '[Supabase] VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY not set. ' +
       'Falling back to demo mode. Set these env vars for production.',
     )
@@ -34,7 +34,7 @@ export function getSupabase(): SupabaseClient<Database> | null {
     })
     return client
   } catch (err) {
-    console.warn('[Supabase] Failed to init:', err)
+    if (import.meta.env.DEV) console.warn('[Supabase] Failed to init:', err)
     return null
   }
 }

@@ -60,7 +60,7 @@ export function useFcmToken() {
               console.log('[FCM] Token registered successfully')
             }
           } catch (err) {
-            console.error('[FCM] Token registration failed:', err)
+            if (import.meta.env.DEV) console.error('[FCM] Token registration failed:', err)
           }
         })
 
@@ -79,7 +79,7 @@ export function useFcmToken() {
 
         registeredRef.current = true
       } catch (err) {
-        console.error('[FCM] Initialization error:', err)
+        if (import.meta.env.DEV) console.error('[FCM] Initialization error:', err)
       }
     }
 

@@ -72,7 +72,7 @@ export default function LoginPage() {
         });
       }
     } catch (error) {
-      console.error("Login Error:", error);
+      if (import.meta.env.DEV) console.error("Login Error:", error);
       toast({
           title: t('auth.network_error'),
           description: t('auth.network_error_desc'),
@@ -95,7 +95,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' })
       if (error) throw error
     } catch (error: any) {
-      console.error("Google Sign-In Error:", error);
+      if (import.meta.env.DEV) console.error("Google Sign-In Error:", error);
       toast({
           title: t('auth.login_error'),
           description: error.message || t('auth.google_login_error'),

@@ -53,7 +53,7 @@ export const PhotoUploader = ({ photos, onPhotosChange }: PhotoUploaderProps) =>
             }
         } catch (error) {
             newPhotos.splice(placeholderIndex, 1);
-            console.error('Upload error:', error);
+            if (import.meta.env.DEV) console.error('Upload error:', error);
             toast({ title: "Сетевая ошибка", description: `Проблема с загрузкой ${file.name}.`, variant: "destructive" });
         } finally {
             newUploadingStates[placeholderIndex] = false;

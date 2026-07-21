@@ -80,7 +80,7 @@ export default function RegisterPage() {
             });
         }
     } catch (error) {
-        console.error("Registration Error:", error);
+        if (import.meta.env.DEV) console.error("Registration Error:", error);
         toast({
                 title: t('auth.network_error'),
                 description: t('auth.network_error_desc'),

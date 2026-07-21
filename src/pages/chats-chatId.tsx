@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronLeft, Send, MoreVertical, Smile, Heart, Laugh, Zap, Star, Flame, Eye, CheckCheck, Phone, Video } from "lucide-react";
+import { ChevronLeft, Send, MoreVertical, Smile, Heart, Laugh, Zap, Star, Flame, Eye, CheckCheck, Phone, Video, Timer, Clock } from "lucide-react";
 import Image from "@/shims/next-image";
 import { useRouter } from "@/shims/next-navigation";
 import { Input } from "@/components/ui/input";
@@ -63,6 +63,7 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
   const { user } = useAuth();
   const { socket } = useWebSocket();
   const [inputValue, setInputValue] = useState("");
+  const [selectedTtl, setSelectedTtl] = useState<number | null>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
   const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
   const [reactionMsgId, setReactionMsgId] = useState<number | null>(null);
@@ -114,6 +115,17 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
     }
   }, [params.chatId]);
 
+  useEffect(() => {
+    if (!socket) return
+    const handler = (data: { chatId: number; messageIds: number[] }) => {
+      if (data.chatId === Number(params.chatId)) {
+        refetchMessages()
+      }
+    }
+    socket.on('chat:message-deleted', handler)
+    return () => { socket.off('chat:message-deleted', handler) }
+  }, [socket, params.chatId])
+
   const handleSendMessage = async (textOverride?: string) => {
     const content = textOverride || inputValue.trim();
     if (!content) return;
@@ -125,7 +137,9 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
     if (!textOverride) setInputValue("");
 
     try {
-      await sendMessage(`/api/chats/${params.chatId}/messages`, 'POST', { text: content });
+      const body: Record<string, unknown> = { text: content }
+      if (selectedTtl) body.ttl_seconds = selectedTtl
+      await sendMessage(`/api/chats/${params.chatId}/messages`, 'POST', body);
     } catch (error) {
       toast({ title: t('error.generic_title'), description: t('error.send_message'), variant: "destructive" });
       setOptimisticMessages(prev => prev.filter(m => m.id !== tempId));
@@ -225,7 +239,7 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
                   )}
                 </div>
                 <div className="flex items-center gap-1 mt-1 px-1">
-                  <span className="text-[10px] text-muted-foreground">{format(new Date(msg.created_at), 'HH:mm')}</span>
+                  <span className="flex items-center gap-1 text-[10px] text-muted-foreground">{msg.ttl_seconds && <Clock size={10} className="inline" />}{format(new Date(msg.created_at), 'HH:mm')}</span>
                   {msg.sender_id !== chatPartner.user_id && (
                     msg.seen
                       ? <CheckCheck size={12} className="text-blue-500" />
@@ -252,13 +266,25 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
       <div className="p-4 pb-[calc(4rem+env(safe-area-inset-bottom))] bg-white border-t">
          <div className="flex items-center gap-3">
           <div className="flex-1 relative">
-            <Input data-testid="message-input" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onFocus={() => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 300)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder={t('chats.placeholder')} className="pr-12 h-11 bg-muted/50 border-0 rounded-xl" />
-            <Popover>
-              <PopoverTrigger asChild><button className="absolute right-4 top-1/2 -translate-y-1/2"><Smile size={20} /></button></PopoverTrigger>
-              <PopoverContent side="top" align="end" className="p-2 w-auto">
-                <div className="grid grid-cols-6 gap-1">{QUICK_REACTIONS.map(r => <button key={r.id} onClick={() => handleSendMessage(r.label)} className="p-2 hover:bg-muted rounded-lg"><r.icon size={22} className={r.color}/></button>)}</div>
-              </PopoverContent>
-            </Popover>
+            <Input data-testid="message-input" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onFocus={() => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 300)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder={t('chats.placeholder')} className="pr-24 h-11 bg-muted/50 border-0 rounded-xl" />
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              <Popover>
+                <PopoverTrigger asChild><button className={cn("text-muted-foreground hover:text-primary transition-colors", selectedTtl && "text-primary")}><Timer size={16} /></button></PopoverTrigger>
+                <PopoverContent side="top" align="end" className="w-40 p-1.5 rounded-2xl border-0 shadow-2xl bg-white">
+                  <div className="space-y-0.5">
+                    {[{label: t('chats.ttl_off'), value: null}, {label: t('chats.ttl_5s'), value: 5}, {label: t('chats.ttl_30s'), value: 30}, {label: t('chats.ttl_1m'), value: 60}, {label: t('chats.ttl_5m'), value: 300}, {label: t('chats.ttl_1h'), value: 3600}, {label: t('chats.ttl_24h'), value: 86400}].map(opt => (
+                      <button key={String(opt.value)} onClick={() => setSelectedTtl(opt.value)} className={cn("w-full text-left px-3 py-1.5 text-xs font-bold rounded-xl transition-all", selectedTtl === opt.value ? "gradient-bg text-white" : "text-muted-foreground hover:bg-muted")}>{opt.label}</button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Popover>
+                <PopoverTrigger asChild><button className="text-muted-foreground"><Smile size={16} /></button></PopoverTrigger>
+                <PopoverContent side="top" align="end" className="p-2 w-auto">
+                  <div className="grid grid-cols-6 gap-1">{QUICK_REACTIONS.map(r => <button key={r.id} onClick={() => handleSendMessage(r.label)} className="p-2 hover:bg-muted rounded-lg"><r.icon size={22} className={r.color}/></button>)}</div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
           <Button data-testid="send-button" size="icon" onClick={() => handleSendMessage()} disabled={!inputValue.trim() && !isSending} className="h-11 w-11 rounded-xl gradient-bg text-white">
             <Send size={18} />

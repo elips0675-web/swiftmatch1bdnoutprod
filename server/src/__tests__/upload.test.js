@@ -1,6 +1,11 @@
+vi.hoisted(() => {
+  process.env.JWT_SECRET = 'test-secret'
+})
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import request from 'supertest'
 import express from 'express'
+import jwt from 'jsonwebtoken'
 
 vi.mock('../db.js', () => ({
   default: { query: vi.fn() },
@@ -25,6 +30,12 @@ vi.mock('multer', () => {
 import pool from '../db.js'
 import uploadRoutes from '../routes/upload.js'
 
+const JWT_SECRET = process.env.JWT_SECRET || 'test-secret'
+
+function authHeader(userId = 1) {
+  return 'Bearer ' + jwt.sign({ userId, role: 'user' }, JWT_SECRET, { expiresIn: '1h' })
+}
+
 function createApp() {
   const app = express()
   app.use(express.json())
@@ -41,7 +52,7 @@ describe('GET /api/photos/:userId', () => {
 
   it('returns user photos', async () => {
     pool.query.mockResolvedValueOnce([[{ id: 1, url: '/uploads/1.jpg', sort_order: 0, is_avatar: false }], []])
-    const res = await request(app).get('/api/photos/1')
+    const res = await request(app).get('/api/photos/1').set('Authorization', authHeader())
     expect(res.status).toBe(200)
     expect(Array.isArray(res.body)).toBe(true)
     expect(res.body[0].url).toBe('/uploads/1.jpg')
@@ -49,14 +60,14 @@ describe('GET /api/photos/:userId', () => {
 
   it('returns empty array for no photos', async () => {
     pool.query.mockResolvedValueOnce([[], []])
-    const res = await request(app).get('/api/photos/99')
+    const res = await request(app).get('/api/photos/99').set('Authorization', authHeader())
     expect(res.status).toBe(200)
     expect(res.body).toEqual([])
   })
 
   it('handles database error', async () => {
     pool.query.mockRejectedValue(new Error('DB error'))
-    const res = await request(app).get('/api/photos/1')
+    const res = await request(app).get('/api/photos/1').set('Authorization', authHeader())
     expect(res.status).toBe(500)
   })
 })
@@ -66,7 +77,7 @@ describe('DELETE /api/photos/:id', () => {
 
   it('returns 404 for non-existent photo', async () => {
     pool.query.mockResolvedValueOnce([[], []])
-    const res = await request(app).delete('/api/photos/999')
+    const res = await request(app).delete('/api/photos/999').set('Authorization', authHeader())
     expect(res.status).toBe(404)
   })
 
@@ -74,14 +85,14 @@ describe('DELETE /api/photos/:id', () => {
     pool.query
       .mockResolvedValueOnce([[{ url: '/uploads/test.jpg' }], []])
       .mockResolvedValueOnce([[], []])
-    const res = await request(app).delete('/api/photos/1')
+    const res = await request(app).delete('/api/photos/1').set('Authorization', authHeader())
     expect(res.status).toBe(200)
     expect(res.body.success).toBe(true)
   })
 
   it('handles database error', async () => {
     pool.query.mockRejectedValue(new Error('DB error'))
-    const res = await request(app).delete('/api/photos/1')
+    const res = await request(app).delete('/api/photos/1').set('Authorization', authHeader())
     expect(res.status).toBe(500)
   })
 })

@@ -165,7 +165,7 @@ export default function EditProfilePage() {
           parsed.photos = Array.isArray(parsed.photos) ? parsed.photos : [];
           parsed.displayName = parsed.displayName || parsed.name || t('profile.someone');
         } catch (e) {
-          console.error("Failed to parse profile", e);
+          if (import.meta.env.DEV) console.error("Failed to parse profile", e);
           parsed = { ...DEFAULT_PROFILE };
         }
       } else {
@@ -290,7 +290,7 @@ export default function EditProfilePage() {
         }),
       })
     } catch (e) {
-      console.error('Failed to save to API', e)
+      if (import.meta.env.DEV) console.error('Failed to save to API', e)
     }
 
     toast({ title: t('toast.profile_saved'), description: t('toast.profile_saved_desc') });
