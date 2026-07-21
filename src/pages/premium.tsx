@@ -23,12 +23,12 @@ const DURATIONS = [
   { months: 12, discount: 40 },
 ]
 
-function formatPrice(price: number): string {
-  return price.toLocaleString('ru-RU') + ' ₽'
+function formatPrice(price: number, locale: string = 'ru-RU'): string {
+  return price.toLocaleString(locale === 'EN' ? 'en-US' : 'ru-RU') + ' ₽'
 }
 
 export default function Premium() {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const router = useRouter()
   const [tiers, setTiers] = useState<Tier[]>([])
   const [selectedTier, setSelectedTier] = useState('')
@@ -116,7 +116,7 @@ export default function Premium() {
                 <div>
                   <h3 className="font-bold text-lg">{tier.name}</h3>
                   <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-2xl font-black">{formatPrice(tier.price)}</span>
+                    <span className="text-2xl font-black">{formatPrice(tier.price, language)}</span>
                     <span className="text-xs text-muted-foreground">/ {t('units.month_short')}</span>
                   </div>
                 </div>
@@ -145,7 +145,7 @@ export default function Premium() {
                         )}
                       >
                         <div className="text-sm font-black">{dur.months} {t('units.month_short')}</div>
-                        <div className="text-xs text-muted-foreground">{formatPrice(durMonthly)}{t('units.per_month')}</div>
+                        <div className="text-xs text-muted-foreground">{formatPrice(durMonthly, language)}{t('units.per_month')}</div>
                         {dur.discount > 0 && (
                           <div className="text-xs font-black text-green-500">-{dur.discount}%</div>
                         )}
@@ -161,8 +161,8 @@ export default function Premium() {
         {activeTier && selectedDuration > 0 && (
           <div className="p-3 rounded-xl bg-muted/30 text-center">
             <span className="font-bold">{activeTier.name} · {selectedDuration} {t('units.month_short')}</span>
-            <span className="text-lg font-black ml-2">{formatPrice(Math.round(totalPrice))}</span>
-            <span className="text-xs text-muted-foreground ml-1">({formatPrice(monthlyPrice)}{t('units.per_month')})</span>
+            <span className="text-lg font-black ml-2">{formatPrice(Math.round(totalPrice), language)}</span>
+            <span className="text-xs text-muted-foreground ml-1">({formatPrice(monthlyPrice, language)}{t('units.per_month')})</span>
           </div>
         )}
 

@@ -38,18 +38,18 @@ const Upload = ({ size }: { size: number }) => <svg xmlns="http://www.w3.org/200
 
 const GroupFeed = dynamic(() => import('@/components/feeds/category-feed').then(m => ({ default: m.CategoryFeed })), { ssr: false });
 
-function formatRelativeTime(dateStr: string): string {
+function formatRelativeTime(dateStr: string, locale: string = 'ru-RU'): string {
   const now = Date.now();
   const d = new Date(dateStr).getTime();
   const diff = now - d;
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'только что';
-  if (mins < 60) return `${mins}м`;
+  if (mins < 1) return locale === 'EN' ? 'just now' : 'только что';
+  if (mins < 60) return `${mins}${locale === 'EN' ? 'm' : 'м'}`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}ч`;
+  if (hours < 24) return `${hours}${locale === 'EN' ? 'h' : 'ч'}`;
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}д`;
-  return new Date(dateStr).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  if (days < 7) return `${days}${locale === 'EN' ? 'd' : 'д'}`;
+  return new Date(dateStr).toLocaleDateString(locale === 'EN' ? 'en-US' : 'ru-RU', { day: 'numeric', month: 'short' });
 }
 
 const QUICK_REACTIONS = [

@@ -472,6 +472,41 @@ function normalizeInterests(interests: any): string[] {
             </TabsList>
             <TabsContent value="profile">
               <div className="bg-white rounded-2xl p-6 app-shadow border border-border/40 space-y-6">
+                {(() => {
+                  const p = profile
+                  let score = 0
+                  if (p?.displayName) score += 10
+                  if (p?.bio) score += Math.min(15, Math.floor((p.bio?.length || 0) / 15))
+                  if (p?.gender) score += 5
+                  if (p?.city) score += 10
+                  if (p?.zodiac) score += 5
+                  if (p?.education) score += 5
+                  if (p?.datingGoal) score += 10
+                  if (p?.height) score += 5
+                  if (p?.attachmentStyle) score += 5
+                  const photoCount = p?.photos?.length || 0
+                  score += Math.min(15, photoCount * 5)
+                  const interestCount = p?.interests?.length || 0
+                  score += Math.min(15, interestCount * 3)
+                  score = Math.min(100, score)
+                  const label = score < 40 ? 'profile.score_low' : score < 70 ? 'profile.score_medium' : score < 90 ? 'profile.score_high' : 'profile.score_perfect'
+                  const color = score < 40 ? 'bg-red-500' : score < 70 ? 'bg-amber-500' : score < 90 ? 'bg-green-500' : 'bg-primary'
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Target size={16} className="text-primary" />
+                          <h4 className="font-black text-[11px] uppercase tracking-widest text-muted-foreground">{t('profile.score')}</h4>
+                        </div>
+                        <span className="text-[11px] font-black">{score}%</span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className={cn("h-full rounded-full transition-all", color)} style={{ width: `${score}%` }} />
+                      </div>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{t(label)}</p>
+                    </div>
+                  )
+                })()}
                 {earnedTitles.length > 0 && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 mb-2">

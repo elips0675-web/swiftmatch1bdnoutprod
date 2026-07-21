@@ -210,4 +210,52 @@ router.put('/api/settings/privacy', auth, async (req, res) => {
   }
 })
 
+router.put('/api/profile/score', auth, async (req, res) => {
+  try {
+    const [[profile]] = await pool.query(
+      `SELECT p.display_name, p.bio, p.city, p.lat, p.lng, p.zodiac, p.education, p.dating_goal,
+              p.height, p.attachment_style, p.gender
+       FROM user_profiles p WHERE p.id = ?`,
+      [req.userId],
+    )
+    if (!profile) return res.status(404).json({ message: 'Profile not found' })
+
+    const [photos] = await pool.query(
+      'SELECT COUNT(*) as cnt FROM user_photos WHERE user_id = ? AND moderation_status = ?',
+      [req.userId, 'approved'],
+    )
+    const photoCount = photos[0]?.cnt || 0
+
+    const [interests] = await pool.query(
+      'SELECT COUNT(*) as cnt FROM user_interests WHERE user_id = ?',
+      [req.userId],
+    )
+    const interestCount = interests[0]?.cnt || 0
+
+    let score = 0
+    if (profile.display_name) score += 10
+    if (profile.bio) score += Math.min(15, Math.floor(profile.bio.length / 15))
+    if (profile.gender) score += 5
+    if (profile.city || profile.lat) score += 10
+    if (profile.zodiac) score += 5
+    if (profile.education) score += 5
+    if (profile.dating_goal) score += 10
+    if (profile.height) score += 5
+    if (profile.attachment_style) score += 5
+    score += Math.min(15, photoCount * 5)
+    score += Math.min(15, interestCount * 3)
+    score = Math.min(100, Math.round(score))
+
+    await pool.query(
+      'UPDATE user_profiles SET profile_score = ?, profile_score_updated_at = NOW() WHERE id = ?',
+      [score, req.userId],
+    )
+
+    res.json({ score, photoCount, interestCount })
+  } catch (err) {
+    logger.error('Profile score error:', err)
+    res.status(500).json({ message: 'Failed to calculate profile score' })
+  }
+})
+
 export default router

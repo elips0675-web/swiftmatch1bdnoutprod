@@ -138,7 +138,7 @@ const PostImageGallery = ({ images }: { images: string[] }) => {
       <div className={cn("mt-2 rounded-xl overflow-hidden border border-gray-200/80 grid gap-0.5", count === 1 ? "grid-cols-1" : "grid-cols-2")}>
         {images.slice(0, count === 1 ? 1 : count === 2 ? 2 : 4).map((src, index) => (
           <div
-            key={index}
+            key={src}
             className={cn("bg-gray-200 cursor-pointer overflow-hidden", count === 3 && index === 0 ? "col-span-2 row-span-2" : "aspect-square")}
             onClick={() => { setSelectedIndex(index); setLightboxOpen(true); }}
           >
@@ -200,7 +200,7 @@ const PostImageUploader = ({
         </Label>
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
           {images.map((image, index) => (
-            <div key={index} className="relative aspect-square rounded-lg overflow-hidden border">
+            <div key={image} className="relative aspect-square rounded-lg overflow-hidden border">
               <img src={image} alt={`preview ${index}`} className="w-full h-full object-cover" />
               <button
                 type="button"

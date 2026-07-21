@@ -95,7 +95,7 @@ export const PhotoUploader = ({ photos, onPhotosChange }: PhotoUploaderProps) =>
       </div>
       <div className="grid grid-cols-3 gap-3">
         {photos.map((photo, index) => (
-          <div key={index} className="relative aspect-square rounded-xl overflow-hidden group bg-muted">
+          <div key={photo} className="relative aspect-square rounded-xl overflow-hidden group bg-muted">
             {isUploading[index] ? (
               <div className="flex items-center justify-center h-full">
                 <Loader2 className="animate-spin text-primary" />

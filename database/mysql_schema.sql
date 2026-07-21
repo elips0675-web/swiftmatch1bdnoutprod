@@ -57,6 +57,8 @@ CREATE TABLE user_profiles (
   passport_lat    DECIMAL(10,7) NULL,
   passport_lng    DECIMAL(10,7) NULL,
   last_location_update TIMESTAMP NULL DEFAULT NULL,
+  profile_score   DECIMAL(5,2) DEFAULT NULL COMMENT 'Profile completeness score 0-100',
+  profile_score_updated_at TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
   online          BOOLEAN NOT NULL DEFAULT FALSE,
   last_seen       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

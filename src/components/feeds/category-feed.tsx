@@ -154,7 +154,7 @@ const PostImageUploader = ({ images, setImages, newPostImageUrls, setNewPostImag
         </Label>
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
           {images.map((image, index) => (
-            <div key={index} className="relative aspect-square rounded-lg overflow-hidden border">
+            <div key={image} className="relative aspect-square rounded-lg overflow-hidden border">
               <img src={image} alt={`preview ${index}`} className="w-full h-full object-cover" />
               <button type="button" onClick={() => removeImage(index)} className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 backdrop-blur-sm hover:bg-black/80 transition-colors">
                 <X size={14} />

@@ -350,7 +350,7 @@ export default function EditProfilePage() {
             </div>
             <div className="grid grid-cols-3 gap-3">
               {photos.map((photo, index) => (
-                <div key={index} className="relative aspect-square rounded-xl overflow-hidden group bg-muted">
+                <div key={photo} className="relative aspect-square rounded-xl overflow-hidden group bg-muted">
                   <img src={photo} alt={`Photo ${index + 1}`} className="object-cover w-full h-full" />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <button
