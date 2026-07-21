@@ -41,8 +41,11 @@
 - **Setup:** `scripts/setup.ps1` — авто-копирование .env + генерация JWT_SECRET + npm install
 - **S3 scaffold:** lazy-init (AWS env → multer-s3, иначе локальный диск)
 - **Redis scaffold:** lazy singleton с ioredis, getRedis()/withRedis()/disconnectRedis(), winston-логи
-- **Redis cache module:** `cache.js` — `cacheRoute()`, `cacheRoutePerUser()`, `setCached()`/`getCached()`, `invalidate()`. Кэширует GET /api/profile/:id (60s) и GET /api/matches (30s per-user), сбрасывается при PUT profile и POST like→match
+- **Redis scaffold + cache module:** lazy singleton с ioredis, getRedis()/withRedis()/disconnectRedis(), winston-логи. `cache.js` — `cacheRoute()`, `cacheRoutePerUser()`, `setCached()`/`getCached()`, `invalidate()`. Кэширует GET /api/profile/:id (60s) и GET /api/matches (30s per-user). **Redis Adapter для Socket.IO** — уже в `ws.js` (читать `getRedisPub`/`getRedisSub`, крепит adapter при наличии Redis)
 - **CACHE_TTL:** env-переменная (`server/.env.example`), по умолчанию 60s
+- **Disappearing Messages (TTL):** миграция `011_add_disappearing_messages.sql`, колонка `ttl_seconds` на `messages`, `startMessageCleanup()` в `ws.js` (интервал 10s, удаление истёкших + WS `chat:message-deleted→user:{id}`), POST /api/chats/:chatId/messages принимает `ttl_seconds`, TTL selector Popover в чатах (Off/5s/30s/1m/5m/1h/24h)
+- **Video Date Scheduling:** миграция `012_add_date_schedules.sql`, роуты `/api/schedule` (GET/POST/PUT), WS `schedule:updated`, `src/pages/schedule.tsx` (список + фильтр + accept/decline/cancel), Calendar button в заголовках чатов, диалог предложения даты с выбором времени/длительности/сообщения
+- **Profile Score:** миграция `013_add_profile_score.sql`, колонка `profile_score` в `user_profiles`, `calculateProfileScore()` (полнота анкеты: аватар, био, рост, образование, знак зодиака, стиль привязанности, цель, город, пол, кого ищет, 3+ фото), `GET /api/profile/:id/score` возвращает score + рекомендации, UI-бейдж в профиле (зелёный ≥80, жёлтый ≥50, красный <50) + список рекомендаций с потенциальными баллами
 
 ### Аудит по оценке kimi (июль 2026) — 13 требований
 - **Admin роуты:** проверены все 8 файлов — 30 тестов проходят
@@ -196,14 +199,11 @@
 | 4 | SMS-верификация (Twilio) | ✅ Интегрирована в регистрацию (auth.js + register.tsx) | Вписать Twilio API-ключи |
 | 5 | AI-модерация фото (AWS Rekognition) | ✅ Интегрирована в upload.js (NSFW → moderation_status) | Вписать AWS/OpenAI ключи |
 
-### 🟠 Высокий приоритет (retention)
-| # | Задача | Статус | Что нужно |
-|---|--------|--------|-----------|
-| 6 | CDN для фото (S3 + CloudFront) | ✅ Sharp pipeline есть; S3 scaffold | Настроить S3 + CDN; сейчас локальный диск |
-| 7 | GDPR / Data Privacy Compliance | ✅ | Data export, full erasure, consent_log API, UI кнопки |
-| 8 | Background GPS + Geofence | ❌ | @capacitor/geolocation background mode |
-| 9 | Ghost Mode / Incognito (Premium) | ✅ | incognito BOOLEAN, search filter, premium-gated API, фронт синхронизирован |
-| 10 | Passport Mode (Premium) | ✅ | passport_mode/city/lat/lng, авто-подстановка в поиск, premium-gated, UI toggle |
+### 🟠 Остаётся доделать
+1. **Real API ключи:** вписать 10+ ключей в `server/.env`: Stripe, SMTP, Sentry, S3, Redis, FCM, RevenueCat, Twilio, AWS, OpenAI
+2. **Deep Links:** настроить Universal Links (iOS) + App Links (Android)
+3. **Background sync:** сообщения в offline → отправка при возвращении
+4. **Background GPS + Geofence:** `@capacitor/geolocation` background mode (требует нативных разрешений)
 
 ### 🟡 Средний приоритет (конкуренция)
 | # | Задача | Статус |
@@ -269,7 +269,9 @@
 | `server/src/redis.js` | ioredis lazy client |
 | `server/src/cache.js` | Redis cache middleware (cacheRoute, cacheRoutePerUser, invalidate) |
 | `server/src/routes/admin/analytics.js` | analytics/overview, retention, revenue-mix, registrations |
-| `server/src/fcm.js` | Firebase Cloud Messaging клиент |
+| `server/src/fcm.js` | Firebase Cloud Messaging клиент (HTTP API + Admin SDK) |
+| `server/src/routes/push-fcm.js` | FCM token registration API |
+| `server/src/routes/iap.js` | RevenueCat IAP webhook + продукты |
 | `server/src/routes/iap.js` | RevenueCat IAP webhook + продукты |
 | `server/src/sms.js` | Twilio SMS клиент |
 | `server/src/ai-moderation.js` | AI модерация (OpenAI + Rekognition) |
@@ -287,7 +289,7 @@
 
 ## Production Readiness Summary
 - **Тесты:** 199 total — 52 фронт (11 файлов) + 117 сервер (11 файлов) + 30 E2E — 0 failures
-- **Сборка:** `vite build` успешно
+- **Сборка:** `vite build` успешно (1.83s, 3582 modules)
 - **Логи:** Winston во всех серверных файлах (0 console.log/error)
 - **Backup:** `scripts/backup-mysql.ps1` (auto-detect mysqldump, retention 7d) + Task Scheduler (ежедневно 03:00)
 - **Setup:** `scripts/setup.ps1` — автоматическая настройка dev-окружения
@@ -303,13 +305,13 @@
 - **WS real-time:** тест сообщения без перезагрузки + двухбраузерный тест
 - **Unit-тесты:** use-websocket, language-context, feature-flags-context
 - **Новые роуты:** /matches, /premium, /settings/privacy, /profile/:id добавлены в App.tsx
-- **Vite сборка:** 2.09s, 3580 modules, 0 errors (после фикса chats.tsx)
+- **Vite сборка:** 1.91s, 3582 modules, 0 errors (после фикса chats.tsx)
 
 Для прода: вписать 10+ ключей в `server/.env`: Stripe, SMTP, Sentry, S3, Redis, FCM, RevenueCat, Twilio, AWS, OpenAI.
 
 ## Production Roadmap — что нужно добавить для продакшена
 
-*(Дублирует секцию «Что не сделано / ждёт — по оценке kimi» выше. См. её для актуального статуса.)*
+*(См. секцию «Что не сделано / ждёт — по оценке kimi» выше. Для актуального статуса.)*
 
 Полное описание — в `Оценка kimi.txt`.
 

@@ -736,6 +736,38 @@ CREATE TABLE IF NOT EXISTS sms_verification (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------
+-- 44. FCM TOKENS (Android push via Capacitor)
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS fcm_tokens (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id     INT UNSIGNED NOT NULL,
+  token       VARCHAR(500) NOT NULL,
+  platform    ENUM('android','ios') NOT NULL DEFAULT 'android',
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_fcm_token (token(255)),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_fcm_user (user_id),
+  INDEX idx_fcm_platform (platform)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------
+-- 45. INC0GNITO / PASSPORT MODE (Premium features)
+-- -----------------------------------------------------------
+ALTER TABLE user_profiles
+  ADD COLUMN IF NOT EXISTS incognito BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS passport_mode BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS passport_city VARCHAR(100) DEFAULT NULL;
+
+-- -----------------------------------------------------------
+-- 46. SUBSCRIPTION IAP FIELDS
+-- -----------------------------------------------------------
+ALTER TABLE subscriptions
+  ADD COLUMN IF NOT EXISTS iap_product_id VARCHAR(100) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS iap_purchase_token VARCHAR(500) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS iap_store ENUM('apple','google') DEFAULT NULL;
+
+-- -----------------------------------------------------------
 -- 47. CONSENT LOG (GDPR)
 -- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS consent_log (

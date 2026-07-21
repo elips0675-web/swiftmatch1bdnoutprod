@@ -34,6 +34,7 @@ import smsRoutes from './routes/sms.js'
 import moderationRoutes from './routes/moderation.js'
 import iapRoutes from './routes/iap.js'
 import gdprRoutes from './routes/gdpr.js'
+import fcmRoutes from './routes/push-fcm.js'
 import { JWT_SECRET } from './middleware.js'
 import { setupSwagger } from './swagger.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -159,6 +160,7 @@ app.use(authRoutes)
 app.use(smsRoutes)
 app.use(moderationRoutes)
 app.use(iapRoutes)
+app.use(fcmRoutes)
 
 app.use('/api/admin', adminAuth)
 

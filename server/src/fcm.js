@@ -1,14 +1,29 @@
 import { rootLogger } from './logger.js'
 
 const FCM_SERVER_KEY = process.env.FCM_SERVER_KEY
-const GOOGLE_APPLICATION_CREDENTIALS = process.env.GOOGLE_APPLICATION_CREDENTIALS
-
+const FCM_SERVICE_ACCOUNT = process.env.FCM_SERVICE_ACCOUNT
 let fcmConfigured = false
 let firebaseApp = null
 
 async function getFirebaseApp() {
   if (firebaseApp) return firebaseApp
-  if (!GOOGLE_APPLICATION_CREDENTIALS) return null
+
+  if (FCM_SERVICE_ACCOUNT) {
+    try {
+      const admin = await import('firebase-admin')
+      const serviceAccount = JSON.parse(
+        Buffer.from(FCM_SERVICE_ACCOUNT, 'base64').toString('utf-8'),
+      )
+      if (!admin.apps.length) {
+        firebaseApp = admin.initializeApp({ credential: admin.credential.cert(serviceAccount) })
+      }
+      return firebaseApp
+    } catch (err) {
+      rootLogger.warn('FCM: firebase-admin init (service account) failed:', err.message)
+      return null
+    }
+  }
+
   try {
     const admin = await import('firebase-admin')
     if (!admin.apps.length) {
@@ -24,11 +39,11 @@ async function getFirebaseApp() {
 }
 
 export function isFCMConfigured() {
-  return fcmConfigured
+  return fcmConfigured || !!FCM_SERVICE_ACCOUNT
 }
 
 export async function sendFcmToUser(fcmToken, title, body, data = {}) {
-  if (!FCM_SERVER_KEY && !GOOGLE_APPLICATION_CREDENTIALS) {
+  if (!FCM_SERVER_KEY && !FCM_SERVICE_ACCOUNT) {
     rootLogger.info('[FCM MOCK] Would send to token', fcmToken?.slice(0, 10), title)
     return { success: true, mock: true }
   }
@@ -51,6 +66,8 @@ export async function sendFcmToUser(fcmToken, title, body, data = {}) {
       return { success: false, error: err.message }
     }
   }
+
+  if (!FCM_SERVER_KEY) return { success: false, error: 'FCM_SERVER_KEY not set' }
 
   try {
     const res = await fetch('https://fcm.googleapis.com/fcm/send', {
@@ -78,7 +95,7 @@ export async function sendFcmToUser(fcmToken, title, body, data = {}) {
 }
 
 export async function sendFcmToAll(fcmTokens, title, body, data = {}) {
-  if (!FCM_SERVER_KEY && !GOOGLE_APPLICATION_CREDENTIALS) {
+  if (!FCM_SERVER_KEY && !FCM_SERVICE_ACCOUNT) {
     rootLogger.info('[FCM MOCK] Would send to', fcmTokens?.length, 'tokens')
     return { success: true, mock: true }
   }
@@ -89,4 +106,4 @@ export async function sendFcmToAll(fcmTokens, title, body, data = {}) {
   return { success: sent > 0, sent }
 }
 
-fcmConfigured = !!(FCM_SERVER_KEY || GOOGLE_APPLICATION_CREDENTIALS)
+fcmConfigured = !!(FCM_SERVER_KEY || FCM_SERVICE_ACCOUNT)

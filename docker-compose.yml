@@ -10,6 +10,7 @@ services:
       - db_data:/var/lib/mysql
       - ./database/mysql_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./database/demo_data.sql:/docker-entrypoint-initdb.d/02-data.sql
+      - ./database/migrations:/docker-entrypoint-initdb.d/migrations
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
       interval: 10s
@@ -17,6 +18,19 @@ services:
       retries: 5
       start_period: 30s
     restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
 
   app:
     build: .
@@ -32,6 +46,7 @@ services:
       DB_NAME: swiftmatch1bd
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       NODE_ENV: production
+      REDIS_URL: redis://redis:6379
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
       interval: 30s
@@ -41,6 +56,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
 
 volumes:
   db_data:
+  redis_data:

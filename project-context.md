@@ -116,6 +116,8 @@ import { cn } from "@/lib/utils"
   <Route path="/forgot-password" element={<ForgotPassword />} />
   <Route path="/reset-password" element={<ResetPassword />} />
   <Route path="/verify-email" element={<VerifyEmail />} />
+  <Route path="/schedule" element={<Schedule />} />
+  <Route path="/profile/:userId/score" element={<ProfileScore />} />
 </Routes>
 ```
 
@@ -182,6 +184,10 @@ build: { target: 'es2020', minify: 'esbuild', chunkSizeWarningLimit: 600 }
 | `common.*` | `common.loading` | — |
 | `register.*` | `register.name_placeholder` | — |
 | `activity.*` | `activity.unlock_title` | — |
+| `schedule.*` | `schedule.title` | — |
+| `profile_score.*` | `profile_score.title` | — |
+| `recommendation.*` | `recommendation.avatar` | — |
+| `ttl.*` | `ttl.off_message` | — |
 
 Переводы: RU — `language-context.tsx:12-931`, EN — `:935-1980`
 

@@ -15,6 +15,7 @@ import { AdminGuard } from "@/components/shared/admin-guard"
 import { ClientOnly } from "@/components/shared/client-only"
 import { CookieConsent } from "@/components/shared/cookie-consent"
 import { PwaInstallBanner } from "@/components/shared/pwa-install-banner"
+import { useFcmToken } from "@/hooks/use-fcm-token"
 
 const Home = lazy(() => import("./pages/Home"))
 const NotFound = lazy(() => import("./pages/NotFound"))
@@ -113,6 +114,11 @@ function DocumentTitle() {
   return null
 }
 
+function FcmInit() {
+  useFcmToken()
+  return null
+}
+
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
   return (
     <ErrorBoundary>
@@ -132,6 +138,7 @@ const App = () => (
             <LanguageProvider>
                 <FeatureFlagsProvider>
                   <DocumentTitle />
+                  <FcmInit />
                   <Routes>
                     <Route path="/admin" element={<AdminGuard><AdminLayout><SuspenseWrapper><Admin /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/analytics" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminAnalytics /></SuspenseWrapper></AdminLayout></AdminGuard>} />

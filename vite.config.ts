@@ -47,7 +47,9 @@ export default defineConfig(({ mode }) => ({
     target: "es2020",
     minify: "esbuild",
     sourcemap: mode === "development",
-    rollupOptions: {
+    chunkSizeWarningLimit: 600,
+    rolldownOptions: {
+      external: ['@capacitor-community/admob', '@capacitor/push-notifications'],
       output: {
         manualChunks(id: string) {
           if (id.includes("node_modules/react-dom") || id.includes("node_modules/react/") || id.includes("node_modules/react-router") || id.includes("node_modules/recharts") || id.includes("node_modules/date-fns")) return "vendor";
@@ -56,10 +58,6 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("node_modules/@supabase")) return "supabase";
         },
       },
-    },
-    chunkSizeWarningLimit: 600,
-    rollupOptions: {
-      external: ['@capacitor-community/admob'],
     },
   },
 }));
