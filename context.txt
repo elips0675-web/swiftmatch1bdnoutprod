@@ -130,6 +130,15 @@
 - **Incognito в активности:** activity route фильтрует `up.incognito = 0` — скрыты визиты инкогнито-пользователей
 - **GDPR Compliance:** `GET /api/data/export` (экспорт всех данных), `POST /api/data/erase/request` + `/confirm` (полное удаление с подтверждением), `POST /api/consent` + `GET /api/consent/history` (логирование согласий); миграция 010; UI кнопки в /settings/privacy
 - **JWT_SECRET lazy getter:** middleware.js экспортирует `JWT_SECRET()` (функцию), а не константу. Тесты должны устанавливать `process.env.JWT_SECRET` ДО вызова `jwt.sign()`. Все 6 потребителей обновлены на `JWT_SECRET()`
+- **BANNED_WORDS undefined в profile.tsx:** `BANNED_WORDS` был определён только в `profile-edit.tsx`, вызывал ReferenceError. Вынесен в `src/lib/constants.ts`, импортирован в оба файла
+- **use-websocket.ts хардкод WS URL:** fallback `http://localhost:3002` заменён на `VITE_WS_URL` env / `window.location`
+- **ErrorBoundary русский хардкод:** добавлены пропсы `fallbackTitle/Message/Button`, `SuspenseWrapper` передаёт `t()`
+- **Дубликат /premium роута в App.tsx:** удалён дубликат внутри AppContainer; премиум-страницы только снаружи с SuspenseWrapper
+- **search.tsx/"Все" vs "all":** фильтр города не работал — `search.tsx` проверял `"Все"`, а `search-filters.tsx` сохранял `"all"`. Обе стороны приведены к `"all"`
+- **Хардкодные русские строки (i18n):** `profile.tsx`, `profile-edit.tsx`, `contest.tsx`, `photo-uploader.tsx`, `app-header.tsx` — все заменены на `t()`, добавлено ~40 новых translation keys
+- **mail.js хардкод sender:** добавлен `EMAIL_FROM` env, warning в production
+- **profile-edit.tsx DEFAULT_PROFILE:** функция `getDefaultProfile(t)` вместо внешней константы с русским текстом
+- **premium-dialog.tsx ru-RU в formatPrice:** locale параметр + вызов с `language` из контекста
 
 ### Stage 1 — WebRTC Video/Voice Calls
 - `server/src/ws.js`: +6 signalling событий (call-user, call-accepted, call-rejected, ice-candidate, end-call)
