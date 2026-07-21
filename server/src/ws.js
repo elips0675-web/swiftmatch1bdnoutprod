@@ -41,6 +41,23 @@ export function startMessageCleanup() {
   rootLogger.info('[ws] Message TTL cleanup started every 10s')
 }
 
+export function startCheckinCleanup() {
+  setInterval(async () => {
+    try {
+      const [expired] = await pool.query(
+        `UPDATE date_checkins SET status = 'expired', notified = 1
+         WHERE status = 'active' AND checkin_at < NOW()`
+      )
+      if (expired.affectedRows > 0) {
+        rootLogger.info('[checkin] Expired check-ins marked', { count: expired.affectedRows })
+      }
+    } catch (err) {
+      rootLogger.warn('[checkin] Cleanup error', { error: err.message })
+    }
+  }, 30000)
+  rootLogger.info('[checkin] Expiry cleanup started every 30s')
+}
+
 export function initIO(httpServer) {
   io = new Server(httpServer, {
     cors: {

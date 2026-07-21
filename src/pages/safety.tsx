@@ -121,7 +121,7 @@ export default function SafetyPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{t('safety.emergency_contacts')}</CardTitle>
-          <Button size="sm" onClick={() => setShowForm(!showForm)}>
+          <Button size="sm" onClick={() => setShowForm(!showForm)} data-testid="add-contact-button">
             <Plus className="w-4 h-4 mr-1" /> {t('safety.add_contact')}
           </Button>
         </CardHeader>
@@ -132,7 +132,7 @@ export default function SafetyPage() {
               <Input placeholder={t('safety.contact_phone')} value={phone} onChange={e => setPhone(e.target.value)} />
               <Input placeholder={t('safety.contact_email')} value={email} onChange={e => setEmail(e.target.value)} />
               <Input placeholder={t('safety.contact_relation')} value={relation} onChange={e => setRelation(e.target.value)} />
-              <Button onClick={addContact} disabled={name.trim().length < 2}>{t('safety.save_contact')}</Button>
+              <Button onClick={addContact} disabled={name.trim().length < 2} data-testid="save-contact-button">{t('safety.save_contact')}</Button>
             </div>
           )}
           {contacts.length === 0 && <p className="text-muted-foreground text-sm">{t('safety.no_contacts')}</p>}
@@ -182,7 +182,7 @@ export default function SafetyPage() {
             value={message}
             onChange={e => setMessage(e.target.value)}
           />
-          <Button onClick={startCheckin} disabled={!contactId}>
+          <Button onClick={startCheckin} disabled={!contactId} data-testid="start-checkin-button">
             <Clock className="w-4 h-4 mr-1" /> {t('safety.start_checkin_btn')}
           </Button>
         </CardContent>
@@ -207,7 +207,7 @@ export default function SafetyPage() {
                 <div className="flex gap-2">
                   {c.status === 'active' && (
                     <>
-                      <Button size="sm" variant="default" onClick={() => confirmCheckin(c.id)}>
+                      <Button size="sm" variant="default" onClick={() => confirmCheckin(c.id)} data-testid="checkin-now-button">
                         <CheckCircle2 className="w-4 h-4 mr-1" /> {t('safety.checkin_now')}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => cancelCheckin(c.id)}>

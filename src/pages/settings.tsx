@@ -299,6 +299,18 @@ export default function SettingsPage() {
                 </div>
                 <ChevronRight size={16} className="text-muted-foreground" />
               </div>
+              <div data-testid="safety-link" className="flex items-center justify-between py-3 border-b border-border/50 cursor-pointer hover:bg-muted/30 -mx-6 px-6 transition-colors" onClick={() => router.push('/safety')}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center text-green-500">
+                    <ShieldCheck size={18} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">{t('safety.title')}</p>
+                    <p className="text-xs text-muted-foreground">{t('settings.about_app_desc')}</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-muted-foreground" />
+              </div>
             </div>
           </section>
 

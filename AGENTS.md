@@ -1016,6 +1016,10 @@ e2e/
 | chats.tsx | `[data-testid="chat-search"]` | Поиск чатов |
 | activity.tsx | `[data-testid="reveal-profile"]` | Кнопка раскрытия профиля |
 | contest.tsx | `[data-testid="close-photo-viewer"]` | Закрыть просмотр фото |
+| safety.tsx | `[data-testid="add-contact-button"]` | Добавить контакт |
+| safety.tsx | `[data-testid="save-contact-button"]` | Сохранить контакт |
+| safety.tsx | `[data-testid="start-checkin-button"]` | Начать чек-ин |
+| safety.tsx | `[data-testid="checkin-now-button"]` | Я в безопасности |
 
 ### Promt для DeepSeek: аудит через Playwright
 
