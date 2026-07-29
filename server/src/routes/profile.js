@@ -72,6 +72,43 @@ function parseJsonField(val, fallback) {
   return fallback || []
 }
 
+router.get('/api/profile/me', auth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT up.id, up.display_name, up.name, up.age, up.bio, up.avatar_url,
+              up.gender, up.looking_for, up.dating_goal, up.height,
+              up.city, up.country, up.lat, up.lng,
+              up.zodiac, up.circadian, up.attachment_style, up.education,
+              up.super_likes, up.boost_until, up.incognito, up.passport_mode,
+              up.passport_city, up.passport_lat, up.passport_lng,
+              up.online, up.last_seen, up.created_at, up.updated_at,
+              u.email
+       FROM user_profiles up
+       JOIN users u ON u.id = up.id
+       WHERE up.id = ?`,
+      [req.userId],
+    )
+    if (rows.length === 0) return res.status(404).json({ message: 'Profile not found' })
+
+    const [photos] = await pool.query(
+      'SELECT id, url, sort_order, is_avatar FROM user_photos WHERE user_id = ? ORDER BY sort_order',
+      [req.userId],
+    )
+    const [interests] = await pool.query(
+      `SELECT i.id, i.name_ru, i.name_en FROM interests i
+       JOIN user_interests ui ON ui.interest_id = i.id
+       WHERE ui.user_id = ?`,
+      [req.userId],
+    )
+
+    const { location, ...profile } = rows[0]
+    res.json({ ...profile, photos, interests })
+  } catch (err) {
+    logger.error('Profile GET /me error:', err)
+    res.status(500).json({ message: 'Failed to fetch profile' })
+  }
+})
+
 router.get('/api/profile/:id', cacheRoute(60), async (req, res) => {
   try {
     const [rows] = await pool.query(

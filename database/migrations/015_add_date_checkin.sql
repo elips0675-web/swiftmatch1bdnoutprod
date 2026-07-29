@@ -1,8 +1,6 @@
--- Migration 015: Date Check-in (Safety) — emergency contacts + check-in timer
-
 CREATE TABLE IF NOT EXISTS emergency_contacts (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL,
   name VARCHAR(255) NOT NULL,
   phone VARCHAR(20) DEFAULT NULL,
   email VARCHAR(255) DEFAULT NULL,
@@ -13,10 +11,10 @@ CREATE TABLE IF NOT EXISTS emergency_contacts (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS date_checkins (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,
-  schedule_id INT DEFAULT NULL,
-  contact_id INT DEFAULT NULL,
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL,
+  schedule_id INT UNSIGNED DEFAULT NULL,
+  contact_id INT UNSIGNED DEFAULT NULL,
   status ENUM('active','checked_in','missed','cancelled','expired') NOT NULL DEFAULT 'active',
   checkin_at DATETIME NOT NULL,
   checked_in_at DATETIME DEFAULT NULL,

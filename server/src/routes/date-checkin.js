@@ -1,8 +1,9 @@
-const { Router } = require('express');
-const router = Router();
-const pool = require('../db');
-const { auth } = require('../middleware');
-const logger = require('../logger');
+import { Router } from 'express'
+import pool from '../db.js'
+import { auth } from '../middleware.js'
+import logger from '../logger.js'
+
+const router = Router()
 
 router.get('/contacts', auth, async (req, res) => {
   try {
@@ -121,4 +122,4 @@ router.get('/active', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router

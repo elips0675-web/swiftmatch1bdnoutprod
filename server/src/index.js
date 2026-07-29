@@ -38,6 +38,7 @@ import fcmRoutes from './routes/push-fcm.js'
 import locationRoutes from './routes/location.js'
 import scheduleRoutes from './routes/schedule.js'
 import dateCheckinRoutes from './routes/date-checkin.js'
+import referralRoutes from './routes/referral.js'
 import { metricsMiddleware, metricsRoute } from './metrics.js'
 import { JWT_SECRET } from './middleware.js'
 import { setupSwagger } from './swagger.js'
@@ -106,7 +107,7 @@ app.post('/api/auth/login', async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      'SELECT id, email, role, password_hash, email_verified_at FROM users WHERE email = ? AND is_active = 1',
+      'SELECT id, email, role, password_hash FROM users WHERE email = ? AND is_active = 1',
       [email],
     )
     if (rows.length === 0) {
@@ -122,7 +123,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET(), { expiresIn: '24h' })
     const refresh_token = await createRefreshToken(user.id)
-    res.json({ token, refresh_token, role: user.role, email_verified: !!user.email_verified_at })
+    res.json({ token, refresh_token, role: user.role })
   } catch (err) {
     rootLogger.error('Login error: ' + err.message)
     res.status(500).json({ message: 'Internal server error' })
@@ -169,7 +170,6 @@ app.use(iapRoutes)
 app.use(fcmRoutes)
 app.use(locationRoutes)
 app.use(scheduleRoutes)
-
 app.use('/api/admin', adminAuth)
 
 app.get('/api/admin/me', async (req, res) => {
@@ -200,6 +200,7 @@ app.use('/api/admin', adminMessaging)
 app.use('/api/admin', adminMonetization)
 app.use('/api/admin', adminModerationRoutes)
 app.use(gdprRoutes)
+app.use(referralRoutes)
 app.use('/api/checkin', dateCheckinRoutes)
 
 app.get('/health', async (req, res) => {
