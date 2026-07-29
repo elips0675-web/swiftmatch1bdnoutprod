@@ -48,7 +48,7 @@ export default defineConfig(({ mode }) => ({
     minify: "esbuild",
     sourcemap: mode === "development",
     chunkSizeWarningLimit: 600,
-    rolldownOptions: {
+    rollupOptions: {
       external: ['@capacitor-community/admob', '@capacitor/push-notifications', '@capacitor/geolocation'],
       output: {
         manualChunks(id: string) {

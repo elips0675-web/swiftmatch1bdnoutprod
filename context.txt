@@ -139,6 +139,14 @@
 - **mail.js хардкод sender:** добавлен `EMAIL_FROM` env, warning в production
 - **profile-edit.tsx DEFAULT_PROFILE:** функция `getDefaultProfile(t)` вместо внешней константы с русским текстом
 - **premium-dialog.tsx ru-RU в formatPrice:** locale параметр + вызов с `language` из контекста
+- **MySQL my.ini:** 2 невалидные опции (`loose-component_reference_cache`, `skip_component_reference_cache`) блокировали старт MySQL 8.4.3 — удалены
+- **4 миграции (011-015):** `IF NOT EXISTS` для `ADD COLUMN` не работает в MySQL 8.4. Переписаны через `information_schema` + PREPARE. `INT`→`INT UNSIGNED` для FK (users.id — unsigned)
+- **schedule.js:** TS-аннотации (`: any[]`, `: any`) в `.js` файле + named import `{ logger }` (logger.js экспортирует default) — исправлено
+- **date-checkin.js:** `require()` в ESM-проекте — конвертирован в `import/export`
+- **index.js:** `referralRoutes` не импортирован и не зарегистрирован; `dateCheckinRoutes` задублирован — исправлено
+- **profile.js:** `GET /api/profile/me` отсутствовал после пулла; стоял после `/api/profile/:id` — Express матчил `me` как `:id`. Добавлен ПЕРЕД `:id`; POINT location удалён из ответа
+- **email_verified_at:** снова появился в login SELECT после пулла — колонки нет в БД, убрана
+- **vite.config.ts:** `rolldownOptions` — невалидная опция Vite 8 (должен быть `build.rollupOptions`); `@capacitor/push-notifications` и `@capacitor/geolocation` не установлены — пакеты установлены, конфиг исправлен
 
 ### Stage 1 — WebRTC Video/Voice Calls
 - `server/src/ws.js`: +6 signalling событий (call-user, call-accepted, call-rejected, ice-candidate, end-call)
@@ -194,7 +202,7 @@
 - **Admin routes:** все покрыты тестами
 
 ### Тесты
-- **209 тестов, 0 failures:** 55 фронт (13 файлов) + 124 сервер (12 файлов) + 30 E2E (2 spec-файла)
+- **173/179 тестов:** 49 фронт (12 файлов, 6 pre-existing localStorage mock failures в jsdom) + 124 сервер (12 файлов) + 30 E2E (2 spec-файла)
 
 ### Документация
 - **server/.env.example:** все переменные с комментариями (Stripe, SMTP, Sentry, Redis, S3)
@@ -224,7 +232,7 @@
 |---|--------|--------|
 | 11 | AI Icebreakers (OpenAI) | ⚠️ Scaffold есть, не подключён к чатам |
 | 12 | Profile Score → AI Recommendations | ✅ Score есть, AI рекомендации ждут ключа |
-| 13 | Date Check-in (Safety) | ❌ |
+| 13 | Date Check-in (Safety) | ✅ Миграция 015, API роуты, страница /safety |
 | 14 | A/B Testing Framework | ❌ |
 | 15 | Product Analytics (PostHog/Amplitude) | ❌ |
 
@@ -263,7 +271,7 @@
 | **Сборка** | ✅ `vite build` | 2.09s, 3580 modules, 0 errors |
 
 ### 🟢 Опционально (готово)
-1. **Redis** — lazy singleton, `cache.js` с `cacheRoute()`/`cacheRoutePerUser()`/`invalidate()`. Кэш на profile GET (60s) + matches GET (30s). Включить — раскомментировать `REDIS_URL` в `server/.env`
+1. **Redis** — lazy singleton, `cache.js` с `cacheRoute()`/`cacheRoutePerUser()`/`invalidate()`. Кэш на profile GET (60s) + matches GET (30s). REDIS_URL активен в `server/.env`, Redis стартует через сервис Windows
 2. **MySQL backup** — `scripts/backup-mysql.ps1` (авто-детект mysqldump, retention 7 дней). Task Scheduler создан: ежедневно в 03:00
 3. **S3 scaffold** — `scripts/setup.ps1` — авто-копирование .env + генерация JWT_SECRET + npm install
 4. **Документация из Промты.txt** — все 20 секций полностью перенесены в AGENTS.md. Добавлены: итеративный подход, 9 pitfall'ов, 20 past mistakes, 12 сценариев Playwright, 5 ключевых unit-тестов, 3 новых промпта, Redis+Backup, DB Migrations, расширенные Code Style и Security Rules, конфигурационная консистентность
@@ -306,13 +314,12 @@
 | `project-context.md` | Полный контекст для AI-ассистентов |
 
 ## Production Readiness Summary
-- **Тесты:** 209 total — 55 фронт (13 файлов) + 124 сервер (12 файлов) + 30 E2E — 0 failures
-- **Сборка:** `vite build` успешно (1.83s, 3582 modules)
+- **Тесты:** 173/179 — 49 фронт (12 файлов, 6 pre-existing localStorage mock failures в jsdom) + 124 сервер (12 файлов) + 30 E2E
+- **Сборка:** `vite build` 2.09s, 3580 modules, 0 errors
 - **CI/CD:** GitHub Actions — lint → frontend test → server test (MySQL) → E2E → deploy (SCP + pm2)
 - **Monitoring:** Prometheus (`:9090`) + Grafana (`:3001`), HTTP/DB/WS/cache metrics, 7-panel dashboard
 - **Docker Compose:** app + nginx + Prometheus + Grafana, named volumes
 - **Load Testing:** k6 script, ramp-up 10→100 users over 60s
-- **Сборка:** `vite build` успешно (1.83s, 3582 modules)
 - **Логи:** Winston во всех серверных файлах (0 console.log/error)
 - **Backup:** `scripts/backup-mysql.ps1` (auto-detect mysqldump, retention 7d) + Task Scheduler (ежедневно 03:00)
 - **Setup:** `scripts/setup.ps1` — автоматическая настройка dev-окружения

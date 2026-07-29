@@ -52,6 +52,10 @@
 8. **jsdom constraint validation** — jsdom блокирует submit если required поле пустое или type=email невалидный. Всегда noValidate на формах с кастомной JS-валидацией.
 9. **INTEREST_KEY_TO_ID и NAME_TO_KEY** в profile-edit.tsx — синхронизировать при добавлении новых интересов.
 10. **JWT_SECRET lazy getter** — middleware экспортирует `JWT_SECRET()` (функцию), а не константу. Тестовые файлы должны устанавливать `process.env.JWT_SECRET` ДО вызова `jwt.sign()`, потому что в ES modules import выполняется раньше любого кода теста. Вызов `JWT_SECRET()` читает `process.env.JWT_SECRET` в момент вызова, а не в момент импорта.
+11. **Vite 8 `build.rollupOptions` (не `rolldownOptions`)** — `rolldownOptions` невалидная опция в Vite 8. Capacitor-пакеты (`@capacitor/push-notifications`, `@capacitor/geolocation`) нужно исключать через `build.rollupOptions.external`, иначе Vite падает с 500 при трансформации.
+12. **MySQL 8.4: `IF NOT EXISTS` для `ADD COLUMN`** — не поддерживается. Использовать `information_schema.COLUMNS` + PREPARE.
+13. **`INT` vs `INT UNSIGNED` для FK** — `users.id` — `INT UNSIGNED`. Все внешние ключи должны совпадать по типу.
+14. **Express route order** — специфичные роуты (`/api/profile/me`) ДО параметризованных (`/api/profile/:id`).
 
 ### Data Rules (i18n)
 
@@ -216,6 +220,27 @@ No socket.io for real-time features (chat, notifications). **Fix:** Created `ser
 
 ### 12. Server needs npm install after git pull
 When pulling new commits that add server dependencies (e.g. `express-rate-limit`, `socket.io`, `nodemailer`), run `npm install` in `server/` before starting. Missing deps cause `ERR_MODULE_NOT_FOUND`.
+
+### 13. MySQL 8.4 my.ini — invalid options block startup
+Laragon's `my.ini` had `loose-component_reference_cache=OFF` and `skip_component_reference_cache=1` — both invalid in MySQL 8.4.3. Caused `Data Dictionary initialization failed`. **Fix:** Remove both lines.
+
+### 14. Migration `IF NOT EXISTS` not supported in MySQL 8.4
+MySQL 8.4 doesn't support `ALTER TABLE ADD COLUMN IF NOT EXISTS`. Using it in migrations causes syntax error. **Fix:** Query `information_schema.COLUMNS` first, then conditionally execute via PREPARE.
+
+### 15. FK type mismatch — `INT` vs `INT UNSIGNED`
+`users.id` is `INT UNSIGNED`, but `emergency_contacts.user_id` was `INT NOT NULL`. Foreign key creation fails with error 3780. **Fix:** Match all FK columns to `INT UNSIGNED`.
+
+### 16. Frontend Vite 500 — missing @capacitor packages + invalid config
+`rolldownOptions` is not a valid Vite 8 option. Should be `build.rollupOptions`. Also `@capacitor/push-notifications` and `@capacitor/geolocation` must be installed (or externalized) — otherwise Vite returns 500 on any page. **Fix:** `build.rollupOptions.external` + `npm install` missing packages.
+
+### 17. Express route order — `/me` before `/:id`
+`router.get('/api/profile/me')` must be registered BEFORE `router.get('/api/profile/:id')`. Otherwise Express matches `me` as a dynamic `:id` parameter and returns 404. **Fix:** Put specific routes before parameterized ones.
+
+### 18. ESM + CJS mixed in server
+New pulled files used `require()` in an ESM project (`"type": "module"` in server/package.json). Crashes with `require is not defined`. **Fix:** Convert all files to `import`/`export` syntax.
+
+### 19. Migration files overwritten by git pull
+`profile.js` (`GET /api/profile/me`), `index.js` (`referralRoutes`), and `email_verified_at` fix were reverted by upstream pull. Always check `git diff HEAD origin/main` after pull before assuming state.
 
 ## Startup reminder
 - After `git pull noutadm main` in `C:\swiftmatch1bd` (the run directory), also run `cd server && npm install` if new packages were added.
