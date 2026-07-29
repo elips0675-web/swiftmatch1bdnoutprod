@@ -251,7 +251,8 @@ function ChatsContent() {
   useEffect(() => {
     if (!matchId || !authToken) return;
     const targetUserId = parseInt(matchId);
-    if (isNaN(targetUserId)) return;
+    if (isNaN(targetUserId) || targetUserId === user?.id) return;
+    if (openingChatRef.current === targetUserId) return;
     const existing = apiChats.find(c => c.other_user_id === targetUserId);
     if (existing) {
       setSelectedChat({
@@ -280,7 +281,7 @@ function ChatsContent() {
       return;
     }
 
-    if (apiChats.length > 0) {
+    if (!isChatsLoading) {
       fetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
@@ -315,7 +316,7 @@ function ChatsContent() {
         .catch(() => {});
       openingChatRef.current = targetUserId;
     }
-  }, [matchId, apiChats.length, authToken, user?.id]);
+  }, [matchId, apiChats.length, isChatsLoading, authToken, user?.id]);
 
   useEffect(() => {
     if (groupId) {
