@@ -1,6 +1,6 @@
 # Что сделано
 
-> Актуально на июль 2026. Все тесты: 209/209 (55 фронт + 124 сервер + 30 E2E). Vite build: ✅
+> Актуально на июль 2026. Все тесты: 173/179 (49 фронт + 124 сервер; 6 pre-existing localStorage mock failures в jsdom). Vite build: ✅
 
 ## Этап 1: 🔴 Мобильный запуск (код готов, ждут ключи)
 
@@ -92,6 +92,18 @@
 | mail.js хардкод `noreply@swiftmatch.app` | добавлен `EMAIL_FROM` env + warning в production | ✅ Исправлен |
 | profile-edit.tsx DEFAULT_PROFILE с русскими строками | функция `getDefaultProfile(t)` с `t()` внутри | ✅ Исправлен |
 | premium-dialog.tsx хардкод `'ru-RU'` в formatPrice | locale параметр + вызов с `language` из контекста | ✅ Исправлен |
+
+## Багфиксы (pull от 29.07)
+| Баг | Фикс | Статус |
+|-----|------|--------|
+| MySQL 8.4 не стартует (loose-component_reference_cache) | my.ini — удалены 2 невалидные опции | ✅ Исправлен |
+| 4 миграции падают: `IF NOT EXISTS` не поддерживается, FK тип mismatch | Переписаны через information_schema; `INT UNSIGNED` для всех FK | ✅ Исправлен |
+| schedule.js — TS-аннотации в .js (`: any[]`, `: any`) + named import `{ logger }` | Убраны аннотации, заменён на default import | ✅ Исправлен |
+| date-checkin.js — `require()` в ESM-проекте | Конвертирован в import/export | ✅ Исправлен |
+| index.js — referralRoutes не импортирован/не зарегистрирован | Добавлен import + app.use | ✅ Исправлен |
+| profile.js — `GET /api/profile/me` отсутствовал (удалился при пулле); стоял после `:id` — Express матчил `me` как `:id` | Роут добавлен ПЕРЕД `:id`; POINT location удалён из ответа | ✅ Исправлен |
+| `email_verified_at` снова появился в login SELECT (колонки нет в БД) | Убран из SELECT и response | ✅ Исправлен |
+| vite.config.ts — `rolldownOptions` (невалидная опция Vite 8) `@capacitor/push-notifications` не установлен | Исправлен на `build.rollupOptions`; пакет установлен | ✅ Исправлен |
 
 ## Запланировано — ждут реальных ключей
 - FCM_SERVER_KEY (Firebase проект)
