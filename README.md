@@ -197,10 +197,15 @@ npx vite --port 8081 --host
 
 | Переменная | Файл | Назначение |
 |---|---|---|
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `server/.env` | Реальные платежи |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `server/.env` | Реальные платежи (без ключа — mock в dev, 502 в prod) |
 | `SMTP_USER`, `SMTP_PASS` | `server/.env` | Email (регистрация, сброс пароля) |
 | `SENTRY_DSN` | `server/.env` + `.env` | Мониторинг ошибок |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | `server/.env` | Облачное хранение файлов |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | `server/.env` | Облачное хранение файлов (без — локальный диск) |
+| `OPENAI_API_KEY` | `server/.env` | AI Icebreakers + AI-модерация текста (без — fallback БД/эвристика) |
+| `FCM_SERVER_KEY` | `server/.env` | Push-уведомления Android (без — mock) |
+| `REVENUECAT_WEBHOOK_SECRET` | `server/.env` | IAP webhook (без — 503, приём событий отключён) |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | `server/.env` | SMS-верификация (без — mock) |
+| `REDIS_URL` | `server/.env` | Кэш + Bull Queue (email/push/image) + Socket.IO adapter (без — всё off, in-memory) |
 | `DB_PASSWORD` | `server/.env` | Непустой пароль для MySQL |
 | `CORS_ORIGIN` | `server/.env` | Домен прода (вместо `localhost:8081`) |
 | `NODE_ENV=production` | `server/.env` | Отключает Stripe mock, Sentry sampling 0.1 |
@@ -215,6 +220,10 @@ npx vite --port 8081 --host
 | **AI Icebreakers** (чипы первого сообщения) | `icebreakers.js`, `chats.tsx`, миграция 018 | ✅ |
 | **A/B Testing + Product Analytics** | `experiments.js`, `useExperiment.ts`, `admin-experiments.tsx`, миграция 019 | ✅ |
 | **API Versioning** (`/api/v1` + X-API-Version) | глобальный middleware в `index.js` | ✅ |
+| **Video Date Scheduling** | `schedule.js`, `schedule.tsx`, WS `schedule:updated`, миграции 013/015, E2E ✅ | ✅ |
+| **Safety Check-in** (экстренные контакты) | `date-checkin.js`, миграция 015, E2E ✅ | ✅ |
+| **Profile Score** | `profile.js` PUT `/api/profile/score`, миграция 014, E2E ✅ | ✅ |
+| **GDPR Consent flow** | чекбокс регистрации + `consent_log` + тумблер настроек (этап 7) | ✅ |
 
 ### 🟠 Код готов — ждут ключи API
 
