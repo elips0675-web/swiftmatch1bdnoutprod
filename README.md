@@ -81,12 +81,14 @@ npx vite --port 8081 --host
 - Модерация: жалобы, запрещённые слова, история действий
 - Контент: управление интересами, целями знакомств
 - Premium-статус в карточке пользователя (из `subscriptions`)
+- **A/B-тесты:** страница `/admin/experiments`, стабильный assign 50/50 по MD5-хэшу, трекинг событий (registration/like/match/premium_purchase)
 
 ### 💬 Социальные функции
 - Real-time чаты через **Socket.IO** с typing indicator и read receipts
 - Emoji-реакции на сообщения (happy / love / sad / angry / like)
 - Онлайн-статус (зелёная точка) через WebSocket
 - Группы по интересам: создание, категории, посты, комментарии, лайки
+- **AI Icebreakers:** чипы первого сообщения в пустом чате (`POST /api/icebreakers/suggest` — OpenAI или fallback из БД, RU/EN, 40 вопросов из сида)
 - Конкурс с голосованием и лидербордом
 - Блокировка пользователей
 
@@ -98,6 +100,7 @@ npx vite --port 8081 --host
 - **Rate limiting:** express-rate-limit (30r/s на лайки, 5r/s на auth)
 - **Модерация чатов:** проверка banned-слов при отправке сообщений
 - Бан пользователя + WS `user:banned` (мгновенный разлогин)
+- **API Versioning:** `/api/v1/*` → `/api/*` + заголовок `X-API-Version: v1` (обратная совместимость)
 - CORS `*` (для Capacitor), CSRF не нужен (API-only JWT)
 
 ### 📁 Загрузка файлов
@@ -114,6 +117,7 @@ npx vite --port 8081 --host
 - **SMTP:** Nodemailer с retry-логикой (3 попытки, exponential backoff 1s/2s/3s)
 - Graceful skip при пустых SMTP_USER/PASS
 - Push-уведомления через VAPID + web-push
+- **Email-кампании:** массовая рассылка из админки (`POST /api/admin/campaigns` → `sendCustomEmail` из `mail.js`, Bull queue при реальном SMTP)
 
 ### 🛡️ Модерация и репорты
 - **AI Moderation:** OpenAI Moderation + AWS Rekognition + эвристика (regex banned-words)
@@ -207,6 +211,9 @@ npx vite --port 8081 --host
 | **Ghost Mode** (инкогнито + premium gate) | `profile.js`, `social.js`, `settings-privacy.tsx`, миграция 009 | ✅ |
 | **Passport Mode** (показ в другом городе + premium gate) | Те же файлы, что Ghost Mode | ✅ |
 | **GDPR Compliance** (data export, erase, consent) | `routes/gdpr.js`, миграция 010, UI в settings-privacy | ✅ |
+| **AI Icebreakers** (чипы первого сообщения) | `icebreakers.js`, `chats.tsx`, миграция 018 | ✅ |
+| **A/B Testing + Product Analytics** | `experiments.js`, `useExperiment.ts`, `admin-experiments.tsx`, миграция 019 | ✅ |
+| **API Versioning** (`/api/v1` + X-API-Version) | глобальный middleware в `index.js` | ✅ |
 
 ### 🟠 Код готов — ждут ключи API
 
@@ -221,9 +228,10 @@ npx vite --port 8081 --host
 
 ### 🟢 Ещё не начато
 
-- AI Icebreakers (OpenAI в чаты)
-- A/B Testing + Product Analytics
-- API Versioning, Design System/Storybook
+- AI Icebreakers (OpenAI в чаты) — ✅ сделано, fallback из БД без ключа OpenAI
+- A/B Testing + Product Analytics — ✅ сделано (таблицы experiments, assign/track API, админка)
+- API Versioning — ✅ сделано (`/api/v1` alias)
+- Design System/Storybook
 
 ---
 
@@ -242,7 +250,7 @@ npx vite --port 8081 --host
 | `server/src/routes/report.js` | POST /api/reports + auto-ban escalation |
 | `server/src/routes/referral.js` | Реферальная система (code, apply, stats) |
 | `src/` | Фронтенд на React + Vite + Tailwind |
-| `database/` | `mysql_schema.sql` + `demo_data.sql` + `migrations/` (10 миграций) |
+| `database/` | `mysql_schema.sql` + `demo_data.sql` + `migrations/` (22 миграции) |
 | `server/src/routes/gdpr.js` | GDPR API (data export, erase, consent logging) |
 
 ## Резервное копирование MySQL
