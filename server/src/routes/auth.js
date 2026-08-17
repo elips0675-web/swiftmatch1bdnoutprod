@@ -129,7 +129,7 @@ async function createRefreshToken(userId) {
 }
 
 router.post('/api/auth/register', async (req, res) => {
-  const { email, password, displayName, referralCode, phone } = req.body
+  const { email, password, displayName, referralCode, phone, consent } = req.body
   if (!email || !password) return res.status(400).json({ message: 'Email and password required' })
   if (password.length < 6) return res.status(400).json({ message: 'Password must be at least 6 characters' })
   if (phone && !/^\+?[1-9]\d{6,14}$/.test(phone)) {
@@ -163,6 +163,12 @@ router.post('/api/auth/register', async (req, res) => {
 
     const token = jwt.sign({ userId, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
     const refresh_token = await createRefreshToken(userId)
+    if (consent === true) {
+      await pool.query(
+        'INSERT INTO consent_log (user_id, consent_type, granted, ip_address) VALUES (?, ?, 1, ?)',
+        [userId, 'data_processing', req.ip],
+      )
+    }
     sendVerificationEmail(email, verification_token)
     trackEvent('registration', userId, { referral: !!referredBy, has_phone: !!phone })
 

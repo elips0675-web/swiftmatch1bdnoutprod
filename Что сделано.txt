@@ -16,6 +16,8 @@
 | — | Багфикс | «В Чаты иероглифы»: сиды с кириллицей импортировались через `cmd <` БЕЗ `--default-character-set=utf8mb4` → двойная кодировка (CP866). Переимпортированы `icebreakers` (018), `chat_groups` (demo_groups.sql), исправлен `experiments` (019) через `scripts/fix-experiments.mjs`. Проверка: `scripts/scan-mojibake.mjs` (ALL CLEAN). Удалены мохибейк-сообщения и `?`-мусор тестов ✅ |
 | — | Багфикс | `message_reactions` не существовала — чаты с сообщениями падали 500. Миграция `021_message_reactions.sql` ✅ |
 | — | Багфикс | `push_subscriptions` без колонки `platform` — пуши молча падали. Миграция `022_push_platform.sql` ✅ |
+| 7 | GDPR Consent flow | Чекбокс согласия в регистрации (`register.tsx`, блокировка submit, `consent` в теле), запись в `consent_log` на сервере (`auth.js`), тумблер в настройках → `POST /api/consent` (`settings.tsx`, `settings-privacy.tsx`) ✅ |
+| — | Багфикс | `users.verification_token/reset_token/reset_token_expires` не было в живой БД — регистрация и сброс пароля падали 500. Миграция `023_auth_tokens.sql` ✅ |
 
 ## Этап 1: 🔴 Мобильный запуск (код готов, ждут ключи)
 

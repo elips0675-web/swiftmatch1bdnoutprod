@@ -713,6 +713,10 @@ const translations = {
 
     // Register
     'register.account_created': 'Аккаунт создан!',
+    'register.consent_doc': 'документу об обработке данных',
+    'register.consent_label': 'Я соглашаюсь на обработку моих персональных данных согласно',
+    'register.consent_privacy': 'Политике конфиденциальности',
+    'register.consent_required': 'Необходимо согласие на обработку персональных данных',
     'register.create_account': 'Создать аккаунт',
     'register.create_account_failed': 'Ошибка создания аккаунта',
     'register.creating': 'Создание аккаунта...',
@@ -1950,6 +1954,10 @@ const translations = {
 
     // Register
     'register.account_created': 'Account created!',
+    'register.consent_doc': 'Data Processing Notice',
+    'register.consent_label': 'I agree to the processing of my personal data in accordance with the',
+    'register.consent_privacy': 'Privacy Policy',
+    'register.consent_required': 'Consent to personal data processing is required',
     'register.create_account': 'Create Account',
     'register.create_account_failed': 'Account creation failed',
     'register.creating': 'Creating account...',

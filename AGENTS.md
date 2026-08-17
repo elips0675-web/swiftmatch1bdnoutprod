@@ -540,6 +540,8 @@ const stripe = process.env.STRIPE_SECRET_KEY
 45. **`message_reactions` не существовала** — `GET /api/chats/:chatId/messages` падал 500 для чатов с сообщениями. **Fix:** миграция `021_message_reactions.sql`.
 46. **push_subscriptions без колонки `platform`** — `push.js` SELECT/INSERT'ил `platform` → пуши юзерам молча падали (ER_BAD_FIELD_ERROR в логе). **Fix:** миграция `022_push_platform.sql`.
 47. **PowerShell + кириллица в API-тестах** — `Invoke-RestMethod -Body` и `curl -d` инлайн кодируют кириллицу в кодировке консоли → в БД `?`. Для тестов писать тело в файл (UTF-8 без BOM) и слать `curl --data-binary @file` или `Invoke-RestMethod` с байтами. Также: демо-юзеры смещены на 1 (admin = id 1, `userN@mail.ru` = id N+1).
+48. **GDPR consent flow не был подключён к UI** — API `POST /api/consent` был, но фронт не вызывал его (тумблер только в localStorage), а при регистрации согласие не запрашивалось. **Fix:** чекбокс в `register.tsx` (блокировка submit без галочки, `consent` в теле запроса), `auth.js` пишет `consent_log` при `consent=true`, тумблеры в `settings.tsx`/`settings-privacy.tsx` вызывают `POST /api/consent`. Также добавлен полифилл `ResizeObserver` в `src/test/setup.ts` (Radix Checkbox требует его в jsdom).
+49. **`users.verification_token/reset_token/reset_token_expires` отсутствовали в живой БД** — schema на диске их содержала, а live-таблица — нет: регистрация, forgot/reset-password, resend-verification и verify-email падали с `ER_BAD_FIELD_ERROR` (500). **Fix:** миграция `023_auth_tokens.sql` (3 колонки + индекс `idx_users_reset_token`).
 
 ---
 

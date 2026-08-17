@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import Link from "@/shims/next-link";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
+  const [consent, setConsent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { t } = useLanguage();
 
@@ -53,6 +55,11 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!consent) {
+      toast({ title: t('common.error'), description: t('register.consent_required'), variant: "destructive" });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -61,7 +68,7 @@ export default function RegisterPage() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ email, password, displayName: name, phone: phone || undefined }),
+            body: JSON.stringify({ email, password, displayName: name, phone: phone || undefined, consent }),
         });
 
         const data = await response.json();
@@ -164,7 +171,27 @@ export default function RegisterPage() {
               />
             </div>
             
-            <Button 
+<div className="flex items-start gap-3 py-1">
+              <Checkbox
+                data-testid="consent-checkbox"
+                id="consent"
+                checked={consent}
+                onCheckedChange={(val) => setConsent(val === true)}
+                className="mt-0.5"
+              />
+              <label htmlFor="consent" className="text-xs text-muted-foreground leading-relaxed select-none">
+                {t('register.consent_label')}{" "}
+                <Link href="/legal/data-processing" className="text-primary hover:underline font-medium">
+                  {t('register.consent_doc')}
+                </Link>{" "}
+                и{" "}
+                <Link href="/legal/privacy" className="text-primary hover:underline font-medium">
+                  {t('register.consent_privacy')}
+                </Link>
+              </label>
+            </div>
+
+            <Button
               data-testid="submit-register"
               type="submit" 
               disabled={isLoading}

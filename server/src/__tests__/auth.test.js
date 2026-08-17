@@ -59,6 +59,30 @@ describe('POST /api/auth/register', () => {
     expect(res.body).toHaveProperty('token')
     expect(res.body).toHaveProperty('userId', 1)
   })
+
+  it('records data_processing consent when consent=true', async () => {
+    pool.query
+      .mockResolvedValueOnce([[], []])
+      .mockResolvedValueOnce([{ insertId: 42 }, []])
+      .mockResolvedValueOnce([[], []])
+    const app = createApp()
+    const res = await request(app).post('/api/auth/register').send({ email: 'consent@test.com', password: '123456', displayName: 'Test', consent: true })
+    expect(res.status).toBe(201)
+    const consentCall = pool.query.mock.calls.find((c) => String(c[0]).includes('consent_log'))
+    expect(consentCall).toBeTruthy()
+    expect(consentCall[1].slice(0, 2)).toEqual([42, 'data_processing'])
+  })
+
+  it('does not record consent when consent absent', async () => {
+    pool.query
+      .mockResolvedValueOnce([[], []])
+      .mockResolvedValueOnce([{ insertId: 43 }, []])
+      .mockResolvedValueOnce([[], []])
+    const app = createApp()
+    const res = await request(app).post('/api/auth/register').send({ email: 'noconsent@test.com', password: '123456' })
+    expect(res.status).toBe(201)
+    expect(pool.query.mock.calls.some((c) => String(c[0]).includes('consent_log'))).toBe(false)
+  })
 })
 
 describe('POST /api/auth/forgot-password', () => {

@@ -68,12 +68,13 @@ describe("RegisterPage", () => {
     await user.type(screen.getByPlaceholderText("Имя"), "Test User")
     await user.type(screen.getByPlaceholderText("Email"), "new@test.com")
     await user.type(screen.getByPlaceholderText("Пароль (мин. 8 символов)"), "password123")
+    await user.click(screen.getByTestId("consent-checkbox"))
     await user.click(screen.getByText("СОЗДАТЬ АККАУНТ"))
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith("/api/auth/register", expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ email: "new@test.com", password: "password123", displayName: "Test User" }),
+        body: JSON.stringify({ email: "new@test.com", password: "password123", displayName: "Test User", consent: true }),
       }))
     })
 
@@ -127,6 +128,23 @@ describe("RegisterPage", () => {
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
         description: "Пароль должен быть минимум 8 символов",
+      }))
+    })
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it("blocks submit without consent checkbox", async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<RegisterPage />)
+
+    await user.type(screen.getByPlaceholderText("Имя"), "Test")
+    await user.type(screen.getByPlaceholderText("Email"), "test@test.com")
+    await user.type(screen.getByPlaceholderText("Пароль (мин. 8 символов)"), "password123")
+    await user.click(screen.getByText("СОЗДАТЬ АККАУНТ"))
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
+        description: "Необходимо согласие на обработку персональных данных",
       }))
     })
     expect(mockFetch).not.toHaveBeenCalled()

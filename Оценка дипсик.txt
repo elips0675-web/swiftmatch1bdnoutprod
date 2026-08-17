@@ -1,0 +1,103 @@
+Исходя из предоставленных документов (AGENTS.md, context.txt, README.md), проект SwiftMatch имеет полную файловую структуру, описанную в секциях Project Structure и Ключевые файлы. Все функциональные модули, миграции, тесты, конфиги и скрипты, перечисленные в контексте, уже должны существовать в кодовой базе.
+
+Однако для абсолютной уверенности и готовности к продакшену стоит проверить наличие следующих категорий файлов (они упоминаются в документации, но их фактическое присутствие зависит от текущего состояния репозитория):
+
+🔍 Файлы, которые обязательно должны быть (по документации)
+Backend (сервер)
+server/src/index.js – точка входа Express
+
+server/src/ws.js – Socket.IO
+
+server/src/mail.js, server/src/logger.js, server/src/sentry.js
+
+server/src/redis.js, server/src/cache.js
+
+server/src/fcm.js, server/src/sms.js, server/src/ai-moderation.js, server/src/image-pipeline.js
+
+server/src/middleware/auth.js, adminAuth.js, idempotency.js
+
+server/src/routes/auth.js, profile.js, social.js, chats.js, premium.js, upload.js, reports.js, referral.js, gdpr.js, schedule.js, icebreakers.js, experiments.js, iap.js, push.js (или push-fcm.js), location.js, moderation.js, sms.js
+
+server/src/routes/admin/ – dashboard.js, users.js, analytics.js, features.js, content.js, reports.js, messaging.js, monetization.js, experiments.js
+
+server/src/queue.js, server/src/jobs/email.job.js, push.job.js, image.job.js
+
+server/src/audit.js, server/src/seed.js, server/src/metrics.js
+
+server/.env (или .env.example) – должен присутствовать шаблон
+
+База данных
+database/mysql_schema.sql – полная схема
+
+database/demo_data.sql – тестовые данные
+
+database/migrations/ – все 22 миграции (номера 001…022, включая 011_add_background_gps.sql, 012_add_date_schedules.sql, 014_add_profile_score.sql, 015_add_date_checkin.sql, 016_group_posts.sql, 017_add_config.sql, 018_icebreakers_seed.sql, 019_experiments.sql, 020_messages_image_url.sql, 021_message_reactions.sql, 022_push_platform.sql и др.)
+
+Frontend (React)
+src/App.tsx, src/main.tsx
+
+src/pages/ – все страницы (включая admin/*, chats-chatId.tsx, schedule.tsx, profile-score.tsx и т.д.)
+
+src/components/ – UI-компоненты, video-call.tsx, voice-call.tsx, photo-uploader.tsx, premium-dialog.tsx и пр.
+
+src/hooks/ – use-websocket.ts, use-premium.ts, use-webrtc.ts, use-fcm-token.ts, use-deep-links.ts, use-background-geolocation.ts, use-experiment.ts, use-track-event.ts
+
+src/context/ – language-context.tsx, feature-flags-context.tsx, auth-context.tsx и др.
+
+src/lib/constants.ts, utils.ts, native.ts
+
+src/test/setup.ts – для Vitest
+
+src/vite-env.d.ts
+
+Конфигурация и инфраструктура
+vite.config.ts, tsconfig.json, tailwind.config.js, postcss.config.js
+
+capacitor.config.ts – для Android
+
+android/ – полная папка с нативным проектом (должна быть в git)
+
+.env (корневой) и server/.env – примеры должны быть
+
+docker-compose.yml, Dockerfile, .dockerignore
+
+nginx/swiftmatch.conf – конфиг Nginx
+
+monitoring/prometheus.yml, monitoring/grafana-dashboard.json
+
+k6/load-test.js – скрипт нагрузочного тестирования
+
+.github/workflows/deploy.yml – CI/CD
+
+scripts/setup.ps1, scripts/backup-mysql.ps1, scripts/backup-mysql.sh, scripts/install-backup-task.bat, scripts/fix-experiments.mjs, scripts/scan-mojibake.mjs
+
+Тесты
+src/**/*.test.tsx – все unit-тесты фронта (упомянуты language-context.test.tsx, feature-flags-context.test.tsx, use-websocket.test.tsx, auth-context.test.tsx, use-premium.test.ts)
+
+server/**/*.test.js – все unit-тесты сервера
+
+e2e/audit-full.spec.ts, e2e/login.spec.ts, e2e/register.spec.ts, e2e/profile.spec.ts и helpers (e2e/helpers/audit.ts, api.ts, e2e/setup/global-setup.ts)
+
+playwright.config.ts
+
+❓ Чего может не хватать (потенциальные пробелы)
+Реальных .env файлов с ключами – они не коммитятся, но должны быть созданы вручную на продакшене.
+
+Шаблонов email-писем – в mail.js могут использоваться fs.readFileSync для HTML-шаблонов; если их нет, то нужно создать папку server/src/emails/ с шаблонами (подтверждение, сброс пароля, уведомления).
+
+Service Worker – public/sw.js для push-уведомлений (упоминается, но не факт, что есть).
+
+Assetlinks.json – public/.well-known/assetlinks.json для Android App Links.
+
+Sitemap.xml, robots.txt – упоминаются в README, но могут отсутствовать.
+
+Документация Swagger – server/src/swagger.js или JSDoc-аннотации, упомянутые в AGENTS.md.
+
+Файлы для локализации – все переводы хранятся в language-context.tsx, но возможно, стоит вынести в отдельные JSON-файлы (не обязательно).
+
+Тесты E2E для новых фич – хотя есть audit-full.spec.ts, он охватывает многое, но возможно, нужно добавить тесты для конкретных новых фич (Ghost Mode, GDPR, Icebreakers, A/B, Video Date Scheduling и т.д.) – они, скорее всего, уже есть, но стоит проверить.
+
+📌 Вывод
+На основе документации все необходимые файлы уже описаны и, вероятно, созданы. Если какой-то из перечисленных выше файлов отсутствует в репозитории, его следует создать по аналогии с существующими или сгенерировать (например, через CLI shadcn/ui, Capacitor, или скрипты).
+
+Главное, что требуется для запуска продакшена – это заполнение реальных значений в .env (Stripe, SMTP, Sentry, S3, Redis, FCM, RevenueCat, Twilio, AWS, OpenAI). Всё остальное – код и конфигурация – уже готово.

@@ -243,6 +243,9 @@
 - `message_reactions` не существовала (чаты с сообщениями падали 500) → миграция `021_message_reactions.sql`
 - `push_subscriptions` без колонки `platform` (пуши молча падали) → миграция `022_push_platform.sql`
 - **«В Чаты иероглифы» — двойная кодировка сидов:** импорт SQL через `cmd <` БЕЗ `--default-character-set=utf8mb4` читал UTF-8 как CP866. Переимпортированы `icebreakers` (018), `chat_groups` (demo_groups.sql), `experiments` (019, через `scripts/fix-experiments.mjs`). Проверка: `scripts/scan-mojibake.mjs` — ALL CLEAN. Удалены мохибейк-сообщения и `?`-мусор тестов
+- **GDPR consent flow:** чекбокс в регистрации (`register.tsx`, блокировка submit, `consent` в теле), запись `consent_log` в `auth.js`, тумблеры в настройках → `POST /api/consent`. Тесты: 126 сервер + 56 фронт
+- **`users.verification_token/reset_token/reset_token_expires` не было в живой БД** — регистрация/сброс пароля падали 500 → миграция `023_auth_tokens.sql`
+- **ResizeObserver полифилл** добавлен в `src/test/setup.ts` (Radix Checkbox требует его в jsdom)
 - ВАЖНО: mysql-клиент без параметра кодировки на Windows читает файлы в системной кодировке (CP866); PowerShell inline `-Body`/`-d` с кириллицей → `?` в БД (тесты слать через файл + `curl --data-binary @file`)
 - Демо-юзеры смещены на 1: admin = id 1, `userN@mail.ru` = id N+1
 
