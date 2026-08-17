@@ -527,6 +527,15 @@ const stripe = process.env.STRIPE_SECRET_KEY
 32. **search.tsx/"Все" vs "all"** — `search-filters.tsx` использовал `"all"` как sentinel "все города", а `search.tsx` проверял `"Все"`. Фильтр города никогда не работал. **Fix:** обе стороны приведены к `"all"`.
 33. **Хардкодные русские строки (i18n)** — `profile.tsx`, `profile-edit.tsx`, `contest.tsx`, `photo-uploader.tsx`, `app-header.tsx` содержали прямые русские строки. **Fix:** все заменены на `t()` с новыми translation keys (~40 keys в `language-context.tsx`).
 34. **mail.js хардкод sender** — `FROM = 'noreply@swiftmatch.app'` без fallback на env. **Fix:** добавлен `EMAIL_FROM` env, warning в production.
+35. **Node 25: глобальный localStorage ломает jsdom-тесты** — Node 25.9 имеет глобальный `localStorage`, который перекрывает jsdom. Фронт-тесты падали (6 fail). **Fix:** полифилл-заглушка в `src/test/setup.ts` (реальные методы jsdom уже есть, но нативные приоритетнее).
+36. **Геопоиск: радиус в км vs м + порядок параметров** — в `social.js` сравнение `HAVING distance < ?` шло в км, а distance в метрах; geoParams пушились в конец массива, но `POINT(?,?)` в SELECT идёт раньше JOIN/WHERE. **Fix:** `* 1000` и порядок `[geo, geo, userStyle?, ...block, ...where, radius]`.
+37. **GDPR export падал** — `m.content` → нет такой колонки, правильно `m.text`. **Fix:** `server/src/routes/gdpr.js`.
+38. **`messages.image_url` не существует в БД** — сервер SELECT'ил колонку, сообщения в чатах падали с 500. **Fix:** миграция `020_messages_image_url.sql`.
+39. **Админ ads-config 500** — mysql2 сам парсит JSON-колонки, `JSON.parse` падал на объекте. **Fix:** `typeof === 'string' ? JSON.parse : value` в `admin/monetization.js` + миграция `017_add_config.sql`.
+40. **Email-кампании не отправляли письма** — `POST /api/admin/campaigns` с channel=`email` только вставлял запись. **Fix:** отправка через `sendCustomEmail` из `mail.js` (пустой SMTP → логирует "Would send", реальные ключи → очередь Bull).
+41. **AI Icebreakers были заглушкой** — `shims/ai-flows.ts` возвращал пустой массив. **Fix:** endpoint `POST /api/icebreakers/suggest` (OpenAI если ключ есть, иначе случайные вопросы из сида `018_icebreakers_seed.sql`), чипы в `chats.tsx` при пустом чате, флаг `aiIcebreakers` в админке.
+42. **A/B + аналитика отсутствовали** — **Fix:** миграция `019_experiments.sql` (experiments, experiment_assignments), роут `experiments.js` (assign по хэшу, track в `analytics_events`, админ CRUD), хук `useExperiment.ts`, трекинг registration/like/match/premium_purchase, эксперимент `card_cta` в `search.tsx`.
+43. **API versioning отсутствовал** — **Fix:** глобальный middleware в `index.js`: `/api/v1/*` → `/api/*` + заголовок `X-API-Version: v1` (обратная совместимость сохранена). ВАЖНО: использовать глобальный `req.url.startsWith('/api/v1/')`, а не `app.use('/api/v1', ...)` — mount-path рерайт не срабатывает в этой версии Express.
 
 ---
 
@@ -644,7 +653,7 @@ const stripe = process.env.STRIPE_SECRET_KEY
 
 ### Контекст проекта (текущее состояние — проверь перед аудитом):
 
-- Все 117 server + 52 frontend тестов проходят (169/169, 0 failures) + 30 E2E = 199
+- Все 124 server + 55 frontend тестов проходят (179/179, 0 failures) + E2E
 - Stripe: mock заблокирован в production (NODE_ENV guard), idempotency-key middleware
 - SMTP: Nodemailer + retry (3 попытки), ждёт SMTP_USER/PASS в .env
 - WebSocket: pingInterval 10s, pingTimeout 5s, reconnect max 30s

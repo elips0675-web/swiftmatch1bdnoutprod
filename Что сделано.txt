@@ -1,6 +1,18 @@
 # Что сделано
 
-> Актуально на июль 2026. Все тесты: 173/179 (49 фронт + 124 сервер; 6 pre-existing localStorage mock failures в jsdom). Vite build: ✅
+> Актуально на август 2026. Все тесты: 179/179 (55 фронт + 124 сервер, 0 failures). Vite build: ✅. Swagger: ✅.
+
+## Сессия «доделывание прод-версии» (этапы 0–5, август 2026)
+
+| Этап | Задача | Результат |
+|------|--------|-----------|
+| 0 | Базовые тесты + smoke | Сервер 124/124 ✅, фронт 55/55 ✅ (полифилл localStorage в `src/test/setup.ts` для Node 25). Фиксы: геопоиск (радиус км→м + порядок params), GDPR export (`m.text`), сид групп (397 групп, 20 категорий) + `group_posts` таблицы (016) |
+| 1 | Монетизация | Tiers Plus/Gold/Platinum ✅, mock checkout ✅, лимит лайков 10/день ✅, feature flags ✅, админ-цены/статистика ✅. Фикс: ads-config 500 (JSON-колонки mysql2) + миграция `017_add_config.sql` |
+| 2 | Коммуникации | Push-кампании + VAPID ✅, **email-канал кампаний** (раньше только вставлял запись — теперь шлёт через `mail.js`), SMS graceful без Twilio ✅ |
+| 3 | AI Icebreakers | Сид 8 тем / 40 вопросов (018), endpoint `POST /api/icebreakers/suggest` (OpenAI или fallback из БД), UI-чипы «Начни разговор» в пустом чате |
+| 4 | A/B + Product Analytics | Миграция `019_experiments.sql`, assign по хэшу (стабильный 50/50), track в `analytics_events` (registration/like/match/premium_purchase), админ-страница A/B-тестов, эксперимент `card_cta` на карточке свайпа, хук `useExperiment.ts` |
+| 5 | API Versioning | `/api/v1/*` → `/api/*` + заголовок `X-API-Version: v1` (глобальный middleware, обратная совместимость) |
+| — | Багфикс | `messages.image_url` отсутствовал в БД — чаты падали с 500. Миграция `020_messages_image_url.sql` ✅ |
 
 ## Этап 1: 🔴 Мобильный запуск (код готов, ждут ключи)
 
@@ -116,5 +128,6 @@
 - Sentry DSN
 
 ## Запланировано — не начато
-- AI Icebreakers (OpenAI в чаты)
-- A/B Testing + Product Analytics
+- AI Icebreakers (OpenAI в чаты) → ✅ Сделано (этап 3, август 2026) — fallback из БД без ключа OpenAI
+- A/B Testing + Product Analytics → ✅ Сделано (этап 4, август 2026) — таблицы experiments, assign/track API, админка
+- API Versioning → ✅ Сделано (этап 5, август 2026) — `/api/v1` alias
