@@ -8,8 +8,11 @@ const REVENUECAT_WEBHOOK_SECRET = process.env.REVENUECAT_WEBHOOK_SECRET
 
 // POST /api/iap/webhook — RevenueCat webhook
 router.post('/api/iap/webhook', async (req, res) => {
+  if (!REVENUECAT_WEBHOOK_SECRET) {
+    return res.status(503).json({ message: 'RevenueCat webhook not configured' })
+  }
   const authHeader = req.headers.authorization
-  if (REVENUECAT_WEBHOOK_SECRET && authHeader !== `Bearer ${REVENUECAT_WEBHOOK_SECRET}`) {
+  if (authHeader !== `Bearer ${REVENUECAT_WEBHOOK_SECRET}`) {
     return res.status(401).json({ message: 'Invalid signature' })
   }
 

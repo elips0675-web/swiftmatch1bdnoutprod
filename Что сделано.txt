@@ -2,6 +2,18 @@
 
 > Актуально на август 2026. Все тесты: **226/226** — E2E 44/44 ✅, фронт 56/56 ✅, сервер 126/126 ✅. Vite build: ✅. Swagger: ✅.
 
+## Этап 11: Graceful degradation — аудит работы БЕЗ ключей (август 2026)
+
+Проверено поведение всех внешних сервисов при отсутствии ключей (отчёт: полный разбор каждого модуля). Итог — дизайн деградации в целом добротный (mock/fallback/skip + warn), но найдены и исправлены 3 реальные проблемы:
+
+| Проблема | Фикс |
+|----------|------|
+| **`initQueues()` никогда не вызывался** — письма/пуши/image-очереди не стартовали даже с Redis и SMTP-ключами; письма «терялись» молча | `initQueues()` + `closeQueues()` подключены в bootstrap (`index.js`) ✅ |
+| **Пакет `openai` не установлен** — `import('openai')` падал `MODULE_NOT_FOUND`, OpenAI-фичи (icebreakers, AI-модерация) были мертвы даже с ключом | `npm install openai@^7.5.0` в server ✅ |
+| **RevenueCat webhook без ключа принимал события без подписи** — любой мог POST-ом выдать себе подписку | Без `REVENUECAT_WEBHOOK_SECRET` → 503; подпись `Bearer` обязательна (`iap.js`) ✅ |
+
+Подтверждено OK (без ключей): Stripe → mock-подписка (dev), в prod → 502 «not configured» (осознанно); OpenAI icebreakers → fallback БД → статика; AI-модерация текста → regex-эвристика, фото → авто-approve; VAPID/FCM → mock+skip; SMTP → «would send»; Twilio → mock; Sentry → warn+skip; Redis → кэш off, socket.io in-memory; S3 → локальный диск.
+
 ## Этап 10: E2E Video Date Scheduling + Safety Check-in (август 2026)
 
 - Закрыт последний пробел аудита «Оценка дипсик.txt» — **Video Date Scheduling**: 2 новых теста в `e2e/features.spec.ts` (раздел 18)

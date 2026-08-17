@@ -253,6 +253,13 @@
 `587966d` campaigns → `3102e40` icebreakers → `6442d1a` A/B+analytics → `62a41d4` versioning+020 → `8e45726` docs → `08b9181` UTF-8 re-seed + 021/022 + scripts
 
 ---
+## Этап 11 (август 2026): Graceful degradation — работа без ключей
+- Аудит всех внешних сервисов (Stripe/OpenAI/VAPID/FCM/SMTP/Twilio/Sentry/Redis/S3/RevenueCat/Bull): без ключей всё стартует, mock/fallback/skip + warn
+- Исправлено: (1) `initQueues()` не вызывался — очереди (email/push/image) не работали даже с Redis, письма молча «терялись» → вызов в bootstrap index.js + closeQueues на SIGTERM; (2) пакет `openai` отсутствовал — OpenAI-ветки мёртвые → установлен ^7.5.0; (3) RevenueCat webhook без ключа принимал события без подписи → теперь 503 без ключа, 401 при неверной подписи (iap.js)
+- Stripe: dev → mock-подписка 201; prod без ключа → 502 «not configured» (осознанно, чтобы не принимать оплату вслепую); STRIPE_LIVE=true без ключа → 500
+- Тесты: сервер 126/126 ✅, E2E 44/44 ✅ (два прогона подряд), фронт 56/56 ✅
+
+---
 ## Этап 10 (август 2026): E2E Video Date Scheduling + Safety Check-in
 - `e2e/features.spec.ts` раздел 18, 2 теста: schedule CRUD (create/list/403 не-участнику/accept/decline/cancel/404 на повторный ответ) + check-in (contact, start, 400 на минуты вне 15-480, active, confirm, delete)
 - 🐛 Реальный баг: `POST /api/schedule` — ISO-дата с T/Z падала 500 в MySQL 8.4 strict (`Incorrect datetime value`); фикс: `new Date(scheduled_at)` + 400 (schedule.js)
