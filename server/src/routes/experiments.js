@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import crypto from 'crypto'
 import { auth } from '../middleware.js'
+import { adminAuth } from '../middleware/adminAuth.js'
 import pool from '../db.js'
 import { rootLogger } from '../logger.js'
 
@@ -64,7 +65,7 @@ router.post('/api/analytics/track', auth, async (req, res) => {
 })
 
 // ─── Admin ────────────────────────────────────────────────────
-router.get('/api/admin/experiments', async (req, res) => {
+router.get('/api/admin/experiments', adminAuth, async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT e.id, e.name, e.experiment_key, e.description, e.enabled, e.created_at,
@@ -79,7 +80,7 @@ router.get('/api/admin/experiments', async (req, res) => {
   }
 })
 
-router.post('/api/admin/experiments', async (req, res) => {
+router.post('/api/admin/experiments', adminAuth, async (req, res) => {
   try {
     const { name, experiment_key: key, description } = req.body
     if (!name || !key) return res.status(400).json({ error: 'MISSING_FIELDS' })
@@ -94,7 +95,7 @@ router.post('/api/admin/experiments', async (req, res) => {
   }
 })
 
-router.put('/api/admin/experiments/:id', async (req, res) => {
+router.put('/api/admin/experiments/:id', adminAuth, async (req, res) => {
   try {
     const { enabled } = req.body
     await pool.query(
@@ -108,7 +109,7 @@ router.put('/api/admin/experiments/:id', async (req, res) => {
   }
 })
 
-router.delete('/api/admin/experiments/:id', async (req, res) => {
+router.delete('/api/admin/experiments/:id', adminAuth, async (req, res) => {
   try {
     const [[row]] = await pool.query('SELECT experiment_key FROM experiments WHERE id = ?', [req.params.id])
     if (row) {

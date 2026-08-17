@@ -84,7 +84,7 @@ app.use('/api/premium/create-checkout', idempotency)
 async function adminAuth(req, res, next) {
   const authHeader = req.headers.authorization
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return next()
+    return res.status(401).json({ message: 'ADMIN_REQUIRED' })
   }
   try {
     const token = authHeader.split(' ')[1]
@@ -95,12 +95,12 @@ async function adminAuth(req, res, next) {
       [decoded.userId, 'admin'],
     )
     if (rows.length === 0) {
-      return next()
+      return res.status(403).json({ message: 'ADMIN_REQUIRED' })
     }
     req.admin = rows[0]
     next()
   } catch {
-    return next()
+    return res.status(401).json({ message: 'ADMIN_REQUIRED' })
   }
 }
 
@@ -181,7 +181,12 @@ app.use(iapRoutes)
 app.use(fcmRoutes)
 app.use(locationRoutes)
 app.use(scheduleRoutes)
-app.use('/api/admin', adminAuth)
+app.use('/api/admin', (req, res, next) => {
+  if (req.method === 'GET' && (req.path === '/features' || req.path === '/features/')) {
+    return next()
+  }
+  return adminAuth(req, res, next)
+})
 
 app.get('/api/admin/me', async (req, res) => {
   const authHeader = req.headers.authorization

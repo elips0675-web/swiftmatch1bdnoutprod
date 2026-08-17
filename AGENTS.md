@@ -245,7 +245,7 @@ New pulled files used `require()` in an ESM project (`"type": "module"` in serve
 ## Startup reminder
 - After `git pull noutadm main` in `C:\swiftmatch1bd` (the run directory), also run `cd server && npm install` if new packages were added.
 - Kill old node processes: `Get-Process -Name "node" | Stop-Process -Force`
-- Start server: `cd C:\swiftmatch1bd\server && node src/index.js`
+- Start server: `cd C:\swiftmatch1bd\server && node src/index.js` — **обязательно из `server/`**: `import 'dotenv/config'` грузит `.env` относительно CWD; при запуске из корня `JWT_SECRET()` вернёт случайный секрет, все токены «сгорят» → 401 на всех эндпоинтах (проверка: `npm run check:ports` фейлит без JWT_SECRET в server/.env)
 - Start frontend: `cd C:\swiftmatch1bd && npx vite --port 8081 --host`
 
 ### 9. Read receipts & emoji reactions missing in chat

@@ -6,7 +6,7 @@ import { JWT_SECRET } from '../middleware.js'
 export async function adminAuth(req, res, next) {
   const authHeader = req.headers.authorization
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return next()
+    return res.status(401).json({ message: 'ADMIN_REQUIRED' })
   }
   try {
     const token = authHeader.split(' ')[1]
@@ -17,11 +17,11 @@ export async function adminAuth(req, res, next) {
       [decoded.userId, 'admin'],
     )
     if (rows.length === 0) {
-      return next()
+      return res.status(403).json({ message: 'ADMIN_REQUIRED' })
     }
     req.admin = rows[0]
     next()
   } catch {
-    return next()
+    return res.status(401).json({ message: 'ADMIN_REQUIRED' })
   }
 }

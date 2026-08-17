@@ -29,6 +29,16 @@
 
 ⚠️ Наблюдение на будущее: админ-роуты `admin/features.js` (PUT) и `admin/experiments.js` (GET/POST/PUT) не защищены `adminAuth` — кандидаты на добавление middleware.
 
+## Этап 9: Безопасность админ-API (август 2026)
+
+- `adminAuth` в `server/src/index.js` и `server/src/middleware/adminAuth.js` переведён из пассивного («пустить всех») в активный: **401** без/с невалидным токеном, **403** для не-админа
+- Публичный исключение: `GET /api/admin/features` остаётся открытым (его без токена запрашивает приложение — `feature-flags-context.tsx`); с токеном юзера тоже 200
+- **`/api/admin/experiments*` (GET/POST/PUT/DELETE) были вне guard** — роутер смонтирован в корень (`index.js:217`), теперь каждый роут защищён `adminAuth` из `middleware/adminAuth.js`
+- Фронтенд админки и так слал `Authorization` во всех вызовах — правки не потребовались
+- Проверено: PUT /features анонимно → 401, GET /features анонимно → 200, /admin/experiments с админ-токеном → 200
+- Тесты: сервер 126/126 ✅, фронт 56/56 ✅, E2E 42/42 ✅, build ✅
+- ⚠️ Операционное: сервер нужно запускать с CWD = `server/` (`node src/index.js`), иначе `dotenv/config` не подхватит `.env` и `JWT_SECRET()` сгенерирует случайный секрет → все токены «сгорят» (401 на всех эндпоинтах). Зафиксировано в AGENTS.md
+
 ## Аудит «Оценка qwen.txt» (август 2026) — 9.8/10, рекомендации
 
 | # | Рекомендация | Статус |

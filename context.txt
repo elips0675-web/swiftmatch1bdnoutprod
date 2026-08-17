@@ -253,6 +253,13 @@
 `587966d` campaigns → `3102e40` icebreakers → `6442d1a` A/B+analytics → `62a41d4` versioning+020 → `8e45726` docs → `08b9181` UTF-8 re-seed + 021/022 + scripts
 
 ---
+## Этап 9 (август 2026): Безопасность админ-API
+- `adminAuth` (index.js + middleware/adminAuth.js) — активный: 401/403 вместо «пропустить всех»; публичен только `GET /api/admin/features` (его зовёт приложение без токена; с юзер-токеном тоже 200)
+- `/api/admin/experiments*` (GET/POST/PUT/DELETE) были ВНЕ guard (роутер в корне index.js:217) — теперь каждый роут с `adminAuth`
+- Проверки: PUT /features аноним → 401, GET /features аноним → 200, experiments с админ-токеном → 200. Тесты: 126+56+42 ✅
+- ⚠️ Грабли: сервер запускать ТОЛЬКО из `server/` (`node src/index.js`) — иначе dotenv не подхватит `.env`, JWT_SECRET станет случайным → 401 везде. `check:ports` теперь фейлит без JWT_SECRET в server/.env
+
+---
 ## Аудит «Оценка qwen.txt» (август 2026) — 9.8/10, рекомендации
 
 - ✅ **Автоматизация pre-flight:** добавлен `npm run check:ports` (`scripts/check-ports.mjs`) — сверка портов (vite server 8081 / proxy 3002 / server .env и .env.example PORT / CORS_ORIGIN), warn на `console.log` в `server/src` (вне __tests__; сейчас только seed.js — легитимно). Может быть подключён к CI/pre-commit
