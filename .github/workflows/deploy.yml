@@ -20,6 +20,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci
+      - run: npm run check:ports
       - run: npm run lint
       - run: npx tsc --noEmit
 

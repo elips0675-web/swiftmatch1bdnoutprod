@@ -248,3 +248,94 @@ test.describe('17. Profile score', () => {
     expect(typeof interestCount).toBe('number')
   })
 })
+
+// ============ 18. VIDEO DATE SCHEDULING + SAFETY CHECK-IN ============
+test.describe('18. Video date scheduling & safety check-in', () => {
+  test('Schedule CRUD: create, list, accept, decline, cancel', async ({ request }) => {
+    const demoToken = getTokenFromStorage('e2e/.auth/demo.json')
+    const user4Token = getTokenFromStorage('e2e/.auth/user4.json')
+    const user5Token = getTokenFromStorage('e2e/.auth/user5.json')
+    expect(demoToken).toBeTruthy()
+    expect(user4Token).toBeTruthy()
+    expect(user5Token).toBeTruthy()
+
+    const payload4 = JSON.parse(Buffer.from(user4Token.split('.')[1], 'base64url').toString())
+    const user4Id = payload4.userId as number
+    expect(user4Id).toBeGreaterThan(0)
+    const payloadDemo = JSON.parse(Buffer.from(demoToken.split('.')[1], 'base64url').toString())
+    const demoId = payloadDemo.userId as number
+
+    const future = new Date(Date.now() + 86400000).toISOString()
+
+    const chat = await apiCall(request, 'POST', '/api/chats', { participant_id: user4Id }, demoToken)
+    expect(chat.ok).toBe(true)
+    const chatId = chat.body.id as number
+    expect(chatId).toBeGreaterThan(0)
+
+    const created = await apiCall(request, 'POST', '/api/schedule', {
+      chat_id: chatId, scheduled_at: future, duration_minutes: 30, message: 'Video call?',
+    }, demoToken)
+    expect(created.status).toBe(201)
+    expect(created.body.proposer_id).toBe(demoId)
+    expect(created.body.status).toBe('pending')
+    const scheduleId = created.body.id as number
+
+    const list = await apiCall(request, 'GET', '/api/schedule?status=all', undefined, demoToken)
+    expect(list.ok).toBe(true)
+    expect((list.body as any[]).some((s: any) => s.id === scheduleId)).toBe(true)
+
+    const forbidden = await apiCall(request, 'POST', '/api/schedule', {
+      chat_id: chatId, scheduled_at: future,
+    }, user5Token)
+    expect(forbidden.status).toBe(403)
+
+    const accept = await apiCall(request, 'PUT', `/api/schedule/${scheduleId}/accept`, undefined, user4Token)
+    expect(accept.ok).toBe(true)
+    expect(accept.body.status).toBe('accepted')
+
+    const sched2 = await apiCall(request, 'POST', '/api/schedule', { chat_id: chatId, scheduled_at: future }, demoToken)
+    const decline = await apiCall(request, 'PUT', `/api/schedule/${sched2.body.id}/decline`, undefined, user4Token)
+    expect(decline.ok).toBe(true)
+    expect(decline.body.status).toBe('declined')
+
+    const sched3 = await apiCall(request, 'POST', '/api/schedule', { chat_id: chatId, scheduled_at: future }, demoToken)
+    const cancel = await apiCall(request, 'PUT', `/api/schedule/${sched3.body.id}/cancel`, undefined, demoToken)
+    expect(cancel.ok).toBe(true)
+    expect(cancel.body.status).toBe('cancelled')
+
+    const reAccept = await apiCall(request, 'PUT', `/api/schedule/${scheduleId}/accept`, undefined, user4Token)
+    expect(reAccept.status).toBe(404)
+  })
+
+  test('Safety check-in: contact, start, active, confirm', async ({ request }) => {
+    const token = getTokenFromStorage('e2e/.auth/demo.json')
+    expect(token).toBeTruthy()
+
+    const contact = await apiCall(request, 'POST', '/api/checkin/contacts', {
+      name: 'E2E Contact', phone: '+70000000000', relation: 'friend',
+    }, token)
+    expect(contact.status).toBe(201)
+    expect(contact.body.id).toBeGreaterThan(0)
+
+    const bad = await apiCall(request, 'POST', '/api/checkin/start', { checkin_minutes: 5 }, token)
+    expect(bad.status).toBe(400)
+
+    const started = await apiCall(request, 'POST', '/api/checkin/start', {
+      checkin_minutes: 30, message: 'On a date', location_sharing: true,
+    }, token)
+    expect(started.status).toBe(201)
+    expect(started.body.checkin_at).toBeTruthy()
+    const checkinId = started.body.id as number
+
+    const active = await apiCall(request, 'GET', '/api/checkin/active', undefined, token)
+    expect(active.ok).toBe(true)
+    expect((active.body as any[]).some((c: any) => c.id === checkinId)).toBe(true)
+
+    const done = await apiCall(request, 'POST', `/api/checkin/${checkinId}/checkin`, undefined, token)
+    expect(done.ok).toBe(true)
+    expect(done.body.status).toBe('checked_in')
+
+    const del = await apiCall(request, 'DELETE', `/api/checkin/contacts/${contact.body.id}`, undefined, token)
+    expect(del.ok).toBe(true)
+  })
+})

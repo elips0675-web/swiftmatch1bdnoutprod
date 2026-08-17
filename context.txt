@@ -253,6 +253,14 @@
 `587966d` campaigns → `3102e40` icebreakers → `6442d1a` A/B+analytics → `62a41d4` versioning+020 → `8e45726` docs → `08b9181` UTF-8 re-seed + 021/022 + scripts
 
 ---
+## Этап 10 (август 2026): E2E Video Date Scheduling + Safety Check-in
+- `e2e/features.spec.ts` раздел 18, 2 теста: schedule CRUD (create/list/403 не-участнику/accept/decline/cancel/404 на повторный ответ) + check-in (contact, start, 400 на минуты вне 15-480, active, confirm, delete)
+- 🐛 Реальный баг: `POST /api/schedule` — ISO-дата с T/Z падала 500 в MySQL 8.4 strict (`Incorrect datetime value`); фикс: `new Date(scheduled_at)` + 400 (schedule.js)
+- ⚠️ Смещение демо-юзеров: `userN@mail.ru` = id N+1 (user4.json = id 5) — в тестах id берётся из payload JWT
+- `check:ports` CI-friendly (без server/.env — инфо, не фейл); `npm run check:ports` добавлен в `deploy.yml`
+- Тесты: E2E 44/44, сервер 126/126, фронт 56/56, build ✅
+
+---
 ## Этап 9 (август 2026): Безопасность админ-API
 - `adminAuth` (index.js + middleware/adminAuth.js) — активный: 401/403 вместо «пропустить всех»; публичен только `GET /api/admin/features` (его зовёт приложение без токена; с юзер-токеном тоже 200)
 - `/api/admin/experiments*` (GET/POST/PUT/DELETE) были ВНЕ guard (роутер в корне index.js:217) — теперь каждый роут с `adminAuth`

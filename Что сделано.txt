@@ -1,6 +1,15 @@
 # Что сделано
 
-> Актуально на август 2026. Все тесты: **224/224** — E2E 42/42 ✅, фронт 56/56 ✅, сервер 126/126 ✅. Vite build: ✅. Swagger: ✅.
+> Актуально на август 2026. Все тесты: **226/226** — E2E 44/44 ✅, фронт 56/56 ✅, сервер 126/126 ✅. Vite build: ✅. Swagger: ✅.
+
+## Этап 10: E2E Video Date Scheduling + Safety Check-in (август 2026)
+
+- Закрыт последний пробел аудита «Оценка дипсик.txt» — **Video Date Scheduling**: 2 новых теста в `e2e/features.spec.ts` (раздел 18)
+- **Schedule CRUD**: create (201, pending, proposer/invitee), list, 403 не-участнику, accept/decline/cancel, 404 на повторный ответ
+- **Safety Check-in**: contact create/delete, start (201 + checkin_at), 400 на `checkin_minutes` вне 15–480, active list, confirm
+- 🐛 **Найден и исправлен реальный баг:** `POST /api/schedule` всегда падал 500 в MySQL 8.4 (strict mode) — ISO-дата с `T`/`Z` (`'2026-08-18T21:42:56.499Z'`) отклонялась колонкой `scheduled_at`. Фикс: нормализация `new Date(scheduled_at)` перед INSERT + 400 на невалидную дату (`schedule.js`)
+- `check:ports` теперь CI-friendly: при отсутствии `server/.env` (в CI ключи через env) — инфо, не фейл; шаг `npm run check:ports` добавлен в `deploy.yml` (lint job)
+- Тесты: E2E 44/44 ✅, сервер 126/126 ✅, фронт 56/56 ✅, build ✅
 
 ## Этап 8: E2E-тесты новых фич (август 2026)
 

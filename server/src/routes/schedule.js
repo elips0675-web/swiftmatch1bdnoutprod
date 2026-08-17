@@ -33,6 +33,10 @@ router.post('/api/schedule', auth, async (req, res) => {
     if (!chat_id || !scheduled_at) {
       return res.status(400).json({ message: 'chat_id and scheduled_at are required' })
     }
+    const ts = new Date(scheduled_at)
+    if (isNaN(ts.getTime())) {
+      return res.status(400).json({ message: 'Invalid scheduled_at' })
+    }
 
     const [participants] = await pool.query(
       'SELECT user_id FROM chat_participants WHERE chat_id = ?',
@@ -50,7 +54,7 @@ router.post('/api/schedule', auth, async (req, res) => {
     const [result] = await pool.query(
       `INSERT INTO date_schedules (chat_id, proposer_id, invitee_id, scheduled_at, duration_minutes, message)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [chat_id, req.userId, inviteeId, scheduled_at, duration_minutes || 60, message || null],
+      [chat_id, req.userId, inviteeId, ts, duration_minutes || 60, message || null],
     )
 
     const [[schedule]] = await pool.query(

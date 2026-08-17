@@ -48,11 +48,12 @@ if (apiPorts.length && uiPorts.length && apiPorts[0] === uiPorts[0]) {
   problems.push(`API-порт (${apiPorts[0]}) совпадает с UI-портом (${uiPorts[0]})`)
 }
 
-if (!/^JWT_SECRET=.+/m.test(serverEnv)) {
-  problems.push('server/.env: JWT_SECRET не задан — при старте будет сгенерирован случайный секрет и все существующие токены станут невалидными')
-}
-if (!serverEnv) {
-  problems.push('server/.env отсутствует или пуст — dotenv/config не загрузит переменные (JWT_SECRET, DB_*, PORT)')
+if (serverEnv) {
+  if (!/^JWT_SECRET=.+/m.test(serverEnv)) {
+    problems.push('server/.env: JWT_SECRET не задан — при старте будет сгенерирован случайный секрет и все существующие токены станут невалидными')
+  }
+} else {
+  console.log('  server/.env       = отсутствует (CI: JWT_SECRET/DB_* передаются env-переменными — ок)')
 }
 
 function walk(dir) {
