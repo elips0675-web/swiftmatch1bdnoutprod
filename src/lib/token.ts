@@ -9,6 +9,11 @@ export function getToken(): string | null {
     memoryToken = stored
     return stored
   }
+  const legacy = localStorage.getItem('token')
+  if (legacy) {
+    memoryToken = legacy
+    return legacy
+  }
   return null
 }
 
@@ -16,8 +21,10 @@ export function setToken(token: string | null): void {
   memoryToken = token
   if (token) {
     sessionStorage.setItem(AUTH_TOKEN_KEY, token)
+    localStorage.setItem('token', token)
   } else {
     sessionStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem('token')
   }
 }
 

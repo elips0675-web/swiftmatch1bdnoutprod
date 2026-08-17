@@ -1,11 +1,38 @@
 # Что сделано
 
-> Актуально на август 2026. Все тесты: 179/179 (55 фронт + 124 сервер, 0 failures). Vite build: ✅. Swagger: ✅.
+> Актуально на август 2026. Все тесты: **224/224** — E2E 42/42 ✅, фронт 56/56 ✅, сервер 126/126 ✅. Vite build: ✅. Swagger: ✅.
+
+## Этап 8: E2E-тесты новых фич (август 2026)
+
+Новый `e2e/features.spec.ts` (12 тестов), закрыты пробелы из аудита «Оценка дипсик.txt»:
+
+- **13. GDPR consent** — регистрация с consent → `consent_log`; UI-блокировка submit без чекбокса; тумблер согласия в настройках; revoke/restore через `POST /api/consent`; `/api/data/export` содержит consents; erase-request
+- **14. Icebreakers** — `POST /api/icebreakers/suggest` (3 подсказки); UI: чипы в пустом чате, клик отправляет сообщение (флаг `aiIcebreakers` включается/восстанавливается тестом)
+- **15. A/B** — стабильный assign `card_cta`; `analytics/track`; админ-страница показывает эксперимент
+- **16. Ghost Mode** — privacy GET + премиум-гейт (200 или 403 PREMIUM_REQUIRED)
+- **17. Profile Score** — `PUT /api/profile/score` 0–100
+
+Найденные и исправленные баги (по ходу E2E):
+
+| Баг | Причина | Фикс |
+|-----|---------|------|
+| `PUT /api/profile/score` возвращал «Failed to update profile» | Роут был ПОСЛЕ `PUT /api/profile/:id` — тень маршрута (`:id` = "score") | Роут перенесён выше `:id` в `profile.js` |
+| Настройки слали `/api/settings/privacy` и `/api/consent` БЕЗ токена → 401 | Отсутствовал `Authorization` в `settings.tsx` | Добавлены заголовки `Bearer getToken()` |
+| `/profile` ловил 401 на `/api/photos/2` | `profile.tsx` слал запрос без токена | Добавлен `Authorization` |
+| Каждый заход «выкидывал» в демо-юзера id 2 | `auth-context.tsx` при отсутствии Supabase всегда делал `dev-login`, перетирая сессию | Восстановление существующей сессии из JWT; dev-login только без токена. Тот же фикс в `admin-guard.tsx` |
+| Сессия терялась при перезагрузке страницы | `token.ts` хранил токен только в sessionStorage | Fallback на `localStorage 'token'` в `getToken`, запись в оба хранилища в `setToken` |
+| E2E падали на 429 «Too many requests» | Глобальный rate limiter 100 req/мин на IP (E2E пробивал) | Поднят до 600 req/мин (`index.js`) |
+| E2E-флоу «не видел» аккаунт из storageState | Playwright не сохраняет sessionStorage; `global-setup.ts` писал только localStorage | Теперь пишет оба; конфиг `playwright.config.ts` → `workers: 1` (стабильность под лимитом) |
+| Старый register E2E падал | Новый чекбокс согласия блокировал submit | Тест кликает `[data-testid="consent-checkbox"]` |
+
+Прочее: `data-testid` для чипов (`icebreaker-chip`) и строк чатов (`chat-row-{id}`); старые тесты 4/8/12 раньше молча пропускали чат-шаги (не было `<a>`-ссылок — строки это `<div onClick>`).
+
+⚠️ Наблюдение на будущее: админ-роуты `admin/features.js` (PUT) и `admin/experiments.js` (GET/POST/PUT) не защищены `adminAuth` — кандидаты на добавление middleware.
 
 ## Аудит «Оценка дипсик.txt» (август 2026)
 - Проверено фактическое наличие всех файлов из анализа DeepSeek (сервер, БД, фронт, конфиги, тесты, инфраструктура) — все присутствуют
 - `server/src/emails/` не нужен — HTML-шаблоны инлайн в `mail.js`/`email.job.js`; хуки A/B есть (`useExperiment.ts` + `useTrackEvent`)
-- Пробелы: E2E новых фич (Ghost Mode, GDPR, Icebreakers, A/B, Video Date Scheduling, Profile Score) не покрыты; блокер прода — только реальные ключи в `.env`
+- Пробелы: E2E новых фич (Ghost Mode, GDPR, Icebreakers, A/B, Profile Score) — **закрыты этапом 8**; блокер прода — только реальные ключи в `.env`
 
 ## Сессия «доделывание прод-версии» (этапы 0–5, август 2026)
 

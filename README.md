@@ -144,9 +144,9 @@ npx vite --port 8081 --host
 - `GET /api/referral/code`, `POST /api/referral/apply`, `GET /api/referral/stats`
 
 ### 🧪 Тестирование
-- **Фронтенд (Vitest):** 55 тестов, 13 файлов
-- **Сервер (Vitest):** 124 теста, 12 файлов — **0 failures**
-- **E2E (Playwright):** 30 тестов, 2 spec-файла (audit-full, helpers) — **0 failures**
+- **Фронтенд (Vitest):** 56 тестов, 13 файлов
+- **Сервер (Vitest):** 126 тестов, 12 файлов — **0 failures**
+- **E2E (Playwright):** 42 теста, 5 spec-файлов (audit-full, features, login, profile, register) — **0 failures**
 - **Swagger:** OpenAPI-документация с JSDoc-аннотациями
 
 ### ⚙️ Фоновые задачи (Bull Queue)
@@ -250,7 +250,7 @@ npx vite --port 8081 --host
 | `server/src/routes/report.js` | POST /api/reports + auto-ban escalation |
 | `server/src/routes/referral.js` | Реферальная система (code, apply, stats) |
 | `src/` | Фронтенд на React + Vite + Tailwind |
-| `database/` | `mysql_schema.sql` + `demo_data.sql` + `migrations/` (22 миграции) |
+| `database/` | `mysql_schema.sql` + `demo_data.sql` + `migrations/` (23 миграции) |
 | `server/src/routes/gdpr.js` | GDPR API (data export, erase, consent logging) |
 
 ## Резервное копирование MySQL

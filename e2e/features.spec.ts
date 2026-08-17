@@ -1,0 +1,250 @@
+import { test, expect } from '@playwright/test'
+import { createAudit } from './helpers/audit'
+import { apiCall, getTokenFromStorage } from './helpers/api'
+
+const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:8081'
+
+// ============ 13. GDPR — CONSENT FLOW ============
+test.describe('13. GDPR consent flow', () => {
+  test('Register with consent=true writes consent_log', async ({ request }) => {
+    const email = `e2e_consent_${Date.now()}@mail.ru`
+    const res = await apiCall(request, 'POST', '/api/auth/register', {
+      email, password: 'TestPass123', displayName: 'Consent E2E', consent: true,
+    })
+    expect(res.ok).toBe(true)
+    const token = res.body?.token as string
+    expect(token).toBeTruthy()
+
+    const history = await apiCall(request, 'GET', '/api/consent/history', undefined, token)
+    expect(history.ok).toBe(true)
+    const granted = (history.body as any[])?.find((c: any) => c.consent_type === 'data_processing')
+    expect(granted).toBeTruthy()
+    expect(granted.granted).toBe(1)
+  })
+
+  test('Register UI: submit blocked without consent, works with consent', async ({ page }) => {
+    const audit = createAudit(page)
+    const email = `e2e_uiconsent_${Date.now()}@mail.ru`
+
+    await page.goto(`${BASE_URL}/register`)
+    await page.waitForLoadState('networkidle')
+    await page.fill('[data-testid="name"]', 'UI Consent User')
+    await page.fill('[data-testid="email"]', email)
+    await page.fill('[data-testid="password"]', 'TestPass123')
+    await page.click('[data-testid="submit-register"]')
+    await page.waitForTimeout(1500)
+
+    expect(page.url()).toContain('/register')
+
+    await page.click('[data-testid="consent-checkbox"]')
+    await page.click('[data-testid="submit-register"]')
+    await page.waitForURL(/^((?!\/register).)*$/, { timeout: 10000 }).catch(() => {})
+    expect(page.url()).not.toContain('/register')
+
+    audit.expectClean()
+  })
+
+  test('POST /api/consent revoke + restore, data export includes consents', async ({ request }) => {
+    const token = getTokenFromStorage('e2e/.auth/demo.json')
+    expect(token).toBeTruthy()
+
+    const revoked = await apiCall(request, 'POST', '/api/consent', { consent_type: 'data_processing', granted: false }, token)
+    expect(revoked.ok).toBe(true)
+
+    const history = await apiCall(request, 'GET', '/api/consent/history', undefined, token)
+    const revokedEntry = (history.body as any[]).find((c: any) => c.consent_type === 'data_processing')
+    expect(revokedEntry.granted).toBe(0)
+
+    const restored = await apiCall(request, 'POST', '/api/consent', { consent_type: 'data_processing', granted: true }, token)
+    expect(restored.ok).toBe(true)
+
+    const exportRes = await apiCall(request, 'GET', '/api/data/export', undefined, token)
+    expect(exportRes.ok).toBe(true)
+    expect(Array.isArray(exportRes.body?.consents)).toBe(true)
+    expect(exportRes.body?.user?.email).toBe('user2@mail.ru')
+  })
+
+  test('Erase request returns token', async ({ request }) => {
+    const email = `e2e_erase_${Date.now()}@mail.ru`
+    const reg = await apiCall(request, 'POST', '/api/auth/register', {
+      email, password: 'TestPass123', displayName: 'Erase E2E', consent: true,
+    })
+    expect(reg.ok).toBe(true)
+    const token = reg.body?.token as string
+    const res = await apiCall(request, 'POST', '/api/data/erase/request', {}, token)
+    expect(res.ok).toBe(true)
+    expect(res.body?.token).toBeTruthy()
+    expect(res.body?.message).toBeTruthy()
+  })
+
+  test.describe('GDPR UI (auth)', () => {
+    test.use({ storageState: 'e2e/.auth/demo.json' })
+
+    test('Settings privacy page has consent toggle', async ({ page }) => {
+      const audit = createAudit(page)
+      await page.goto(`${BASE_URL}/settings`)
+      await page.waitForLoadState('networkidle')
+
+      const toggle = page.locator('[data-testid="switch-data-consent"]')
+      if (await toggle.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await toggle.click()
+        await page.waitForTimeout(500)
+      }
+      audit.expectClean()
+    })
+  })
+})
+
+// ============ 14. ICEBREAKERS ============
+test.describe('14. Icebreakers', () => {
+  test('POST /api/icebreakers/suggest returns 3 suggestions', async ({ request }) => {
+    const token = getTokenFromStorage('e2e/.auth/demo.json')
+    expect(token).toBeTruthy()
+    const res = await apiCall(request, 'POST', '/api/icebreakers/suggest', { chat_user_id: 3 }, token)
+    expect(res.ok).toBe(true)
+    const suggestions = res.body?.suggestions as string[]
+    expect(Array.isArray(suggestions)).toBe(true)
+    expect(suggestions.length).toBeGreaterThanOrEqual(3)
+    for (const s of suggestions) {
+      expect(typeof s).toBe('string')
+      expect(s.length).toBeGreaterThan(0)
+    }
+    expect(['db', 'openai']).toContain(res.body?.source)
+  })
+
+  test.describe('Icebreakers UI', () => {
+    test.use({ storageState: 'e2e/.auth/demo.json' })
+
+    test('Empty chat shows chips, click sends message', async ({ page, request }) => {
+      const demoToken = getTokenFromStorage('e2e/.auth/demo.json')
+      expect(demoToken).toBeTruthy()
+
+      const adminToken = getTokenFromStorage('e2e/.auth/admin.json')
+      expect(adminToken).toBeTruthy()
+      const flags = await apiCall(request, 'GET', '/api/admin/features', undefined, adminToken)
+      expect(flags.ok).toBe(true)
+      const originalFlags = { ...flags.body }
+      const enabled = await apiCall(request, 'PUT', '/api/admin/features', { ...originalFlags, aiIcebreakers: true }, adminToken)
+      expect(enabled.ok).toBe(true)
+
+      try {
+        const me = await apiCall(request, 'GET', '/api/profile/me', undefined, demoToken)
+        expect(me.ok).toBe(true)
+        const meId = me.body?.id as number
+        expect(meId).toBeGreaterThan(0)
+
+        let chatId = 0
+        for (let pid = 22; pid <= 60 && !chatId; pid++) {
+          if (pid === meId) continue
+          const created = await apiCall(request, 'POST', '/api/chats', { participant_id: pid }, demoToken)
+          if (created.ok && created.body?.existing === false) {
+            chatId = created.body.id as number
+            break
+          }
+        }
+        expect(chatId).toBeGreaterThan(0)
+
+        const audit = createAudit(page)
+        await page.goto(`${BASE_URL}/chats`)
+        await page.waitForLoadState('networkidle')
+
+        const chatRow = page.locator(`[data-testid="chat-row-${chatId}"]`)
+        await expect(chatRow).toBeVisible({ timeout: 5000 })
+        await chatRow.click()
+        await page.waitForLoadState('networkidle')
+
+        const chips = page.locator('[data-testid="icebreaker-chip"]')
+        await expect(chips.first()).toBeVisible({ timeout: 8000 })
+
+        const chipText = (await chips.first().innerText()).trim()
+        await chips.first().click()
+        await page.waitForTimeout(1500)
+
+        await expect(page.locator('[data-testid="message-list"]')).toContainText(chipText, { timeout: 5000 })
+        audit.expectClean()
+      } finally {
+        await apiCall(request, 'PUT', '/api/admin/features', originalFlags, adminToken)
+      }
+    })
+  })
+})
+
+// ============ 15. A/B EXPERIMENTS ============
+test.describe('15. A/B experiments', () => {
+  test('GET /api/experiments/card_cta is stable per user', async ({ request }) => {
+    const token = getTokenFromStorage('e2e/.auth/demo.json')
+    expect(token).toBeTruthy()
+    const first = await apiCall(request, 'GET', '/api/experiments/card_cta', undefined, token)
+    const second = await apiCall(request, 'GET', '/api/experiments/card_cta', undefined, token)
+    expect(first.ok).toBe(true)
+    expect(first.body?.key).toBe('card_cta')
+    expect(first.body?.enabled).toBe(true)
+    expect(['variant_a', 'variant_b']).toContain(first.body?.variant)
+    expect(second.body?.variant).toBe(first.body?.variant)
+  })
+
+  test('POST /api/analytics/track records event', async ({ request }) => {
+    const token = getTokenFromStorage('e2e/.auth/demo.json')
+    expect(token).toBeTruthy()
+    const res = await apiCall(request, 'POST', '/api/analytics/track', {
+      event_type: 'e2e_test', variant: 'a', metadata: { source: 'features.spec' },
+    }, token)
+    expect(res.ok).toBe(true)
+  })
+
+  test.describe('A/B admin UI', () => {
+    test.use({ storageState: 'e2e/.auth/admin.json' })
+
+    test('Admin experiments page lists card_cta', async ({ page }) => {
+      const audit = createAudit(page)
+      await page.goto(`${BASE_URL}/admin/experiments`)
+      await page.waitForLoadState('networkidle')
+      await expect(page.locator('code', { hasText: 'card_cta' })).toBeVisible({ timeout: 5000 })
+      audit.expectClean()
+    })
+  })
+})
+
+// ============ 16. GHOST MODE (premium-gated) ============
+test.describe('16. Ghost mode / privacy', () => {
+  test('Privacy settings get + premium gate on incognito', async ({ request }) => {
+    const token = getTokenFromStorage('e2e/.auth/demo.json')
+    expect(token).toBeTruthy()
+
+    const privacy = await apiCall(request, 'GET', '/api/settings/privacy', undefined, token)
+    expect(privacy.ok).toBe(true)
+    expect(typeof privacy.body?.incognito).toBe('boolean')
+
+    const premium = await apiCall(request, 'GET', '/api/premium/my', undefined, token)
+    const hasActiveSub = premium.ok && !!premium.body?.is_active
+
+    const enable = await apiCall(request, 'PUT', '/api/settings/privacy', { incognito: true }, token)
+    if (hasActiveSub) {
+      expect(enable.ok).toBe(true)
+      const after = await apiCall(request, 'GET', '/api/settings/privacy', undefined, token)
+      expect(after.body?.incognito).toBe(true)
+
+      const disable = await apiCall(request, 'PUT', '/api/settings/privacy', { incognito: false }, token)
+      expect(disable.ok).toBe(true)
+    } else {
+      expect(enable.status).toBe(403)
+      expect(enable.body?.code).toBe('PREMIUM_REQUIRED')
+    }
+  })
+})
+
+// ============ 17. PROFILE SCORE ============
+test.describe('17. Profile score', () => {
+  test('PUT /api/profile/score returns 0-100', async ({ request }) => {
+    const token = getTokenFromStorage('e2e/.auth/demo.json')
+    expect(token).toBeTruthy()
+    const res = await apiCall(request, 'PUT', '/api/profile/score', {}, token)
+    expect(res.ok).toBe(true)
+    const { score, photoCount, interestCount } = res.body
+    expect(typeof score).toBe('number')
+    expect(score).toBeGreaterThanOrEqual(0)
+    expect(score).toBeLessThanOrEqual(100)
+    expect(typeof photoCount).toBe('number')
+    expect(typeof interestCount).toBe('number')
+  })
+})

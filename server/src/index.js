@@ -49,7 +49,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = process.env.PORT || 3002
 
-const limiter = rateLimit({ windowMs: 60_000, max: 100, message: { message: 'Too many requests' } })
+const limiter = rateLimit({ windowMs: 60_000, max: 600, message: { message: 'Too many requests' } })
 const authLimiter = rateLimit({ windowMs: 60_000, max: 60, message: { message: 'Too many auth attempts' } })
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }))

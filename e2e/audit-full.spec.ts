@@ -43,6 +43,7 @@ test.describe('2. Registration flow', () => {
     await page.fill('[data-testid="name"]', 'E2E Test User')
     await page.fill('[data-testid="email"]', uniqueEmail)
     await page.fill('[data-testid="password"]', 'TestPass123')
+    await page.click('[data-testid="consent-checkbox"]')
     await page.click('[data-testid="submit-register"]')
 
     await page.waitForURL(/^((?!\/register).)*$/, { timeout: 10000 }).catch(() => {})

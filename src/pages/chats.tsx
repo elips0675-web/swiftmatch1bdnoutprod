@@ -600,6 +600,7 @@ function ChatsContent() {
                   {icebreakerSuggestions.map((s) => (
                     <button
                       key={s}
+                      data-testid="icebreaker-chip"
                       onClick={() => { setIcebreakerSuggestions([]); handleSendMessage(s); }}
                       className="text-left text-xs font-medium px-3 py-2 rounded-2xl bg-white border border-border/40 shadow-sm hover:bg-primary/10 hover:border-primary/20 active:scale-95 transition-all"
                     >
@@ -780,7 +781,7 @@ function ChatsContent() {
             paginatedItems.map((item) => {
               const hasUnread = (item.unread_count || 0) > 0;
               return (
-                <div key={item.id} onClick={() => openChat(item)} className={cn(
+                <div key={item.id} data-testid={`chat-row-${item.id}`} onClick={() => openChat(item)} className={cn(
                   "flex items-center gap-3 p-3 rounded-2xl transition-all cursor-pointer group border border-white mb-2",
                   "bg-white app-shadow hover:bg-muted/30"
                 )}>

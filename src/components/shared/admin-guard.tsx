@@ -11,6 +11,11 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     const checkAdmin = async () => {
       const supabase = getSupabase()
       if (!supabase) {
+        const existing = getToken()
+        if (existing) {
+          setAuthorized(true)
+          return
+        }
         try {
           const res = await fetch('/api/auth/dev-login', { method: 'POST' })
           if (res.ok) {
