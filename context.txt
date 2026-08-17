@@ -211,6 +211,45 @@
 - **project-context.md:** полный контекст для AI-ассистентов
 
 ---
+## Сессия «доделывание прод-версии» (этапы 0–6, август 2026)
+
+### Этап 0 — базовые тесты + smoke
+- Сервер 124/124 ✅, фронт 55/55 ✅ (полифилл localStorage в `src/test/setup.ts` для Node 25)
+- Фиксы: геопоиск (радиус км→м + порядок params), GDPR export (`m.text`), сид групп (397 групп, 20 категорий) + `group_posts` таблицы (016)
+
+### Этап 1 — Монетизация
+- Tiers Plus/Gold/Platinum ✅, mock checkout ✅, лимит лайков 10/день ✅, feature flags ✅, админ-цены/статистика ✅
+- Фикс: ads-config 500 (JSON-колонки mysql2) + миграция `017_add_config.sql`
+
+### Этап 2 — Коммуникации
+- Push-кампании + VAPID ✅, email-канал кампаний (раньше только вставлял запись — теперь шлёт через `mail.js`, пустой SMTP → лог «Would send»), SMS graceful без Twilio ✅
+
+### Этап 3 — AI Icebreakers (было «не подключён» → ✅)
+- Сид 8 тем / 40 вопросов (миграция `018_icebreakers_seed.sql`), endpoint `POST /api/icebreakers/suggest` (OpenAI если `OPENAI_API_KEY`, иначе случайные вопросы из БД, RU/EN), UI-чипы «Начни разговор» в пустом чате (`chats.tsx`), флаг `aiIcebreakers` в админке
+
+### Этап 4 — A/B + Product Analytics (было ❌ → ✅)
+- Миграция `019_experiments.sql` (experiments, experiment_assignments), роут `experiments.js` (assign по MD5-хэшу 50/50, track в `analytics_events`, админ CRUD)
+- Хук `useExperiment.ts` + `useTrackEvent`, эксперимент `card_cta` в `search.tsx`, админ-страница `/admin/experiments`
+- Трекинг: registration, like, match, premium_purchase
+
+### Этап 5 — API Versioning
+- `/api/v1/*` → `/api/*` + заголовок `X-API-Version: v1` (глобальный middleware, обратная совместимость)
+
+### Этап 6 — Документация
+- «Что сделано.txt» + AGENTS.md обновлены (записи 1–47)
+
+### Багфиксы (август 2026)
+- `messages.image_url` отсутствовал → миграция `020_messages_image_url.sql`
+- `message_reactions` не существовала (чаты с сообщениями падали 500) → миграция `021_message_reactions.sql`
+- `push_subscriptions` без колонки `platform` (пуши молча падали) → миграция `022_push_platform.sql`
+- **«В Чаты иероглифы» — двойная кодировка сидов:** импорт SQL через `cmd <` БЕЗ `--default-character-set=utf8mb4` читал UTF-8 как CP866. Переимпортированы `icebreakers` (018), `chat_groups` (demo_groups.sql), `experiments` (019, через `scripts/fix-experiments.mjs`). Проверка: `scripts/scan-mojibake.mjs` — ALL CLEAN. Удалены мохибейк-сообщения и `?`-мусор тестов
+- ВАЖНО: mysql-клиент без параметра кодировки на Windows читает файлы в системной кодировке (CP866); PowerShell inline `-Body`/`-d` с кириллицей → `?` в БД (тесты слать через файл + `curl --data-binary @file`)
+- Демо-юзеры смещены на 1: admin = id 1, `userN@mail.ru` = id N+1
+
+### Коммиты (август 2026)
+`587966d` campaigns → `3102e40` icebreakers → `6442d1a` A/B+analytics → `62a41d4` versioning+020 → `8e45726` docs → `08b9181` UTF-8 re-seed + 021/022 + scripts
+
+---
 ## Что не сделано / ждёт — по оценке kimi
 
 ### 🔴 Критично (блокирует запуск) — код готов, ждут реальных ключей
@@ -230,11 +269,11 @@
 ### 🟡 Средний приоритет (конкуренция)
 | # | Задача | Статус |
 |---|--------|--------|
-| 11 | AI Icebreakers (OpenAI) | ⚠️ Scaffold есть, не подключён к чатам |
+| 11 | AI Icebreakers (OpenAI) | ✅ Подключён к чатам (этап 3, август 2026) — suggest endpoint + чипы, fallback из БД без ключа |
 | 12 | Profile Score → AI Recommendations | ✅ Score есть, AI рекомендации ждут ключа |
 | 13 | Date Check-in (Safety) | ✅ Миграция 015, API роуты, страница /safety |
-| 14 | A/B Testing Framework | ❌ |
-| 15 | Product Analytics (PostHog/Amplitude) | ❌ |
+| 14 | A/B Testing Framework | ✅ Сделано (этап 4, август 2026) — experiments, assign 50/50, админка |
+| 15 | Product Analytics (PostHog/Amplitude) | ✅ Сделано (этап 4, август 2026) — analytics_events + track по событиям |
 
 ### 🟢 Инфраструктура (месяц 2–3)
 | # | Задача | Статус |
