@@ -61,7 +61,7 @@
 - **SMS Verification:** ✅ Интегрирован в регистрацию (auth.js + register.tsx); ждёт Twilio API-ключи
 - **AI Moderation:** ✅ Интегрирован в upload.js (NSWF → moderation_status='flagged'); ждёт API-ключи
 - **Image Pipeline:** ✅ Sharp resize 800/400/200 + WebP/AVIF; CDN/S3 — ждёт настройку
-- **WebRTC:** ✅ RTCPeerConnection + STUN + сигналинг; нет Video Date Scheduling
+- **WebRTC:** ✅ RTCPeerConnection + STUN + сигналинг; **Video Date Scheduling реализован** (schedule.js + schedule.tsx + WS schedule:updated, E2E этап 10)
 - **RevenueCat/IAP:** ✅ Scaffold (webhook + products + status, миграция 008); ждёт RevenueCat проекта
 - **Deep Links:** ✅ Scaffold (assetlinks.json, capacitor.config.ts, use-deep-links.ts); ждёт домена
 - **Nginx:** rate limit, client_max_body_size, proxy_read_timeout 86400s, SSL
@@ -271,7 +271,7 @@
 ## Аудит «Оценка qwen.txt» (август 2026) — 9.8/10, рекомендации
 
 - ✅ **Автоматизация pre-flight:** добавлен `npm run check:ports` (`scripts/check-ports.mjs`) — сверка портов (vite server 8081 / proxy 3002 / server .env и .env.example PORT / CORS_ORIGIN), warn на `console.log` в `server/src` (вне __tests__; сейчас только seed.js — легитимно). Может быть подключён к CI/pre-commit
-- ✅ **E2E новых фич** — закрыто этапом 8 (features.spec.ts, 42/42)
+- ✅ **E2E новых фич** — закрыто этапами 8+10 (features.spec.ts, 44/44, включая Video Date Scheduling и Safety Check-in)
 - ✅ **6 pre-existing фронт-тестов** (localStorage в jsdom) — полифилл `ensureStorage` в `src/test/setup.ts` (этап 0), 56/56
 - ⏳ **AGENTS.md >1500 строк** — пока 919; при превышении разделить на AGENTS-RULES/PITFALLS/CHECKLISTS
 - ✅ **Stripe `express.raw`** — проверено: только `/api/premium/webhook` (`server/src/index.js:77`), не глобально
@@ -285,7 +285,7 @@
 - `src/hooks/use-experiment.ts` / `use-track-event.ts` — есть как `useExperiment.ts` + `useTrackEvent` (camelCase, различие только в именовании)
 
 Реальные пробелы из анализа:
-- **E2E новых фич — ЗАКРЫТ (этап 8, август 2026):** `e2e/features.spec.ts` (12 тестов): GDPR consent (регистрация→consent_log, UI-блокировка, тумблер настроек, revoke/restore, export, erase), Icebreakers (suggest + UI-чипы в пустом чате с включением флага aiIcebreakers), A/B (assign, track, админ-страница), Ghost Mode (premium gate), Profile Score. Всего E2E: **42/42**. По пути исправлены баги: тень роута `PUT /api/profile/score` (за `:id`), 401 в settings.tsx/profile.tsx (нет Authorization), dev-login в auth-context.tsx/admin-guard.tsx перетирал сессию (теперь восстановление из JWT), токен только в sessionStorage (fallback localStorage), rate limiter 100→600 req/min. Детали: «Что сделано.txt», этап 8.
+- **E2E новых фич — ЗАКРЫТ (этапы 8+10, август 2026):** `e2e/features.spec.ts` (14 тестов): GDPR consent (регистрация→consent_log, UI-блокировка, тумблер настроек, revoke/restore, export, erase), Icebreakers (suggest + UI-чипы в пустом чате с включением флага aiIcebreakers), A/B (assign, track, админ-страница), Ghost Mode (premium gate), Profile Score, Video Date Scheduling (schedule CRUD/403/accept/decline/cancel) + Safety Check-in (contacts/start/confirm). Всего E2E: **44/44**. По пути исправлены баги: тень роута `PUT /api/profile/score` (за `:id`), 401 в settings.tsx/profile.tsx (нет Authorization), dev-login в auth-context.tsx/admin-guard.tsx перетирал сессию (теперь восстановление из JWT), токен только в sessionStorage (fallback localStorage), rate limiter 100→600 req/min, `POST /api/schedule` 500 на ISO-дату (MySQL strict). Детали: «Что сделано.txt», этапы 8, 10.
 - **.env с реальными ключами** — единственное, что блокирует прод (список в `server/.env.example`)
 
 ---

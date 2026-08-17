@@ -146,7 +146,7 @@ npx vite --port 8081 --host
 ### 🧪 Тестирование
 - **Фронтенд (Vitest):** 56 тестов, 13 файлов
 - **Сервер (Vitest):** 126 тестов, 12 файлов — **0 failures**
-- **E2E (Playwright):** 42 теста, 5 spec-файлов (audit-full, features, login, profile, register) — **0 failures**
+- **E2E (Playwright):** 44 теста, 5 spec-файлов (audit-full, features, login, profile, register) — **0 failures**
 - **Pre-flight:** `npm run check:ports` — сверка портов (vite/proxy/.env/CORS_ORIGIN) + warn на `console.log` в `server/src`
 - **Swagger:** OpenAPI-документация с JSDoc-аннотациями
 
