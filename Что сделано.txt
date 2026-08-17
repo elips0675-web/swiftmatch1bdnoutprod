@@ -29,6 +29,16 @@
 
 ⚠️ Наблюдение на будущее: админ-роуты `admin/features.js` (PUT) и `admin/experiments.js` (GET/POST/PUT) не защищены `adminAuth` — кандидаты на добавление middleware.
 
+## Аудит «Оценка qwen.txt» (август 2026) — 9.8/10, рекомендации
+
+| # | Рекомендация | Статус |
+|---|--------------|--------|
+| 1 | Автоматизация pre-flight: скрипт сверки портов (vite ↔ .env ↔ proxy) | ✅ `npm run check:ports` — `scripts/check-ports.mjs` (порт API 3002 vs UI 8081, CORS_ORIGIN, warn на `console.log` в `server/src`; в server/src console.log только в seed.js — легитимно) |
+| 2 | E2E-покрытие новых фич (Ghost Mode, GDPR, Icebreakers, A/B) | ✅ Закрыто этапом 8 — `e2e/features.spec.ts` (12 тестов), всего E2E 42/42 |
+| 3 | 6 падающих фронт-тестов из-за localStorage в jsdom | ✅ Полифилл `ensureStorage` в `src/test/setup.ts` (ещё этап 0) — фронт 56/56 |
+| 4 | Размер AGENTS.md (>1500 строк → разделить на AGENTS-RULES/PITFALLS/CHECKLISTS) | ⏳ Не актуально: сейчас 919 строк. Правило: при превышении ~1500 разделить |
+| 5 | Stripe: `express.raw` только на webhook-роуте, не глобально | ✅ Проверено: `index.js:77` — `app.use('/api/premium/webhook', express.raw(...))` строго на один роут, `express.json()` глобально |
+
 ## Аудит «Оценка дипсик.txt» (август 2026)
 - Проверено фактическое наличие всех файлов из анализа DeepSeek (сервер, БД, фронт, конфиги, тесты, инфраструктура) — все присутствуют
 - `server/src/emails/` не нужен — HTML-шаблоны инлайн в `mail.js`/`email.job.js`; хуки A/B есть (`useExperiment.ts` + `useTrackEvent`)
