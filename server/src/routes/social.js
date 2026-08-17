@@ -127,7 +127,7 @@ router.get('/api/users/search', auth, async (req, res) => {
       if (!isNaN(userLat) && !isNaN(userLng)) {
         distanceExpr = `, ROUND(ST_Distance_Sphere(up.location, ST_SRID(POINT(?, ?), 4326)), 1) AS distance`
         having = ' HAVING distance < ?'
-        geoParams.push(userLng, userLat, Number(searchRadius))
+        geoParams.push(userLng, userLat, Number(searchRadius) * 1000)
       }
     }
 
@@ -155,10 +155,12 @@ router.get('/api/users/search', auth, async (req, res) => {
          JOIN interests i ON i.id = ui.interest_id`
       : 'FROM user_profiles up'
 
-    const params = [...whereParams]
+    const params = []
+    if (hasGeo) params.push(geoParams[0], geoParams[1])
     if (userStyle) params.push(userStyle)
     params.push(...blockParams)
-    if (hasGeo) params.push(...geoParams)
+    params.push(...whereParams)
+    if (hasGeo) params.push(geoParams[2])
 
     const sql = `SELECT ${baseSelect}${distanceExpr}
                  ${fromClause}
