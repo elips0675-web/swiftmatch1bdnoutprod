@@ -13,6 +13,9 @@
 | 4 | A/B + Product Analytics | Миграция `019_experiments.sql`, assign по хэшу (стабильный 50/50), track в `analytics_events` (registration/like/match/premium_purchase), админ-страница A/B-тестов, эксперимент `card_cta` на карточке свайпа, хук `useExperiment.ts` |
 | 5 | API Versioning | `/api/v1/*` → `/api/*` + заголовок `X-API-Version: v1` (глобальный middleware, обратная совместимость) |
 | — | Багфикс | `messages.image_url` отсутствовал в БД — чаты падали с 500. Миграция `020_messages_image_url.sql` ✅ |
+| — | Багфикс | «В Чаты иероглифы»: сиды с кириллицей импортировались через `cmd <` БЕЗ `--default-character-set=utf8mb4` → двойная кодировка (CP866). Переимпортированы `icebreakers` (018), `chat_groups` (demo_groups.sql), исправлен `experiments` (019) через `scripts/fix-experiments.mjs`. Проверка: `scripts/scan-mojibake.mjs` (ALL CLEAN). Удалены мохибейк-сообщения и `?`-мусор тестов ✅ |
+| — | Багфикс | `message_reactions` не существовала — чаты с сообщениями падали 500. Миграция `021_message_reactions.sql` ✅ |
+| — | Багфикс | `push_subscriptions` без колонки `platform` — пуши молча падали. Миграция `022_push_platform.sql` ✅ |
 
 ## Этап 1: 🔴 Мобильный запуск (код готов, ждут ключи)
 
