@@ -7,6 +7,7 @@ import { sendPushToUser } from './push.js'
 import { auth } from '../middleware.js'
 import logger from '../logger.js'
 import { cacheRoutePerUser, invalidate } from '../cache.js'
+import { trackEvent } from './experiments.js'
 
 const likeLimiter = rateLimit({ windowMs: 60_000, max: 30, message: { message: 'Too many likes' } })
 
@@ -242,6 +243,7 @@ router.post('/api/likes', auth, likeLimiter, async (req, res) => {
     sendPushToUser(liked_user_id, 'SwiftMatch', matched
       ? `It\'s a match with ${liker?.display_name || 'someone'}!`
       : `${liker?.display_name || 'Someone'} liked you!`)
+    trackEvent(likeType, req.userId, { target_user_id: liked_user_id, matched })
 
     res.status(201).json({ message: matched ? 'It\'s a match!' : 'Like sent', matched })
   } catch (err) {

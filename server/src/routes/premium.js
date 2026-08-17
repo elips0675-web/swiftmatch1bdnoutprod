@@ -2,6 +2,7 @@ import { Router } from 'express'
 import pool from '../db.js'
 import { auth } from '../middleware.js'
 import logger from '../logger.js'
+import { trackEvent } from './experiments.js'
 
 const router = Router()
 
@@ -142,6 +143,7 @@ router.post('/api/premium/create-checkout', auth, async (req, res) => {
      VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MONTH), 1)`,
     [req.userId, tier, duration_months, price, duration_months],
   )
+  trackEvent('premium_purchase', req.userId, { tier, duration_months, price, mode: 'mock' })
   res.status(201).json({ message: 'Subscription activated (mock)', tier, expires_at: null })
 })
 

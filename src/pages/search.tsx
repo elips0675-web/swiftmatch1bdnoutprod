@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { AttachmentStyle } from "@/lib/attachment-styles";
 import { POPULAR_CITIES } from "@/lib/constants";
+import { useExperiment, useTrackEvent } from "@/hooks/useExperiment";
 
 const MatchDialog = dynamic(() => import('@/components/dialogs/match-dialog').then(mod => mod.MatchDialog), { ssr: false });
 const FiltersDialog = dynamic(() => import('@/components/dialogs/filters-dialog').then(mod => mod.FiltersDialog), { ssr: false });
@@ -134,6 +135,8 @@ function SearchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, language } = useLanguage();
+  const { variant: ctaVariant } = useExperiment('card_cta');
+  const trackEvent = useTrackEvent();
   const [userList, setUserList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageTitle, setPageTitle] = useState("");
@@ -243,6 +246,7 @@ function SearchContent() {
 
   const handleLike = async () => {
     if (!user) return;
+    trackEvent('swipe_like', { target_user_id: user.id });
     toast({ title: t('toast.like'), description: t('toast.you_liked_desc', { name: user.name }) });
     if (Math.random() > 0.7) {
       setMatchUser(user);
@@ -253,6 +257,7 @@ function SearchContent() {
   
   const handleSuperLike = async () => {
     if (!user) return;
+    trackEvent('swipe_super_like', { target_user_id: user.id });
     if ((currentUser.superLikes || 0) > 0) {
       const updatedUser = { ...currentUser, superLikes: currentUser.superLikes - 1 };
       setCurrentUser(updatedUser);
@@ -443,6 +448,17 @@ function SearchContent() {
                     </Link>
                 </Button>
             </div>
+            {ctaVariant === 'variant_b' && (
+              <Button
+                asChild
+                variant="outline"
+                className="w-full max-w-sm h-11 rounded-2xl bg-white shadow-lg border-0 text-primary font-bold active:scale-95 transition-all"
+              >
+                <Link href={`/user?id=${user.id}`} prefetch={true}>
+                  {t('search.open_profile')}
+                </Link>
+              </Button>
+            )}
           </>
         )}
       </main>

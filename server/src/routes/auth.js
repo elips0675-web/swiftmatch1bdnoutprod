@@ -5,6 +5,7 @@ import pool from '../db.js'
 import { JWT_SECRET } from '../middleware.js'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../mail.js'
 import logger from '../logger.js'
+import { trackEvent } from './experiments.js'
 
 const router = Router()
 
@@ -163,6 +164,7 @@ router.post('/api/auth/register', async (req, res) => {
     const token = jwt.sign({ userId, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
     const refresh_token = await createRefreshToken(userId)
     sendVerificationEmail(email, verification_token)
+    trackEvent('registration', userId, { referral: !!referredBy, has_phone: !!phone })
 
     res.status(201).json({
       token, refresh_token, userId,

@@ -7,7 +7,7 @@ import {
   SidebarContent,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, Users, Flag, Chrome as Home, Shield, LogOut, ChevronsLeft, ChevronsRight, SlidersHorizontal, DollarSign, Package, Mail, Image, ChartBar as BarChart3, Languages, Check } from 'lucide-react';
+import { LayoutDashboard, Users, Flag, Chrome as Home, Shield, LogOut, ChevronsLeft, ChevronsRight, SlidersHorizontal, DollarSign, Package, Mail, Image, ChartBar as BarChart3, Languages, Check, FlaskConical } from 'lucide-react';
 import { NavLink, useLocation, Link } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -22,6 +22,7 @@ export function AdminSidebar() {
   const NAV_ITEMS = [
     { title: t('admin.dashboard'), path: '/admin', icon: LayoutDashboard, exact: true },
     { title: t('admin.analytics'), path: '/admin/analytics', icon: BarChart3 },
+    { title: t('admin.experiments'), path: '/admin/experiments', icon: FlaskConical },
     { title: t('admin.users'), path: '/admin/users', icon: Users },
     { title: t('admin.reports'), path: '/admin/reports', icon: Flag },
     { title: t('admin.features'), path: '/admin/features', icon: SlidersHorizontal },

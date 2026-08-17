@@ -31,6 +31,7 @@ const AdminMonetization = lazy(() => import("./pages/admin-monetization"))
 const AdminReports = lazy(() => import("./pages/admin-reports"))
 const AdminPhotos = lazy(() => import("./pages/admin-photos"))
 const AdminUsers = lazy(() => import("./pages/admin-users"))
+const AdminExperiments = lazy(() => import("./pages/admin-experiments"))
 const Chats = lazy(() => import("./pages/chats"))
 const ChatId = lazy(() => import("./pages/_chats-chatId-adapter"))
 const Contest = lazy(() => import("./pages/contest"))
@@ -152,6 +153,7 @@ const App = () => (
                   <Routes>
                     <Route path="/admin" element={<AdminGuard><AdminLayout><SuspenseWrapper><Admin /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/analytics" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminAnalytics /></SuspenseWrapper></AdminLayout></AdminGuard>} />
+                    <Route path="/admin/experiments" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminExperiments /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/content" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminContent /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/features" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminFeatures /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/messaging" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminMessaging /></SuspenseWrapper></AdminLayout></AdminGuard>} />

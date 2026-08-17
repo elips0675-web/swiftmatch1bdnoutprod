@@ -40,6 +40,7 @@ import scheduleRoutes from './routes/schedule.js'
 import dateCheckinRoutes from './routes/date-checkin.js'
 import referralRoutes from './routes/referral.js'
 import icebreakersRoutes from './routes/icebreakers.js'
+import experimentsRoutes from './routes/experiments.js'
 import { metricsMiddleware, metricsRoute } from './metrics.js'
 import { JWT_SECRET } from './middleware.js'
 import { setupSwagger } from './swagger.js'
@@ -204,6 +205,7 @@ app.use(gdprRoutes)
 app.use(referralRoutes)
 app.use('/api/checkin', dateCheckinRoutes)
 app.use(icebreakersRoutes)
+app.use(experimentsRoutes)
 
 app.get('/health', async (req, res) => {
   try {
