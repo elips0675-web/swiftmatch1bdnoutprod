@@ -63,6 +63,15 @@ app.use((req, res, next) => {
   next()
 })
 
+// API versioning: /api/v1/* aliases the current v1 routes, adds version header
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api/v1/')) {
+    res.setHeader('X-API-Version', 'v1')
+    req.url = '/api' + req.url.slice('/api/v1'.length)
+  }
+  next()
+})
+
 app.use(metricsMiddleware)
 app.get('/metrics', metricsRoute)
 app.use('/api/premium/webhook', express.raw({ type: 'application/json' }))
