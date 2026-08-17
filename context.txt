@@ -253,6 +253,18 @@
 `587966d` campaigns → `3102e40` icebreakers → `6442d1a` A/B+analytics → `62a41d4` versioning+020 → `8e45726` docs → `08b9181` UTF-8 re-seed + 021/022 + scripts
 
 ---
+## Аудит «Оценка дипсик.txt» (август 2026) — проверено по факту
+
+Проверено фактическое наличие всех файлов из списка DeepSeek (backend, БД, фронт, конфиги, тесты, инфраструктура) — **все присутствуют**, кроме:
+
+- `server/src/emails/` — НЕ НУЖЕН: HTML-шаблоны писем инлайн в `mail.js`/`email.job.js` (reset/verify/кампании)
+- `src/hooks/use-experiment.ts` / `use-track-event.ts` — есть как `useExperiment.ts` + `useTrackEvent` (camelCase, различие только в именовании)
+
+Реальные пробелы из анализа:
+- **E2E новых фич нет:** `audit-full.spec.ts` покрывает базовые флоу (like→match→chat, admin, settings), но Ghost Mode, GDPR (consent/erase), Icebreakers, A/B, Video Date Scheduling и Reсipe Score E2E-тестами не покрыты → кандидаты на добавление
+- **.env с реальными ключами** — единственное, что блокирует прод (список в `server/.env.example`)
+
+---
 ## Что не сделано / ждёт — по оценке kimi
 
 ### 🔴 Критично (блокирует запуск) — код готов, ждут реальных ключей
