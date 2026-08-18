@@ -25,13 +25,19 @@
 - CORS — `*` (для Capacitor)
 
 ---
-## Последние изменения (этапы 13–17, август 2026)
+## Последние изменения (этапы 13–24, август 2026)
 - **13** — `запуск-всего.bat` исправлен (пути C:\swiftmatch1bdnoutprod, порт API 3002, подъём MySQL); `.env.example` проверен байтами — UTF-8, в порядке (кракозябры = консоль CP866)
 - **14** — production-smoke зелёный (`NODE_ENV=production`): /health, auth, админка (401 анониму), features public, icebreakers → fallback БД
 - **15** — `scripts/check-keys.ps1` переписан в ASCII (PS 5.1 не читал UTF-8 без BOM, падал на «—»); REDIS_URL в .env реально задан — очереди работают
 - **16** — README: «🚀 Чек-лист запуска продакшена» (ключи → миграции → проверки → запуск из server/ → поведение без ключей → CI-secrets)
 - **17** — lint: 0 errors / 150 warnings (no-explicit-any → warn, 18 catch помечены, require Capacitor — line-disable, пустой interface → type); 🐛 исправлен `src/hooks/useApi.ts` — useMemo ВНУТРИ useEffect (нарушение rules-of-hooks) + двойной fetchData() (дубли запросов при каждом маунте); playwright-report/, test-results.json → .gitignore
-- Тесты после этапа 17: E2E 44/44 ✅, фронт 56/56 ✅, сервер 126/126 ✅, tsc ✅, build ✅
+- **18** — qwen-аудиты: Sentry initSentry/registerSentryErrorHandler (порядок middleware), dev-login 404 в production, CORS fail-fast без CORS_ORIGIN, транзакции подписок (mock+webhook), миграция 024 (drop is_liked/is_bookmarked, INDEX idx_chats_group)
+- **19–20** — юридические страницы существовали (ссылки в регистрации/настройках) → добавлена ссылка на ToS в чекбокс; age-gate 18+ (обязательный чекбокс + тост)
+- **21** — `scripts/verify-backup.ps1` (restore в скретч-БД + sanity: users/matches/messages/subscriptions/feature_flags, PASS 130 users/213 messages); `install-backup-task.bat` — daily backup + weekly verify (Пн 03:30)
+- **22** — RevenueCat IAP-клиент: `src/lib/iap.ts` (guarded require, offerings/purchase, productId маппинг), premium.tsx нативная ветка с фолбэком; требуется `npm i @revenuecat/purchases-capacitor` + `VITE_REVENUECAT_API_KEY` при сборке APK
+- **23** — k6: починен дрейф контрактов (`/api/users/search`, `liked_user_id`, динамический chatId, креды user5@mail.ru); лайт-прогон 10 VU: p95 < 250 ms, 5–8 ms/запрос; полный ramp 100 VU — только staging (rate-limit'ы 600/мин глобальный + 30/мин лайки)
+- **24** — product analytics: воронка расширена — login_completed, register_completed, message_sent (+ttl), purchase_completed (+tier/duration/channel); retention/revenue-mix/registrations уже в админке; PostHog не нужен (self-hosted)
+- Тесты после этапов 22–24: E2E 44/44 ✅, фронт 57/57 ✅, сервер 126/126 ✅, tsc ✅, build ✅, lint 0 errors
 
 ---
 ## Что сделано
