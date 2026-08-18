@@ -36,6 +36,7 @@ test.describe('13. GDPR consent flow', () => {
 
     expect(page.url()).toContain('/register')
 
+    await page.click('[data-testid="age-checkbox"]')
     await page.click('[data-testid="consent-checkbox"]')
     await page.click('[data-testid="submit-register"]')
     await page.waitForURL(/^((?!\/register).)*$/, { timeout: 10000 }).catch(() => {})

@@ -26,6 +26,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [consent, setConsent] = useState(false);
+  const [ageConfirm, setAgeConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { t } = useLanguage();
 
@@ -52,6 +53,11 @@ export default function RegisterPage() {
 
     if (password.length < 8) {
       toast({ title: t('common.error'), description: t('register.password_length'), variant: "destructive" });
+      return;
+    }
+
+    if (!ageConfirm) {
+      toast({ title: t('common.error'), description: t('register.age_required'), variant: "destructive" });
       return;
     }
 
@@ -173,6 +179,19 @@ export default function RegisterPage() {
             
 <div className="flex items-start gap-3 py-1">
               <Checkbox
+                data-testid="age-checkbox"
+                id="age-confirm"
+                checked={ageConfirm}
+                onCheckedChange={(val) => setAgeConfirm(val === true)}
+                className="mt-0.5"
+              />
+              <label htmlFor="age-confirm" className="text-xs text-muted-foreground leading-relaxed select-none">
+                {t('register.age_label')}
+              </label>
+            </div>
+
+            <div className="flex items-start gap-3 py-1">
+              <Checkbox
                 data-testid="consent-checkbox"
                 id="consent"
                 checked={consent}
@@ -187,6 +206,10 @@ export default function RegisterPage() {
                 и{" "}
                 <Link href="/legal/privacy" className="text-primary hover:underline font-medium">
                   {t('register.consent_privacy')}
+                </Link>
+                {" "}и{" "}
+                <Link href="/legal/terms" className="text-primary hover:underline font-medium">
+                  {t('register.consent_terms')}
                 </Link>
               </label>
             </div>
