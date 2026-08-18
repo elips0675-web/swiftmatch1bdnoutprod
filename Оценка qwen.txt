@@ -1,57 +1,122 @@
-Предоставленная документация (README.md, AGENTS.md, context.txt) находится на исключительно высоком уровне. Это эталонный пример того, как должен быть оформлен проект для эффективной разработки, особенно с привлечением AI-ассистентов.
-Ниже приведён детальный аудит документации по ключевым критериям, сильные стороны и рекомендации по дальнейшему улучшению.
-📊 Оценка по ключевым критериям (1–10)
+Оценка проекта SwiftMatch
+Общее впечатление: очень зрелый production-ready проект уровня strong middle+/senior team. Видна серьёзная инженерная культура — редкость для dating-app стартапов. Разберу по пунктам.
+✅ Сильные стороны (9-10/10)
+1. Архитектура и стек
+Правильный выбор стека: Express + MySQL + Redis + Socket.IO + Bull Queue — классическая надёжная связка для real-time приложения.
+Spatial search через ST_Distance_Sphere + SPATIAL INDEX — единственно верный подход для гео-дейтинга (в отличие от постгрес-PostGIS конкурентов, тут MySQL-специфика учтена).
+Разделение на очереди (email/push/image) через Bull — image-resize не будет блокировать auth.
+Redis lazy-init + graceful fallback без Redis — отлично для dev/prod parity.
+2. Безопасность
+helmet, rate-limit (разные лимиты на auth/обычные), idempotency для Stripe — все critical paths закрыты.
+Sentry с beforeSend-фильтрацией PII — правильно, иначе email/токены улетают в логи Sentry.
+JWT + refresh tokens + user_sessions таблица — можно отзывать сессии.
+Авто-эскалация репортов (1→pending, 3→temp ban, 5→perm ban) — хорошая защита от троллей.
+3. Observability и DevOps
+Prometheus + Grafana с 7-панельным дашбордом + k6 load test — это уровень enterprise.
+Health checks (/health/live, /health/ready), graceful shutdown с таймаутом — k8s-friendly.
+GitHub Actions: lint → test → E2E → deploy — правильный pipeline.
+X-Request-Id + Winston в JSON — трассируемость запросов.
+API versioning (/api/v1 + X-API-Version) — продумано на будущее.
+4. Тестирование
+226 тестов (126 server + 56 frontend + 44 E2E Playwright) — 0 failures. Это редкость.
+Pre-flight check:ports — защита от конфигурационных косяков.
+E2E покрывает critical paths: audit, features, login, profile, register.
+5. Product features
+GDPR compliance (consent_log, data_erase_requests) — обязательно для EU.
+Safety: date check-in + emergency contacts — киллер-фича для женской аудитории.
+Attachment style compatibility — психологически обоснованный matching.
+A/B testing + feature flags + experiments — data-driven подход.
+AI icebreakers с fallback из БД — деградация без OpenAI ключа.
+6. Документация
+README — образцовый: quick start, структура, чек-лист прода, таблица ключей, статусы фич. Так должны выглядеть все проекты.
+🔴 Критические проблемы (требуют фикса до прода)
+1. Баг в matches — возможны дубликаты
+sql
+
+1
+Нет CHECK (user1_id < user2_id). Приложение может вставить (1,2) при первом лайке и (2,1) при ответном — получится два мэтча между одной парой.
+Фикс: либо CHECK-констрейнт + сортировка на бэке, либо UNIQUE (LEAST(user1_id,user2_id), GREATEST(...)) через generated columns.
+2. Архитектурный баг в posts
+sql
+
+12
+Это user-specific флаги, но лежат в общей таблице posts. Если Вася лайкнул пост — is_liked=1 для всех? Это сломает UI.
+Фикс: убрать из posts, читать через LEFT JOIN post_likes WHERE user_id = ?.
+3. Sentry error handler в неправильном порядке
+js
+
+12
+Sentry's error handler никогда не сработает — Express не дойдёт до него. Ошиби уходят в /500, но не в Sentry.
+Фикс: initSentry(app) сразу после app.use(metricsMiddleware), до всех роутов.
+4. dev-login без защиты по NODE_ENV
+js
+
+12
+В проде любой может залогиниться как user#2. Нужен if (process.env.NODE_ENV !== 'development') return next().
+5. CORS fallback на '*'
+js
+
+1
+Если CORS_ORIGIN не задан в проде — CORS открыт для всех доменов. Для API-only JWT это менее критично, но всё равно risk. Лучше падать с ошибкой, если в проде нет CORS_ORIGIN.
+🟠 Средние проблемы
+6. Дубликаты ALTER в схеме
+sql
+
+12345678
+Выглядит как следы итеративной разработки. Для чистого деплоя с нуля — мусор. Для миграций — ок, но надо комментировать.
+7. password_hash в SELECT при логине
+js
+
+1
+Поднимается в rows[0], потом не используется. Лучше не поднимать лишнего в память. Мелочь, но паттерн плохой.
+8. subscriptions без защиты от дублей
+Нет UNIQUE на (user_id, is_active). При race condition на webhook Stripe можно получить две активные подписки. Нужна проверка SELECT ... WHERE user_id=? AND is_active=1 AND expires_at>NOW() перед созданием + транзакция.
+9. content_config JSON без валидации схемы
+Админ может записать мусор в interests/banned_words — фронт упадёт. Нужна Zod-валидация на write.
+10. user_profiles.id без AUTO_INCREMENT
+sql
+
+12
+Это 1-to-1, но при создании profile нужно вручную передавать id. Не ошибка, но создаёт риск рассинхрона при баге в auth-flow. Альтернатива — users и user_profiles объединить, либо добавить ON INSERT триггер.
+🟡 Мелочи
+user_sessions.token VARCHAR(500) — избыточно, JWT обычно ≤ 256. Но не критично.
+fcm_tokens UNIQUE по token(255) — префиксный индекс, норм.
+analytics_events на BIGINT — правильно, при 1M events/day INT упрётся за 2 года.
+compatibility_scores — симметрия не гарантирована схемой, но сиды покрывают все 9 пар. Хрупко.
+Нет индекса на chats.group_id — при росте групп будет slow query.
+📊 Итоговая оценка
 Критерий
-Оценка
-Комментарий
-Полнота
-10/10
-Охвачены все слои: стек, архитектура, БД, API, тесты, CI/CD, деплой, мобильная сборка (Capacitor).
-Структура и читаемость
+Балл
+Архитектура
 9/10
-Чёткое разделение: README для людей, AGENTS.md для правил AI, context.txt для текущего состояния и истории багов.
-Согласованность
-10/10
-Порты (3002/8081), пути, имена переменных и особенности БД (MySQL 8.4) не противоречат друг другу в разных файлах.
 Безопасность
+7/10
+Масштабируемость
+9/10
+Качество кода
+8/10
+DevOps / CI-CD
 10/10
-Жёсткие правила: prepared statements, passive adminAuth, запрет на коммит .env, PII scrubbing в Sentry, rate limiting.
-Действенность для AI
+Тестирование
 10/10
-Наличие "Golden Rules", "Pitfalls", "What to NEVER do" и 5-этапного итеративного подхода сводит галлюцинации AI к нулю.
-🌟 Сильные стороны
-Кристаллизация "граблей" (Pitfalls & Past Mistakes)
-Фиксация специфичных ошибок (например, rolldownOptions вместо rollupOptions в Vite 8, отсутствие IF NOT EXISTS в MySQL 8.4, проблема UTF-16/CP866 в PowerShell, порядок роутов в Express) — это самое ценное в AGENTS.md. Это гарантирует, что AI не повторит прошлые ошибки.
-Жёсткая дисциплина i18n
-Правило "Никогда не отображать сырые ключи переводов" и требование хранить в БД только slug'и (interest.sport, а не "Спорт") с примерами OK / NOT OK идеально защищает приложение от поломок при добавлении новых языков.
-Pre-flight Checklist
-Чеклист перед закрытием production-задачи (Security grep, консистентность портов, миграции вместо ручного ALTER TABLE) — это профессиональный стандарт, который часто игнорируют даже senior-разработчики.
-Прозрачность технического долга
-В context.txt честно указаны pre-existing failures (6 тестов из-за мока localStorage в jsdom) и отсутствующее E2E-покрытие для новых фич (Ghost Mode, GDPR). Это лучше, чем делать вид, что всё идеально.
-Готовность к Native (Capacitor)
-Учёт особенностей src/lib/native.ts, перехват fetch, требования к cleartext и замена localStorage на @capacitor/preferences прописаны явно.
-🚀 Зоны роста и рекомендации
-Несмотря на высокое качество, есть несколько моментов, которые можно улучшить для выхода на уровень "Enterprise Production":
-1. Автоматизация Pre-flight Checklist
-Вместо того чтобы полагаться на AI или разработчика для ручного запуска grep или проверки портов, добавьте эти проверки в CI/CD или pre-commit хуки:
-Добавьте скрипт npm run check:ports, который парсит vite.config.ts и server/.env и сверяет порт 3002.
-Добавьте lint-staged правило для поиска хардкодных строк (кроме разрешённых файлов) или console.log в server/src/.
-2. Закрытие пробелов в E2E-тестах
-В context.txt указано, что новые фичи (Ghost Mode, GDPR consent/erase, AI Icebreakers, A/B тесты) не покрыты Playwright.
-Рекомендация: Создайте отдельный файл e2e/new-features.spec.ts и добавьте туда хотя бы по 1 критическому сценарию на каждую фичу (например: "Включение инкогнито → проверка, что профиль не виден в поиске под другим аккаунтом").
-3. Исправление pre-existing тестов
-6 падающих тестов фронтенда из-за localStorage в Node 25/jsdom.
-Рекомендация: Выделите 1-2 часа на написание правильного мока для localStorage в src/test/setup.ts (например, через Object.defineProperty(global, 'localStorage', { value: { ... } })), чтобы достичь заветных 100% (179/179). Это повысит доверие к CI.
-4. Управление размером AGENTS.md
-Файл уже очень большой. Если в будущем вы начнёте использовать модели с меньшим контекстным окном, это может стать проблемой.
-Рекомендация: Если файл превысит ~1500 строк, разделите его на:
-AGENTS-RULES.md (Core Rules, Stack, Response Format)
-AGENTS-PITFALLS.md (История ошибок и специфичные ограничения)
-AGENTS-CHECKLISTS.md (Pre-flight, Security, Deployment)
-5. Уточнение по Stripe Webhook
-В документации указано: express.raw({ type: 'application/json' }) ДО express.json(). Это абсолютно верно для Stripe.
-Рекомендация: Убедитесь, что в server/src/index.js этот middleware применён только к роуту /api/webhooks/stripe (или аналогичному), а не глобально ко всему приложению, иначе это сломает парсинг обычных JSON-запросов с фронтенда.
-🏆 Итоговый вердикт
-Оценка: 9.8 / 10
-Это production-ready документация. Она демонстрирует глубокий системный подход, понимание реальных проблем эксплуатации (от кодировки PowerShell до порядка роутов в Express) и создаёт идеальную среду для работы AI-ассистента.
-Если код в репозитории соответствует качеству этой документации, проект готов к масштабированию и безопасному онбордингу новых разработчиков (или AI-агентов). Следующий логичный шаг — получение реальных API-ключей из раздела "🔴 Критично" и прогон полного E2E-теста на staging-окружении.
+Observability
+10/10
+Product features
+10/10
+Документация
+10/10
+Готовность к прода
+8/10
+Общая оценка: 8.5/10 — крепкий production-grade проект.
+🎯 Приоритетный action list перед релизом
+🔴 Починить matches (CHECK constraint или сортировка на бэке)
+🔴 Убрать is_liked/is_bookmarked из posts, читать через post_likes
+🔴 Переставить initSentry(app) выше финального error handler
+🔴 Завернуть dev-login в if (NODE_ENV !== 'development')
+🟠 Добавить валидацию активной подписки перед созданием новой
+🟠 Валидация content_config JSON на write
+🟠 Убрать password_hash из SELECT в login
+🟡 Почистить дубли ALTER в mysql_schema.sql (или вынести в отдельный legacy_migrations.sql)
+🟡 Добавить индекс на chats.group_id
+После пунктов 1-5 — можно в прод. Остальное — техдолг второй очереди.
+Резюме: проект заметно выше среднего по рынку. Видно, что над ним работал инженер с опытом production-систем. Если пофиксить 5 критических пунктов — будет 9.5/10.

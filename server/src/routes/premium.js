@@ -138,11 +138,25 @@ router.post('/api/premium/create-checkout', auth, async (req, res) => {
   }
 
   const price = tierConfig.price * duration_months
-  await pool.query(
-    `INSERT INTO subscriptions (user_id, tier, duration_months, price, expires_at, is_active)
-     VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MONTH), 1)`,
-    [req.userId, tier, duration_months, price, duration_months],
-  )
+  const conn = await pool.getConnection()
+  try {
+    await conn.beginTransaction()
+    await conn.query(
+      "UPDATE subscriptions SET is_active = 0 WHERE user_id = ? AND is_active = 1 AND expires_at > NOW()",
+      [req.userId],
+    )
+    await conn.query(
+      `INSERT INTO subscriptions (user_id, tier, duration_months, price, expires_at, is_active)
+       VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MONTH), 1)`,
+      [req.userId, tier, duration_months, price, duration_months],
+    )
+    await conn.commit()
+  } catch (err) {
+    await conn.rollback()
+    throw err
+  } finally {
+    conn.release()
+  }
   trackEvent('premium_purchase', req.userId, { tier, duration_months, price, mode: 'mock' })
   res.status(201).json({ message: 'Subscription activated (mock)', tier, expires_at: null })
 })
@@ -186,11 +200,25 @@ router.post('/api/premium/webhook', async (req, res) => {
       try {
         const tierConfig = TIERS.find(t => t.id === tier)
         const price = tierConfig ? tierConfig.price * Number(duration_months || 1) : 0
-        await pool.query(
-          `INSERT INTO subscriptions (user_id, tier, duration_months, price, expires_at, is_active)
-           VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MONTH), 1)`,
-          [Number(userId), tier, Number(duration_months || 1), price, Number(duration_months || 1)],
-        )
+        const conn = await pool.getConnection()
+        try {
+          await conn.beginTransaction()
+          await conn.query(
+            "UPDATE subscriptions SET is_active = 0 WHERE user_id = ? AND is_active = 1 AND expires_at > NOW()",
+            [Number(userId)],
+          )
+          await conn.query(
+            `INSERT INTO subscriptions (user_id, tier, duration_months, price, expires_at, is_active)
+             VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MONTH), 1)`,
+            [Number(userId), tier, Number(duration_months || 1), price, Number(duration_months || 1)],
+          )
+          await conn.commit()
+        } catch (err) {
+          await conn.rollback()
+          throw err
+        } finally {
+          conn.release()
+        }
       } catch (err) {
         logger.error('Webhook insert error:', err)
       }

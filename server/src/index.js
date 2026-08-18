@@ -12,7 +12,7 @@ import pool from './db.js'
 import { initIO, startMessageCleanup, startCheckinCleanup } from './ws.js'
 import { createLogger, rootLogger } from './logger.js'
 import { idempotency } from './middleware/idempotency.js'
-import { initSentry } from './sentry.js'
+import { initSentry, registerSentryErrorHandler } from './sentry.js'
 import { getRedis, disconnectRedis } from './redis.js'
 import { initQueues, closeQueues } from './queue.js'
 
@@ -53,8 +53,15 @@ const PORT = process.env.PORT || 3002
 const limiter = rateLimit({ windowMs: 60_000, max: 600, message: { message: 'Too many requests' } })
 const authLimiter = rateLimit({ windowMs: 60_000, max: 60, message: { message: 'Too many auth attempts' } })
 
+if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
+  throw new Error('CORS_ORIGIN is required in production (fail-fast)')
+}
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }))
 app.use(helmet())
+
+// Sentry must be initialized BEFORE routes and the final error handler,
+// otherwise its errorHandler (registered last) never fires.
+initSentry(app)
 
 // Request ID + structured logger
 app.use((req, res, next) => {
@@ -107,6 +114,9 @@ async function adminAuth(req, res, next) {
 
 // Dev route: auto-login as demo user (id=2, has chats in demo data)
 app.post('/api/auth/dev-login', async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ message: 'Not found' })
+  }
   const token = jwt.sign({ userId: 2, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
   res.json({ token, role: 'user' })
 })
@@ -231,13 +241,15 @@ app.get('/health', async (req, res) => {
   }
 })
 
+// Error middleware order matters: Sentry errorHandler must be registered
+// before the generic 500 handler above to catch route errors.
+registerSentryErrorHandler(app)
+
 app.use((err, req, res, next) => {
   const log = req.log || rootLogger
   log.error('Unhandled error', err)
   res.status(500).json({ message: 'Internal server error' })
 })
-
-initSentry(app)
 
 const httpServer = createServer(app)
 initIO(httpServer)

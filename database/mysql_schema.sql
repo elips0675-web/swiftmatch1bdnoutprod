@@ -174,7 +174,8 @@ CREATE TABLE chats (
   created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (last_sender_id) REFERENCES users(id) ON DELETE SET NULL,
-  INDEX idx_chats_updated (updated_at)
+  INDEX idx_chats_updated (updated_at),
+  INDEX idx_chats_group (group_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------
@@ -325,8 +326,6 @@ CREATE TABLE posts (
   text          TEXT NOT NULL,
   likes_count   INT UNSIGNED NOT NULL DEFAULT 0,
   comments_count INT UNSIGNED NOT NULL DEFAULT 0,
-  is_liked      BOOLEAN NOT NULL DEFAULT FALSE,
-  is_bookmarked BOOLEAN NOT NULL DEFAULT FALSE,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

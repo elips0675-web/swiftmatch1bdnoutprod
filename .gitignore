@@ -44,3 +44,4 @@ server/*.log
 
 playwright-report/
 test-results.json
+test/
