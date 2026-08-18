@@ -174,6 +174,15 @@ npx vite --port 8081 --host
 - **Load Testing:** k6-скрипт (`k6/load-test.js`, ramp-up 10→100 users, 6 endpoints)
 - **Git hooks:** Husky + lint-staged (prettier + eslint на staged файлах)
 - **Логирование:** Winston (JSON, timestamp/level/msg/rid)
+- **Pre-flight:** `npm run check:ports` (порты + JWT_SECRET в server/.env) и `scripts/check-keys.ps1` (какие прод-ключи не заполнены)
+
+### 🚀 Чек-лист запуска продакшена
+1. **Ключи**: заполнить `server/.env` по `server/.env.example`; проверить `powershell -File scripts/check-keys.ps1` (обязательные: `JWT_SECRET`, `DB_PASSWORD`, `CORS_ORIGIN`; для фич: Stripe, SMTP, FCM, RevenueCat, Twilio, OpenAI, S3, Sentry, Redis)
+2. **Миграции**: `node database/migrations/migrate.js` (или через CI)
+3. **Проверка**: `npm run check:ports` → `npm test` (server) → `npx vitest run` → `npx playwright test` → `npx vite build`
+4. **Запуск**: `cd server && node src/index.js` (строго из `server/` — иначе dotenv не подхватит .env и JWT-токены «сгорят»); продакшн-процесс под pm2/systemd
+5. **Без ключей сервис деградирует, но жив**: Stripe → mock (в prod 502 «not configured» — осознанно), OpenAI → fallback из БД, пуши/SMS → mock, письма → лог «would send», S3 → локальный диск, RevenueCat webhook → 503
+6. **CI-deploy**: завести secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DB_HOST/USER/PASSWORD/NAME` — джоба `deploy` в `.github/workflows/deploy.yml`
 
 ### 📱 Новые фичи (июль 2026)
 - **Background GPS + Geofence** — 5min polling, PUT/GET /api/location, Capacitor geolocation

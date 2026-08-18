@@ -11,11 +11,11 @@ $checks = @(
   @{Key="STRIPE_WEBHOOK_SECRET"; Name="Stripe Webhook"; Doc="https://dashboard.stripe.com/webhooks"},
   @{Key="SMTP_USER"; Name="SMTP username"; Doc="SendGrid/Resend/SES"},
   @{Key="SMTP_PASS"; Name="SMTP password"; Doc="SendGrid/Resend/SES"},
-  @{Key="FCM_SERVER_KEY"; Name="Firebase FCM"; Doc="https://console.firebase.google.com → Project settings → Cloud Messaging"},
-  @{Key="REVENUECAT_WEBHOOK_SECRET"; Name="RevenueCat"; Doc="https://app.revenuecat.com → Settings → Webhooks"},
+  @{Key="FCM_SERVER_KEY"; Name="Firebase FCM"; Doc="https://console.firebase.google.com -> Project settings -> Cloud Messaging"},
+  @{Key="REVENUECAT_WEBHOOK_SECRET"; Name="RevenueCat"; Doc="https://app.revenuecat.com -> Settings -> Webhooks"},
   @{Key="TWILIO_ACCOUNT_SID"; Name="Twilio SID"; Doc="https://console.twilio.com"},
   @{Key="TWILIO_AUTH_TOKEN"; Name="Twilio Token"; Doc="https://console.twilio.com"},
-  @{Key="TWILIO_PHONE_NUMBER"; Name="Twilio Phone"; Doc="https://console.twilio.com → Phone Numbers"},
+  @{Key="TWILIO_PHONE_NUMBER"; Name="Twilio Phone"; Doc="https://console.twilio.com -> Phone Numbers"},
   @{Key="OPENAI_API_KEY"; Name="OpenAI"; Doc="https://platform.openai.com/api-keys"},
   @{Key="SENTRY_DSN"; Name="Sentry"; Doc="https://sentry.io/settings/projects"},
   @{Key="AWS_ACCESS_KEY_ID"; Name="AWS Access Key"; Doc="https://console.aws.amazon.com/iam"},
@@ -39,7 +39,7 @@ foreach ($check in $checks) {
 
   $line = $content | Where-Object { $_ -match "^$key=" -or $_ -match "^#\s*$key=" }
   if (!$line) {
-    $errors += "$key — NOT FOUND in .env"
+    $errors += "$key - NOT FOUND in .env"
     Write-Host "  $key`t($name)`t[NOT FOUND]" -ForegroundColor Red
     $allOk = $false
     continue
@@ -74,7 +74,7 @@ if ($emptyKeys.Count -eq 0) {
 } else {
   foreach ($key in $emptyKeys) {
     $check = $checks | Where-Object { $_['Key'] -eq $key }
-    Write-Host "  ❌ $key — $($check.Name)" -ForegroundColor Yellow
+    Write-Host "  [X] $key - $($check.Name)" -ForegroundColor Yellow
     Write-Host "     Get it: $($check.Doc)" -ForegroundColor DarkGray
   }
   Write-Host "`nTotal: $($emptyKeys.Count) keys need attention" -ForegroundColor Yellow
@@ -83,14 +83,14 @@ if ($emptyKeys.Count -eq 0) {
 Write-Host "`n=== Quick Start for Each Service ===" -ForegroundColor Cyan
 Write-Host @"
 
-1. Firebase (FCM): console.firebase.google.com → Create project → Cloud Messaging → Server key
-2. RevenueCat: app.revenuecat.com → Create project → Add products (premium_monthly $9.99, premium_yearly $59.99)
-3. Twilio: console.twilio.com → Buy phone number → Account SID + Auth Token
-4. Stripe: dashboard.stripe.com/apikeys → Create live keys
-5. SMTP: app.sendgrid.com → SMTP settings → Create API key
-6. Sentry: sentry.io → Create project → DSN
-7. AWS: console.aws.amazon.com → IAM → Create user with S3 + Rekognition permissions
-8. Redis: upstash.com → Create redis → URL
-9. OpenAI: platform.openai.com/api-keys → Create key
+1. Firebase (FCM): console.firebase.google.com -> Create project -> Cloud Messaging -> Server key
+2. RevenueCat: app.revenuecat.com -> Create project -> Add products (premium_monthly $9.99, premium_yearly $59.99)
+3. Twilio: console.twilio.com -> Buy phone number -> Account SID + Auth Token
+4. Stripe: dashboard.stripe.com/apikeys -> Create live keys
+5. SMTP: app.sendgrid.com -> SMTP settings -> Create API key
+6. Sentry: sentry.io -> Create project -> DSN
+7. AWS: console.aws.amazon.com -> IAM -> Create user with S3 + Rekognition permissions
+8. Redis: upstash.com -> Create redis -> URL
+9. OpenAI: platform.openai.com/api-keys -> Create key
 
 "@
