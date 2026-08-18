@@ -2,6 +2,15 @@
 
 > Актуально на август 2026. Все тесты: **227/227** — E2E 44/44 ✅, фронт 57/57 ✅, сервер 126/126 ✅. Vite build: ✅. Swagger: ✅.
 
+## Этап 23: k6 — фикс скрипта + лайт-прогон (август 2026)
+
+- Установлен k6 (v0.57.0, winget завис → прямой zip в Temp)
+- Найден дрейф контрактов: `/api/search` → `/api/users/search`, лайк `{liked_id}` → `{liked_user_id}`, жёсткий chatId=1 → 403 «Not a participant» (у user5 нет чата 1)
+- `k6/load-test.js` починен: актуальные эндпоинты, динамический chatId из /api/chats, дефолтные креды под локальную БД (user5@mail.ru / demo123456)
+- Лайт-прогон 10 VU (1 мин): сервер держит 5–8 ms/запрос, login p95 116 ms, profile p95 118 ms, search p95 2.8 ms, http_req_duration p95 74–232 ms — отлично
+- 57% «ошибок» под нагрузкой = rate-limit'ы by design: глобальный 600/мин (≈10 req/s с одного IP) + лайки 30/мин; с одиночного IP полный 100-VU ramp невозможен → полный прогон на staging
+- k6 установлен только в `%TEMP%\opencode\k6\` (не в PATH, в репозиторий не входит)
+
 ## Этап 22: RevenueCat IAP-клиент (август 2026)
 
 - Новый `src/lib/iap.ts` — клиентская обвязка RevenueCat для Capacitor: guarded `require('@revenuecat/purchases-capacitor')` (no-op без пакета — как остальные нативные плагины), configure + offerings + purchasePackage, маппинг тарифов `plus/gold/platinum_1m|6m|12m`
