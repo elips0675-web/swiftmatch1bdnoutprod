@@ -2,6 +2,28 @@
 
 > Актуально на август 2026. Все тесты: **226/226** — E2E 44/44 ✅, фронт 56/56 ✅, сервер 126/126 ✅. Vite build: ✅. Swagger: ✅.
 
+## Этапы 13–17: Доки-гигиена, prod-smoke, lint-долг (август 2026)
+
+**Этап 13 — доки-гигиена:**
+- `запуск-всего.bat` был битым: путь `D:\swiftmatch1bddomadm` (проект на `C:\swiftmatch1bdnoutprod`) и порт API 3001 (реальный 3002) — переписан: chcp 65001, подъём MySQL из Laragon-бина, API из `server\`, vite на 8081
+- `server/.env.example` проверен байтами: он был в порядке (UTF-8) — «кракозябры» были артефактом консоли PowerShell (CP866); восстановлен из git после неудачной перекодировки
+
+**Этап 14 — production-smoke** (`NODE_ENV=production`, порт 3010, окружение из server/.env):
+- /health ✅, логин admin ✅, /api/profile/me ✅, админ-статистика с токеном ✅, аноним → **401** ✅ (adminAuth строгий), `/api/admin/features` публичный ✅, icebreakers → fallback из БД (source: db) ✅
+- Вывод: сервер живёт в prod-режиме без ключей; ничего не упало, стек-трейсов нет
+
+**Этап 15 — `scripts/check-keys.ps1`:**
+- PowerShell 5.1 парсил UTF-8 без BOM как ANSI — em-dash «—» в строке 42 ломал парсинг → переписан в чистый ASCII; работает: 4 обязательных пропуска (Stripe LIVE, SMTP user/pass, RevenueCat) + опциональные
+- Бонус: выяснилось, что `REDIS_URL` в server/.env задан по-настоящему — поэтому Bull-очереди (этап 11) реально работали
+
+**Этап 16 — README:** добавлен «🚀 Чек-лист запуска продакшена» (6 шагов: ключи → миграции → проверки → запуск из server/ → поведение без ключей → CI-secrets) + pre-flight упоминания (check:ports, check-keys.ps1)
+
+**Этап 17 — lint-гейт зелёный:**
+- 🐛 **Реальный баг** в `src/hooks/useApi.ts`: `useMemo` вызывался ВНУТРИ колбэка `useEffect` (нарушение `rules-of-hooks` — риск краша рендера «more hooks than previous render») + `fetchData()` вызывался ДВАЖДЫ → дубли API-запросов при каждом маунте страницы. Фикс: `useMemo` вынесен наверх, единый вызов, тело запроса берётся из `bodyKey`
+- Lint: `no-explicit-any` → **warn** (127 шт., правило осталось видимым), 18 пустых `catch {}` → с комментарием, `require('@capacitor/*')` (условные нативные импорты) → line-disable, пустой интерфейс `CommandDialogProps` → `type`-алиас, типы в e2e-файлах конкретизированы
+- Итог: **0 errors / 150 warnings** (раньше 149 errors — CI lint-джоба краснела), tsc ✅, vitest 56/56 ✅, build ✅, E2E 44/44 ✅
+- `playwright-report/` и `test-results.json` → .gitignore
+
 ## Этап 12: Стабилизация E2E и инфраструктуры (август 2026)
 
 - Диагностика флаки: первые прогоны после рестартов падали (403/500 на «холодном» vite), разовый прогон дал 4 падения — причина НЕ в тестах: **mysqld был убит Windows (`RADAR_PRE_LEAK_64`, нехватка памяти под нагрузкой E2E: 3 chromium + node + vite + mysql)** → пул mysql2 получил fatal ECONNREFUSED → сервер упал; vite тоже завершился

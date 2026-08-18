@@ -20,9 +20,18 @@
 - DB: 3306 (MySQL via Laragon)
 
 ## Auth
-- `adminAuth` middleware — **passive** (вызывает `next()` на ошибке, не блокирует)
+- `adminAuth` middleware — **ACTIVE** (с этапа 9: 401 без токена, 403 не-админ; публичный только `GET /api/admin/features`)
 - AdminGuard при отсутствии Supabase делает dev-login
 - CORS — `*` (для Capacitor)
+
+---
+## Последние изменения (этапы 13–17, август 2026)
+- **13** — `запуск-всего.bat` исправлен (пути C:\swiftmatch1bdnoutprod, порт API 3002, подъём MySQL); `.env.example` проверен байтами — UTF-8, в порядке (кракозябры = консоль CP866)
+- **14** — production-smoke зелёный (`NODE_ENV=production`): /health, auth, админка (401 анониму), features public, icebreakers → fallback БД
+- **15** — `scripts/check-keys.ps1` переписан в ASCII (PS 5.1 не читал UTF-8 без BOM, падал на «—»); REDIS_URL в .env реально задан — очереди работают
+- **16** — README: «🚀 Чек-лист запуска продакшена» (ключи → миграции → проверки → запуск из server/ → поведение без ключей → CI-secrets)
+- **17** — lint: 0 errors / 150 warnings (no-explicit-any → warn, 18 catch помечены, require Capacitor — line-disable, пустой interface → type); 🐛 исправлен `src/hooks/useApi.ts` — useMemo ВНУТРИ useEffect (нарушение rules-of-hooks) + двойной fetchData() (дубли запросов при каждом маунте); playwright-report/, test-results.json → .gitignore
+- Тесты после этапа 17: E2E 44/44 ✅, фронт 56/56 ✅, сервер 126/126 ✅, tsc ✅, build ✅
 
 ---
 ## Что сделано
@@ -35,7 +44,7 @@
 ### Инфраструктура
 - **Docker:** `.dockerignore`, healthcheck (curl /health), `mem_limit: 512m`, `JWT_SECRET` через env
 - **Nginx:** rate limit (api 30r/s, auth 5r/s), WebSocket 86400s, SSL, SPA fallback
-- **CI/CD:** `.github/workflows/deploy.yml` — lint → build → test (MySQL сервис)
+- **CI/CD:** `.github/workflows/deploy.yml` — lint → frontend test → server test (MySQL сервис) → E2E → deploy; в lint-джобе `npm run check:ports`
 - **Миграции БД:** `database/migrations/` — нумерованные .sql + migrate.js
 - **MySQL backup:** `scripts/backup-mysql.ps1` + `.sh`, retention 7 дней
 - **Setup:** `scripts/setup.ps1` — авто-копирование .env + генерация JWT_SECRET + npm install
