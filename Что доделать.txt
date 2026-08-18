@@ -2,10 +2,13 @@
 
 > Актуально: 18.08.2026, после этапа 18. Каждый пункт — из аудитов «Оценка kimi.txt», «Оценка дипсик.txt», «Оценка qwen.txt»; статус сверен с кодом и тестами.
 
-## ✅ Закрыто (в т.ч. этапами 8–18)
+## ✅ Закрыто (в т.ч. этапами 8–21)
 
 | Пункт аудита | Кто флагил | Чем закрыт |
 |---|---|---|
+| Privacy Policy + Terms of Service | kimi, дипсик | Страницы существовали с марта 2024 (`/legal/privacy`, `/legal/terms`, `/legal/data-processing`, RU/EN, ссылки в настройках) — аудиты смотрели старый срез; **этап 19**: добавлена ссылка на ToS в чекбокс регистрации |
+| Age verification 18+ | kimi чеклист | **Этап 20**: обязательный чекбокс «Мне есть 18 лет» при регистрации + тост-блокировка |
+| Backup restore verification | kimi #23 | **Этап 21**: `scripts/verify-backup.ps1` (restore в скретч-БД + sanity-проверки), weekly-задача в `install-backup-task.bat` |
 | GDPR: consent, export, erasure | kimi #7 | Этап 8 — E2E-тесты (consent_log, /api/data/export, erase) |
 | Background GPS + Geofence | kimi #8 | Июльские фичи: 5-min polling, /api/location |
 | Ghost Mode (premium) | kimi #9 | Этап 8, E2E #16 + 403 PREMIUM_REQUIRED |
@@ -40,10 +43,7 @@
 
 ## 🟠 В работе / техдолг второй очереди
 
-- **Privacy Policy + Terms of Service** (kimi, дипсик: «юридическая часть») — страниц нет
 - **RevenueCat клиент** — серверный webhook готов (503 без ключа, подпись), но `purchases-capacitor` не установлен — IAP в APK не работает
-- **Age verification 18+** — только scaffold при регистрации
-- **Backup restore verification** — скрипт есть, авто-проверки восстановления нет (kimi #23)
 - **SMS-верификация** — scaffold + mock; реальная после ключей Twilio (kimi #4)
 - **AI-модерация фото** — эвристика/regex fallback; Rekognition после AWS-ключей (kimi #5)
 - **CDN/S3** — локальный диск; S3 после AWS-ключей (kimi #6)

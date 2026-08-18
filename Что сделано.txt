@@ -2,6 +2,22 @@
 
 > Актуально на август 2026. Все тесты: **226/226** — E2E 44/44 ✅, фронт 56/56 ✅, сервер 126/126 ✅. Vite build: ✅. Swagger: ✅.
 
+## Этапы 19–21: Юридические страницы, age-gate, backup-verify (август 2026)
+
+**Этап 19 — Privacy Policy + ToS:**
+- Аудиты kimi/дипсик флагали «нет юридических страниц» — проверено: страницы СУЩЕСТВОВАЛИ (`/legal/privacy`, `/legal/terms`, `/legal/data-processing`, RU/EN, с марта 2024) + ссылки в настройках и чекбоксе регистрации. Аудиты смотрели старый срез
+- Реальный пробел закрыт: в чекбоксе согласия не было ссылки на Пользовательское соглашение — добавлена (`/legal/terms`, ключ `register.consent_terms` RU/EN)
+
+**Этап 20 — Age verification 18+ (чеклист kimi):**
+- Регистрация создавала профиль с захардкоженным age 18 и не собирала подтверждение возраста
+- Добавлен обязательный чекбокс «Мне есть 18 лет или больше» (`data-testid="age-checkbox"`, ключи `register.age_label`/`age_required`); без него submit заблокирован (тост)
+- E2E обновлены (audit-full.spec.ts, features.spec.ts — клик обоих чекбоксов); E2E 44/44 ✅, tsc ✅, vitest ✅
+
+**Этап 21 — Backup restore verification (kimi #23):**
+- Новый `scripts/verify-backup.ps1`: берёт последний `backups/swiftmatch_*.sql`, восстанавливает в скретч-БД `swiftmatch_verify`, проверяет sanity (users/user_profiles/matches/messages/subscriptions/feature_flags), дропает скретч-БД
+- Проверено end-to-end: dump 0.31 MB → restore → PASS (130 users, 213 messages)
+- `install-backup-task.bat` теперь ставит ДВЕ задачи: daily 03:00 бэкап + weekly (Пн 03:30) верификацию
+
 ## Этап 18: Критические пункты аудита qwen (август 2026)
 
 Закрыты 4 «красных» и 1 «оранжевый» пункт из «Оценка qwen.txt» (сверено с кодом; полный статус — в «Что доделать.txt»):
