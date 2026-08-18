@@ -1,122 +1,96 @@
-Оценка проекта SwiftMatch
-Общее впечатление: очень зрелый production-ready проект уровня strong middle+/senior team. Видна серьёзная инженерная культура — редкость для dating-app стартапов. Разберу по пунктам.
-✅ Сильные стороны (9-10/10)
-1. Архитектура и стек
-Правильный выбор стека: Express + MySQL + Redis + Socket.IO + Bull Queue — классическая надёжная связка для real-time приложения.
-Spatial search через ST_Distance_Sphere + SPATIAL INDEX — единственно верный подход для гео-дейтинга (в отличие от постгрес-PostGIS конкурентов, тут MySQL-специфика учтена).
-Разделение на очереди (email/push/image) через Bull — image-resize не будет блокировать auth.
-Redis lazy-init + graceful fallback без Redis — отлично для dev/prod parity.
-2. Безопасность
-helmet, rate-limit (разные лимиты на auth/обычные), idempotency для Stripe — все critical paths закрыты.
-Sentry с beforeSend-фильтрацией PII — правильно, иначе email/токены улетают в логи Sentry.
-JWT + refresh tokens + user_sessions таблица — можно отзывать сессии.
-Авто-эскалация репортов (1→pending, 3→temp ban, 5→perm ban) — хорошая защита от троллей.
-3. Observability и DevOps
-Prometheus + Grafana с 7-панельным дашбордом + k6 load test — это уровень enterprise.
-Health checks (/health/live, /health/ready), graceful shutdown с таймаутом — k8s-friendly.
-GitHub Actions: lint → test → E2E → deploy — правильный pipeline.
-X-Request-Id + Winston в JSON — трассируемость запросов.
-API versioning (/api/v1 + X-API-Version) — продумано на будущее.
-4. Тестирование
-226 тестов (126 server + 56 frontend + 44 E2E Playwright) — 0 failures. Это редкость.
-Pre-flight check:ports — защита от конфигурационных косяков.
-E2E покрывает critical paths: audit, features, login, profile, register.
-5. Product features
-GDPR compliance (consent_log, data_erase_requests) — обязательно для EU.
-Safety: date check-in + emergency contacts — киллер-фича для женской аудитории.
-Attachment style compatibility — психологически обоснованный matching.
-A/B testing + feature flags + experiments — data-driven подход.
-AI icebreakers с fallback из БД — деградация без OpenAI ключа.
-6. Документация
-README — образцовый: quick start, структура, чек-лист прода, таблица ключей, статусы фич. Так должны выглядеть все проекты.
-🔴 Критические проблемы (требуют фикса до прода)
-1. Баг в matches — возможны дубликаты
-sql
-
-1
-Нет CHECK (user1_id < user2_id). Приложение может вставить (1,2) при первом лайке и (2,1) при ответном — получится два мэтча между одной парой.
-Фикс: либо CHECK-констрейнт + сортировка на бэке, либо UNIQUE (LEAST(user1_id,user2_id), GREATEST(...)) через generated columns.
-2. Архитектурный баг в posts
-sql
-
-12
-Это user-specific флаги, но лежат в общей таблице posts. Если Вася лайкнул пост — is_liked=1 для всех? Это сломает UI.
-Фикс: убрать из posts, читать через LEFT JOIN post_likes WHERE user_id = ?.
-3. Sentry error handler в неправильном порядке
-js
-
-12
-Sentry's error handler никогда не сработает — Express не дойдёт до него. Ошиби уходят в /500, но не в Sentry.
-Фикс: initSentry(app) сразу после app.use(metricsMiddleware), до всех роутов.
-4. dev-login без защиты по NODE_ENV
-js
-
-12
-В проде любой может залогиниться как user#2. Нужен if (process.env.NODE_ENV !== 'development') return next().
-5. CORS fallback на '*'
-js
-
-1
-Если CORS_ORIGIN не задан в проде — CORS открыт для всех доменов. Для API-only JWT это менее критично, но всё равно risk. Лучше падать с ошибкой, если в проде нет CORS_ORIGIN.
-🟠 Средние проблемы
-6. Дубликаты ALTER в схеме
-sql
-
-12345678
-Выглядит как следы итеративной разработки. Для чистого деплоя с нуля — мусор. Для миграций — ок, но надо комментировать.
-7. password_hash в SELECT при логине
-js
-
-1
-Поднимается в rows[0], потом не используется. Лучше не поднимать лишнего в память. Мелочь, но паттерн плохой.
-8. subscriptions без защиты от дублей
-Нет UNIQUE на (user_id, is_active). При race condition на webhook Stripe можно получить две активные подписки. Нужна проверка SELECT ... WHERE user_id=? AND is_active=1 AND expires_at>NOW() перед созданием + транзакция.
-9. content_config JSON без валидации схемы
-Админ может записать мусор в interests/banned_words — фронт упадёт. Нужна Zod-валидация на write.
-10. user_profiles.id без AUTO_INCREMENT
-sql
-
-12
-Это 1-to-1, но при создании profile нужно вручную передавать id. Не ошибка, но создаёт риск рассинхрона при баге в auth-flow. Альтернатива — users и user_profiles объединить, либо добавить ON INSERT триггер.
-🟡 Мелочи
-user_sessions.token VARCHAR(500) — избыточно, JWT обычно ≤ 256. Но не критично.
-fcm_tokens UNIQUE по token(255) — префиксный индекс, норм.
-analytics_events на BIGINT — правильно, при 1M events/day INT упрётся за 2 года.
-compatibility_scores — симметрия не гарантирована схемой, но сиды покрывают все 9 пар. Хрупко.
-Нет индекса на chats.group_id — при росте групп будет slow query.
-📊 Итоговая оценка
+Независимая оценка проекта SwiftMatch1BD
+Общий вердикт: 8.7 / 10 — зрелый production-ready код, но с операционными рисками
+Проект существенно выше среднего уровня по качеству кода, тестированию и документации. Однако оценка DeepSeek (9.5) кажется завышенной — есть реальные проблемы, которые DeepSeek либо замалчивает, либо отмечает как «мелочи». Ниже — честный разбор.
+🟢 Что реально сильно (сильные стороны)
+Область
+Оценка
+Комментарий
+Тестовое покрытие
+10/10
+227/227 зелёных, включая E2E с WS, GDPR, A/B, Video Date Scheduling. Это редкость.
+Graceful degradation
+10/10
+Продумано образцово: без ключей сервис не падает, а деградирует до моков с warn.
+Документация
+9/10
+README + AGENTS.md + context.txt + «Что сделано» — исчерпывающий набор. AGENTS.md фактически является живой ADR-базой.
+Pre-flight автоматизация
+9/10
+check:ports, check-keys.ps1, verify-backup.ps1 — предотвращают 80% типовых ошибок деплоя.
+Миграции БД
+9/10
+Нумерованные .sql + migrate.js + таблица _migrations + еженедельная верификация бэкапа.
+Self-hosted аналитика
+9/10
+Отказ от PostHog в пользу собственной воронки — разумная экономия и контроль данных.
+i18n-дисциплина
+9/10
+Все строки через t(), ключи в БД, сортировка по локали. Это уровень enterprise.
+🟠 Что вызывает вопросы (реальные проблемы)
+1. Противоречия в документации по adminAuth — критично
+В AGENTS.md одновременно написано:
+«adminAuth middleware — ACTIVE (401/403, этап 9)» ✅
+«NEVER add auth checks to admin routes»
+«adminAuth middleware — passive (вызывает next() на ошибке)»
+«Don't make it blocking — the frontend's AdminGuard handles auth»
+Это взаимоисключающие утверждения. На этапе 9 middleware сделали активным, но старые разделы AGENTS.md не переписали. Для AI-ассистента (и нового разработчика) это ловушка.
+2. CORS * в проде — дыра для веб-версии
+Для Capacitor это ок, но для веб-прода origin: '*' означает, что любой сайт может делать запросы с куками пользователя. В AGENTS.md написано «Никогда не добавлять cors({ origin: '*' }) в веб-версии продакшена», но в index.js стоит * безусловно. Нужна conditional-логика по User-Agent или отдельный X-Client: capacitor.
+3. Операционная привязка к Windows
+Laragon для MySQL
+Task Scheduler для бэкапов
+PowerShell-скрипты как основа
+запуск-всего.bat
+Для прода это риск: staging/prod почти всегда Linux. Docker Compose есть, но основной workflow — Windows-центричный.
+4. Нестабильность под нагрузкой
+mysqld падает с RADAR_PRE_LEAK_64 при E2E-нагрузке (3 chromium + node + vite + mysql). Это не «флак» — это симптом нехватки памяти или утечки в пуле mysql2. Для прода с реальными пользователями это неприемлемо без investigation.
+5. Половина «фич» — это scaffold
+FCM, RevenueCat, Twilio, AWS Rekognition, OpenAI, S3 — всё это не работает без ключей. Формально код есть, но в проде без .env пользователь не получит:
+SMS-верификацию
+Push на Android
+Платежи в сторах
+AI-модерацию фото
+Облачное хранение
+DeepSeek пишет «код готов» — это вводит в заблуждение. Правильная формулировка: «интеграция написана, но не валидирована на реальных API».
+6. 150 lint warnings — накопленный долг
+no-explicit-any — 127 штук. Это не «косметика» — это потенциальные runtime-ошибки, которые TypeScript не поймает. Для проекта, который позиционируется как production-ready, это многовато.
+7. JWT в localStorage
+В AGENTS.md есть правило «never store refresh_token in localStorage», но основной Bearer-токен хранится именно там. Для SPA это стандарт, но при XSS-уязвимости токен утекает. HttpOnly cookie был бы надёжнее, особенно для веб-версии.
+🟡 Что на грани
+k6-нагрузочное тестирование реально работает только на staging (rate-limit'ы режут локальный прогон). Локальный «лайт-прогон 10 VU» — это не валидация продакшен-нагрузки.
+Миграции в CI применяются вручную через migrate.js. В deploy.yml нет шага авто-применения миграций перед деплоем — это риск при CI/CD.
+useApi.ts имел критический баг (useMemo внутри useEffect + двойной fetch) — нашли только на этапе 17. Это значит, что rules-of-hooks линтера не срабатывал или был отключён. Нужно проверить.
+E2E-флаки на холодном старте — симптом того, что инфраструктура не самовосстанавливающаяся. В проде это будет больно.
+📊 Итоговая таблица
 Критерий
-Балл
-Архитектура
+Оценка
+Комментарий
+Функциональность
 9/10
-Безопасность
-7/10
-Масштабируемость
-9/10
+Все ключевые фичи дейтинга реализованы
 Качество кода
 8/10
-DevOps / CI-CD
-10/10
+TypeScript strict, но 150 warnings + противоречия в доках
 Тестирование
 10/10
-Observability
-10/10
-Product features
-10/10
-Документация
-10/10
-Готовность к прода
+227/227, включая сложные E2E-сценарии
+Безопасность
+7.5/10
+JWT + helmet + rate-limit отлично, но CORS * и localStorage — риски
+Инфраструктура
 8/10
-Общая оценка: 8.5/10 — крепкий production-grade проект.
-🎯 Приоритетный action list перед релизом
-🔴 Починить matches (CHECK constraint или сортировка на бэке)
-🔴 Убрать is_liked/is_bookmarked из posts, читать через post_likes
-🔴 Переставить initSentry(app) выше финального error handler
-🔴 Завернуть dev-login в if (NODE_ENV !== 'development')
-🟠 Добавить валидацию активной подписки перед созданием новой
-🟠 Валидация content_config JSON на write
-🟠 Убрать password_hash из SELECT в login
-🟡 Почистить дубли ALTER в mysql_schema.sql (или вынести в отдельный legacy_migrations.sql)
-🟡 Добавить индекс на chats.group_id
-После пунктов 1-5 — можно в прод. Остальное — техдолг второй очереди.
-Резюме: проект заметно выше среднего по рынку. Видно, что над ним работал инженер с опытом production-систем. Если пофиксить 5 критических пунктов — будет 9.5/10.
+Docker/CI/мониторинг есть, но Windows-центрично и MySQL нестабилен
+Документация
+9/10
+Исчерпывающе, но есть противоречия (adminAuth)
+Готовность к прода
+7/10
+Без ключей — 5/10. С ключами — 8/10 после валидации на staging
+🎯 Топ-5 рекомендаций перед продом
+Разобраться с противоречиями в AGENTS.md по adminAuth — переписать секции, чтобы состояние было однозначным.
+CORS conditional-логика: * только если X-Client: capacitor, иначе CORS_ORIGIN.
+Валидация MySQL-пула под нагрузкой: прогнать k6 на staging с 100 VU и посмотреть на утечки памяти. RADAR_PRE_LEAK_64 — это не шутка.
+CI-шаг миграций: добавить node database/migrations/migrate.js в deploy.yml перед рестартом pm2.
+Реальная валидация scaffold-интеграций: завести тестовые аккаунты Stripe/Twilio/RevenueCat и прогнать end-to-end хотя бы один раз. «Код готов» ≠ «фича работает».
+Итог
+Проект объективно сильный — лучше 80% того, что я вижу в open-source и стартапах. Команда (или разработчик) проделала огромную работу, особенно в части тестов, документации и graceful degradation. Но до уверенного продакшен-релиза нужно закрыть 5-7 конкретных рисков, а не просто «вписать ключи в .env». Оценка DeepSeek (9.5) — это оценка «потенциала», моя (8.7) — оценка «реального состояния с учётом операционных рисков».
