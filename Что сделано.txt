@@ -2,6 +2,25 @@
 
 > Актуально на август 2026. Все тесты: **226/226** — E2E 44/44 ✅, фронт 56/56 ✅, сервер 126/126 ✅. Vite build: ✅. Swagger: ✅.
 
+## Этап 18: Критические пункты аудита qwen (август 2026)
+
+Закрыты 4 «красных» и 1 «оранжевый» пункт из «Оценка qwen.txt» (сверено с кодом; полный статус — в «Что доделать.txt»):
+
+| Пункт qwen | Проблема | Фикс |
+|---|---|---|
+| 🔴3 Sentry | `initSentry(app)` вызывался ПОСЛЕ финального 500-хендлера → Sentry errorHandler регистрировался в конце и **никогда не срабатывал** | `sentry.js` разделён: `initSentry` (Sentry.init + requestHandler — до роутов), `registerSentryErrorHandler` (errorHandler — перед 500-хендлером в `index.js`) |
+| 🔴4 dev-login | `POST /api/auth/dev-login` без ограничений — в проде любой получал токен юзера 2 | `NODE_ENV === 'production'` → 404 |
+| 🔴5 CORS | Без `CORS_ORIGIN` — `origin: '*'` для всех доменов | Fail-fast: сервер НЕ стартует в production без `CORS_ORIGIN` |
+| 🟠8 Подписки | Дубли активных подписок при race (mock-путь и Stripe webhook INSERT без проверки) | Транзакция: деактивация старых активных → INSERT → commit (mock + webhook) |
+
+Закрыто «само» при проверке: 🔴1 matches (сортировка Math.min/max + UNIQUE уже были), 🔴2 is_liked/is_bookmarked (сервер их не читал — колонки удалены), #7 password_hash (используется в bcrypt.compare).
+
+Дополнительно:
+- **Миграция 024** (`024_schema_cleanup.sql`): DROP мёртвых `is_liked`/`is_bookmarked` из `posts`, `INDEX idx_chats_group` на `chats(group_id)`; применена к локальной БД (INSERT в `_migrations` вручную — `migrate.js` не резолвит mysql2 из `database/migrations/`, см. «Что доделать.txt»)
+- Тест `premium.test.js` обновлён под транзакцию (mock `getConnection`)
+- Тесты: сервер 126/126 ✅, E2E 44/44 ✅
+- Создан **«Что доделать.txt»** — сводный статус по всем трём аудитам (kimi/дипсик/qwen)
+
 ## Этапы 13–17: Доки-гигиена, prod-smoke, lint-долг (август 2026)
 
 **Этап 13 — доки-гигиена:**
