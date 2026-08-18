@@ -159,7 +159,7 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
         body: JSON.stringify({ emoji }),
       })
       if (res.ok) refetchMessages()
-    } catch {}
+    } catch { /* ignored */ }
     setReactionMsgId(null)
   }
 

@@ -41,3 +41,6 @@ server/uploads/*.avif
 
 server/server.err
 server/*.log
+
+playwright-report/
+test-results.json

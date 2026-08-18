@@ -5,7 +5,7 @@ import { getToken } from '@/lib/token';
 // Определяем общие типы для API-хука
 interface UseApiOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  body?: any; // Тело запроса
+  body?: unknown; // Тело запроса
   skip?: boolean; // Пропустить ли выполнение запроса
 }
 
@@ -31,6 +31,8 @@ export function useApi<T>(path: string, options: UseApiOptions = {}): UseApiStat
 
   const refetch = () => setTrigger(prev => prev + 1);
 
+  const bodyKey = useMemo(() => JSON.stringify(body), [body]); // Стабильный ключ для зависимости
+
   useEffect(() => {
     if (skip) {
       setLoading(false);
@@ -55,7 +57,7 @@ export function useApi<T>(path: string, options: UseApiOptions = {}): UseApiStat
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: body ? JSON.stringify(body) : null,
+          body: bodyKey || null,
         });
 
         if (response.ok) {
@@ -75,9 +77,6 @@ export function useApi<T>(path: string, options: UseApiOptions = {}): UseApiStat
     };
 
     fetchData();
-  const bodyKey = useMemo(() => JSON.stringify(body), [body]); // Стабильный ключ для зависимости
-
-    fetchData();
   }, [path, method, bodyKey, skip, trigger]);
 
   return { data, loading, error, refetch };
@@ -86,7 +85,7 @@ export function useApi<T>(path: string, options: UseApiOptions = {}): UseApiStat
 /**
  * Хук для выполнения мутаций (POST, PUT, DELETE).
  */
-export function useApiMutation<T, TBody = any>() {
+export function useApiMutation<T, TBody = unknown>() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<T | null>(null);

@@ -147,13 +147,13 @@ export default function EditProfilePage() {
           if (photoUrls.length > 0) setPhotos(photoUrls)
           else {
             const saved = localStorage.getItem('userProfileGallery')
-            if (saved) try { setPhotos(JSON.parse(saved)) } catch {}
+            if (saved) try { setPhotos(JSON.parse(saved)) } catch { /* ignored */ }
           }
           localStorage.setItem('userProfile', JSON.stringify(mapped))
           setIsLoading(false)
           return
         }
-      } catch {}
+      } catch { /* ignored */ }
 
       const savedProfile = localStorage.getItem('userProfile');
       let parsed: any;

@@ -99,7 +99,7 @@ function UserProfileContent() {
     if (saved) {
       try {
         setCurrentUser(JSON.parse(saved));
-      } catch (e) {}
+      } catch (e) { /* ignored */ }
     }
   }, []);
 

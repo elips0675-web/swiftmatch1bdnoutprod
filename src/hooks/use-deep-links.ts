@@ -8,7 +8,7 @@ export function useDeepLinks() {
     let isNative = false
     try {
       isNative = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform()
-    } catch {}
+    } catch { /* ignored */ }
 
     if (!isNative) {
       const handleUrl = () => {
@@ -24,6 +24,7 @@ export function useDeepLinks() {
 
     let App: any
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       App = require('@capacitor/app').App
     } catch {
       return

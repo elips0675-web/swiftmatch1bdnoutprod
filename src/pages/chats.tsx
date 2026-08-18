@@ -525,7 +525,7 @@ function ChatsContent() {
           return next
         })
       }
-    } catch {}
+    } catch { /* ignored */ }
     setReactionMsgId(null)
   }
 

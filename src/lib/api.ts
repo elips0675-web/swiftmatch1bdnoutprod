@@ -103,7 +103,7 @@ class ApiClient {
                   headers['Authorization'] = `Bearer ${newToken}`
                   continue
                 }
-              } catch {}
+              } catch { /* ignored */ }
             }
             const { clearToken } = await import('./token')
             clearToken()

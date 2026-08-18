@@ -26,7 +26,7 @@ export async function aiChatIcebreakerSuggestions(input?: any): Promise<{ sugges
         return { suggestions: data.suggestions };
       }
     }
-  } catch {}
+  } catch { /* ignored */ }
   return { suggestions: FALLBACK_SUGGESTIONS };
 }
 

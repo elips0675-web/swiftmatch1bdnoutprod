@@ -24,7 +24,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
             setAuthorized(true)
             return
           }
-        } catch {}
+        } catch { /* ignored */ }
         setAuthorized(true)
         return
       }

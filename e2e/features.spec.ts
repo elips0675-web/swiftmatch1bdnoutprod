@@ -17,7 +17,7 @@ test.describe('13. GDPR consent flow', () => {
 
     const history = await apiCall(request, 'GET', '/api/consent/history', undefined, token)
     expect(history.ok).toBe(true)
-    const granted = (history.body as any[])?.find((c: any) => c.consent_type === 'data_processing')
+    const granted = (history.body as Array<{ consent_type?: string; granted?: number }>)?.find((c) => c.consent_type === 'data_processing')
     expect(granted).toBeTruthy()
     expect(granted.granted).toBe(1)
   })
@@ -52,7 +52,7 @@ test.describe('13. GDPR consent flow', () => {
     expect(revoked.ok).toBe(true)
 
     const history = await apiCall(request, 'GET', '/api/consent/history', undefined, token)
-    const revokedEntry = (history.body as any[]).find((c: any) => c.consent_type === 'data_processing')
+    const revokedEntry = (history.body as Array<{ consent_type?: string; granted?: number }>).find((c) => c.consent_type === 'data_processing')
     expect(revokedEntry.granted).toBe(0)
 
     const restored = await apiCall(request, 'POST', '/api/consent', { consent_type: 'data_processing', granted: true }, token)
@@ -282,7 +282,7 @@ test.describe('18. Video date scheduling & safety check-in', () => {
 
     const list = await apiCall(request, 'GET', '/api/schedule?status=all', undefined, demoToken)
     expect(list.ok).toBe(true)
-    expect((list.body as any[]).some((s: any) => s.id === scheduleId)).toBe(true)
+    expect((list.body as Array<{ id?: number }>).some((s) => s.id === scheduleId)).toBe(true)
 
     const forbidden = await apiCall(request, 'POST', '/api/schedule', {
       chat_id: chatId, scheduled_at: future,
@@ -329,7 +329,7 @@ test.describe('18. Video date scheduling & safety check-in', () => {
 
     const active = await apiCall(request, 'GET', '/api/checkin/active', undefined, token)
     expect(active.ok).toBe(true)
-    expect((active.body as any[]).some((c: any) => c.id === checkinId)).toBe(true)
+    expect((active.body as Array<{ id?: number }>).some((c) => c.id === checkinId)).toBe(true)
 
     const done = await apiCall(request, 'POST', `/api/checkin/${checkinId}/checkin`, undefined, token)
     expect(done.ok).toBe(true)

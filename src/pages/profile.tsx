@@ -176,7 +176,7 @@ function normalizeInterests(interests: InterestInput[]): string[] {
           })
           return
         }
-      } catch {}
+      } catch { /* ignored */ }
     })();
     
     (async () => {
@@ -191,7 +191,7 @@ function normalizeInterests(interests: InterestInput[]): string[] {
             return
           }
         }
-      } catch {}
+      } catch { /* ignored */ }
       const savedPhotos = localStorage.getItem('userProfileGallery');
       if (savedPhotos) {
         setPhotos(JSON.parse(savedPhotos));

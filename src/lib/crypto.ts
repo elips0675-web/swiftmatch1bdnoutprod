@@ -82,7 +82,7 @@ export async function encryptStorage<T>(key: string, value: T): Promise<void> {
     const json = JSON.stringify(value);
     const encrypted = await encrypt(json);
     if (encrypted) sessionStorage.setItem(key, encrypted);
-  } catch {}
+  } catch { /* ignored */ }
 }
 
 export async function decryptStorage<T>(key: string): Promise<T | null> {

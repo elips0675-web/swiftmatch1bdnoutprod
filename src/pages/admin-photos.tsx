@@ -32,7 +32,7 @@ export default function AdminPhotosPage() {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) setPhotos(await res.json());
-    } catch {} finally { setLoading(false) }
+    } catch { /* ignored */ } finally { setLoading(false) }
   };
 
   useEffect(() => { fetchPhotos() }, [filter]);
@@ -50,7 +50,7 @@ export default function AdminPhotosPage() {
         setPhotos(prev => prev.filter(p => p.id !== id));
         toast.success(action === 'approve' ? 'Photo approved' : 'Photo rejected');
       }
-    } catch {} finally { setSaving(prev => ({ ...prev, [id]: false })) }
+    } catch { /* ignored */ } finally { setSaving(prev => ({ ...prev, [id]: false })) }
   };
 
   return (
