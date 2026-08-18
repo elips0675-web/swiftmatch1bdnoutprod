@@ -2,6 +2,31 @@
 
 > Актуально на август 2026. Все тесты: **227/227** — E2E 44/44 ✅, фронт 57/57 ✅, сервер 126/126 ✅. Vite build: ✅. Swagger: ✅.
 
+## Этапы 25–29: доки-консистентность, операционная стабильность, CI, Redis (18.08.2026)
+
+Закрыты пункты аудитов qwen/дипсик из «Что доделать.txt» (план этапов 25+):
+
+**Этап 25 — Доки-консистентность:**
+- AGENTS.md: устранены противоречия по adminAuth — переписаны 7 секций (CRITICAL section, Pre-flight чеклист #8, What to NEVER do, Past mistakes #1/#7, чеклист безопасности, Security Rules) + `.opencode/persona.md`. Факт: adminAuth ACTIVE (401/403), единый гейт `/api/admin` в index.js:195, публичен только GET /api/admin/features, dev-login → 404 в production
+- rules-of-hooks: eslint.config.js содержит reactHooks.configs.recommended.rules — проверено прогоном: 0 errors (153 warnings); баг useApi.ts (этап 17) линтером ловился бы
+- Секреты в логах: Winston (logger.js) пишет только msg + err.message/stack, req.body/headers не логируются; Sentry beforeSend фильтрует authorization/cookie/email
+
+**Этап 26 — Операционная стабильность:**
+- Новый `docs/rollback-plan.md` — план отката: категории инцидентов (платежи/БД/полный отказ), диагностика ≤5 мин, откат коммита, восстановление из бэкапа, чек-лист после отката
+- Пул mysql2 проверен: connectionLimit 20 (env DB_POOL_MAX), enableKeepAlive; getConnection только в premium.js — оба в try/finally/release (утечек нет). Полный k6 100 VU — на staging
+- docker-compose.yml починен: добавлен nginx-сервис (nginx/swiftmatch.conf + ./dist), CORS_ORIGIN в app (иначе fail-fast ронял контейнер в production), prometheus target app:3002 (был host.docker.internal), grafana dashboards provisioning (новый monitoring/grafana-dashboards.yml). YAML валиден — 6 сервисов. Docker на машине нет — реальный up не прогонялся
+
+**Этап 27 — CI/CD:**
+- deploy.yml: миграции перенесены с CI-раннера НА СЕРВЕР (ssh: `set -a; . ./server/.env; node database/migrations/migrate.js`) перед pm2 restart — код и БД обновляются атомарно, secrets DB_* больше не нужны
+
+**Этап 28 — JWT httpOnly cookie (ADR):**
+- Решение зафиксировано в AGENTS.md (Security Rules): переход отложен — требует CSRF-защиты, credentials:include во всех 80+ fetch, переписывания E2E; Bearer в sessionStorage остаётся стандартом; refresh_token в storage не добавлять
+
+**Этап 29 — Redis:**
+- Поднят локальный Redis 5.0.14.1 (portable zip из tporadowski/redis, %TEMP%\opencode\redis) на 127.0.0.1:6379; REDIS_URL=redis://127.0.0.1:6379 добавлен в server/.env; сервер перезапущен, держит пул (connected_clients 11)
+
+Проверки: фронт 57/57 ✅, сервер 126/126 ✅, vite build ✅, eslint 0 errors. Для постоянной работы Redis — docker compose (redis уже в compose) или install-версия.
+
 ## UI-фиксы: кнопка «Открыть профиль» в поиске (август 2026)
 
 - `src/pages/search.tsx` (variant_b CTA в `card_cta` эксперименте): кнопка была `w-full max-w-sm h-11` — широкой под карточкой

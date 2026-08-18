@@ -23,6 +23,7 @@ services:
       - GF_INSTALL_PLUGINS=
     volumes:
       - ./monitoring/grafana-datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - ./monitoring/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
       - ./monitoring/grafana-dashboard.json:/var/lib/grafana/dashboards/swiftmatch.json
       - grafana_data:/var/lib/grafana
     restart: unless-stopped
@@ -76,6 +77,7 @@ services:
       DB_NAME: swiftmatch1bd
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       NODE_ENV: production
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
       REDIS_URL: redis://redis:6379
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
@@ -88,6 +90,18 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/swiftmatch.conf:/etc/nginx/conf.d/swiftmatch.conf:ro
+      - ./dist:/app/dist:ro
+    depends_on:
+      app:
+        condition: service_healthy
 
 volumes:
   db_data:

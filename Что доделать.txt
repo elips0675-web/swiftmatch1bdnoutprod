@@ -1,6 +1,6 @@
 # Что доделать — сводный статус по аудитам kimi, дипсик, qwen
 
-> Актуально: 18.08.2026, после этапа 23. Каждый пункт — из аудитов «Оценка kimi.txt», «Оценка дипсик.txt», «Оценка qwen.txt»; статус сверен с кодом и тестами.
+> Актуально: 18.08.2026, после этапа 24. Каждый пункт — из аудитов «Оценка kimi.txt», «Оценка дипсик.txt», «Оценка qwen.txt»; статус сверен с кодом и тестами.
 
 ## ✅ Закрыто (в т.ч. этапами 8–22)
 
@@ -42,6 +42,7 @@
 3. **Staging-окружение** + прогон E2E с реальными ключами (дипсик: «провести финальное E2E-тестирование»).
 4. **Android**: SDK/Android Studio → собрать APK → реальное устройство. Плюс App Links (домен + assetlinks.json, SHA256).
 5. **Сторы**: Privacy Policy + Terms (см. «В работе»), контент 17+, скриншоты, TestFlight.
+6. **Redis доступность** — `REDIS_URL` в .env, но Redis-сервер не поднят (дипсик: «надо проверить доступность Redis»). Без него кэш/очереди/Socket.IO-adapter тихо падают на in-memory.
 
 ## 🟠 В работе / техдолг второй очереди
 
@@ -51,6 +52,33 @@
 - **CSRF** — не критично для JWT API-only (дипсик)
 - **Мониторинг доступности** (UptimeRobot) и SSL в docker-compose (дипсик #5 инфра)
 - **AGENTS.md** — разделить при >1500 строк (сейчас ~1150)
+- **AGENTS.md противоречия по adminAuth** — одновременно написано «ACTIVE (401/403, этап 9)» и «passive (вызывает next() на ошибке)», «NEVER add auth checks» и «проверять req.user.role внутри хендлеров». Переписать секции, чтобы состояние было однозначным (qwen #1, топ-рекомендация)
+- **Windows-центричность** — Laragon, Task Scheduler, .bat, PowerShell — основной workflow; staging/prod обычно Linux. Docker Compose есть, но не является основным путём (qwen #3)
+- **mysqld RADAR_PRE_LEAK_64 под E2E-нагрузкой** — mysqld падал при прогоне (3 chromium + node + vite + mysql). Проверить память/утечки пула mysql2, протестировать под k6 100 VU на staging (qwen #4)
+- **JWT в localStorage** — правило «never store refresh_token» есть, но основной Bearer-токен лежит в localStorage; для веб-версии рассмотреть HttpOnly cookie (qwen #7)
+- **План отката** на случай проблем с платежами или БД (дипсик, рекомендации)
+- **Проверка rules-of-hooks** — баг useApi.ts (useMemo внутри useEffect + двойной fetch) нашли только на этапе 17; убедиться, что линтер rules-of-hooks включён и ловит такие случаи (qwen 🟡)
+
+## ✅ Закрыто этапами 25–29 (18.08.2026)
+
+| Пункт | Кто флагил | Чем закрыт |
+|---|---|---|
+| AGENTS.md противоречия по adminAuth | qwen #1 | **Этап 25**: переписаны все 7 секций AGENTS.md + persona.md — adminAuth ACTIVE (401/403), единый гейт `/api/admin` в index.js, публичен только GET /api/admin/features, dev-login → 404 в production |
+| rules-of-hooks / баг useApi.ts | qwen 🟡 | **Этап 25**: проверено — react-hooks rules-of-hooks включён в eslint.config.js, eslint: 0 errors (153 warnings), баг этапа 17 линтером ловился бы |
+| Секреты в логах | дипсик | **Этап 25**: Winston логирует только msg + err.message/stack (logger.js), req.body/headers не логируются; Sentry beforeSend фильтрует authorization/cookie/email |
+| План отката | дипсик | **Этап 26**: `docs/rollback-plan.md` — категории инцидентов (платежи/БД/полный отказ), диагностика ≤5 мин, откат коммита, бэкап-восстановление, чек-лист после отката |
+| mysql2 пул / RADAR_PRE_LEAK_64 | qwen #4 | **Этап 26**: пул проверен — connectionLimit 20 (env DB_POOL_MAX), enableKeepAlive; getConnection только в premium.js, оба с finally/release (утечек нет); полный k6 100 VU — на staging |
+| Windows-центричность | qwen #3 | **Этап 26**: docker-compose починен — добавлен nginx-сервис (nginx/swiftmatch.conf + dist), CORS_ORIGIN в app (иначе fail-fast ронял контейнер), prometheus target app:3002, grafana dashboards provisioning; YAML валиден, 6 сервисов |
+| Миграции в CI | qwen 🟡 | **Этап 27**: deploy.yml — миграции перенесены с CI-раннера на сервер (ssh: `set -a; . ./server/.env; node database/migrations/migrate.js`) перед pm2 restart; secrets DB_* больше не нужны |
+| JWT в localStorage | qwen #7 | **Этап 28**: ADR в AGENTS.md — переход на httpOnly cookie отложен (CSRF, credentials:include, 80+ fetch, E2E); Bearer в sessionStorage остаётся стандартом; refresh_token в storage не добавлять |
+| Redis доступность | дипсик | **Этап 29**: поднят локальный Redis 5.0.14 (portable, Temp), REDIS_URL=redis://127.0.0.1:6379 в server/.env, сервер держит пул (connected_clients 11); в compose redis уже есть; для постоянной работы — docker или install |
+
+## 🗺 Этапы 30+ (после ключей / внешних действий, см. «Ждёт действий пользователя»)
+
+- SMS-верификация (Twilio), AI-модерация фото (Rekognition), CDN/S3, IAP (RevenueCat), push (FCM), staging-E2E с реальными ключами, Android-сборка
+- GitHub secrets для deploy.yml: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY (DB_* больше не нужны — миграции читают server/.env на сервере)
+- Полный k6 ramp 100 VU на staging (проверка RADAR_PRE_LEAK_64 под реальной нагрузкой)
+- JWT → httpOnly cookie — отдельным этапом, если потребуется (ADR в AGENTS.md, Security Rules)
 
 ## 📌 Правила для будущих этапов (из этапа 18)
 
@@ -59,3 +87,4 @@
 - **`migrate.js` не запускается из `server/`** — модуль в `database/migrations/`, mysql2 резолвится оттуда; применяли SQL напрямую + `INSERT INTO _migrations`
 - **Пустые catch** — обязателен комментарий (линт no-empty)
 - **`any`** — warn (решение этапа 17), новые ошибки lint не вносить
+- **CI-миграции (этап 27)** — в deploy.yml миграции выполняются НА СЕРВЕРЕ перед pm2 restart (`set -a; . ./server/.env; node database/migrations/migrate.js`), не с CI-раннера

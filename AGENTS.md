@@ -166,9 +166,10 @@ RU translations live in `language-context.tsx` lines 12–931, EN at lines 935�
 
 ## CRITICAL: Don't break admin save / auth
 
-- Admin save (`PUT /api/admin/content/:section`) goes through `adminAuth` middleware in `server/src/index.js`
-- NEVER add auth checks to admin routes (`/api/admin/*`) — the project uses dev-login auto-auth
-- `AdminGuard` in `src/components/shared/admin-guard.tsx` must ALWAYS try `dev-login` when Supabase is absent
+- **`adminAuth` is ACTIVE** (since этап 9): 401 without/invalid token, 403 for non-admin (`server/src/middleware/adminAuth.js` + local copy in `server/src/index.js:92`)
+- All `/api/admin/*` routes are protected by a single gate in `server/src/index.js:195` (`app.use('/api/admin', ...)`) — the ONLY public admin route is `GET /api/admin/features` (the app calls it without a token)
+- New admin routes are mounted under `/api/admin` and automatically get the gate; do NOT remove or bypass it
+- `AdminGuard` (`src/components/shared/admin-guard.tsx`) does `dev-login` to OBTAIN a token (frontend-side), then sends it as Bearer; `dev-login` returns 404 in production
 - **Do NOT change badge/oval CSS in admin-content.tsx** — the user is very sensitive about this
 
 ## Startup
@@ -422,8 +423,8 @@ grep -rE "dev-secret|localhost:300[0-9]|password.*=.*$|JWT_SECRET.*=.*key" \
 
 ### 8. Admin routes (если touched /api/admin/*)
 
-- [ ] `adminAuth` middleware остаётся passive (вызывает `next()` на ошибке) — не делать его блокирующим
-- [ ] Но каждый PUT/POST/DELETE в админке должен проверять `req.user.role === 'admin'` внутри самого хендлера
+- [ ] `adminAuth` — активный (401/403); монтируется ОДНИМ гейтом `app.use('/api/admin', ...)` в index.js; публичен только `GET /api/admin/features`
+- [ ] Новые админ-роуты монтировать под `/api/admin` (получают гейт автоматически), не обходить гейт
 - [ ] Все новые админ-роуты возвращают массивы для таблиц (`[{...}, {...}]`), а не объекты `{data: [...]}` — Recharts и DataTable ломаются
 - [ ] SQL-запросы обёрнуты в try/catch, пустой результат заменяется на `[]` или `{}` — никаких `chartData.slice is not a function`
 
@@ -508,20 +509,20 @@ const stripe = process.env.STRIPE_SECRET_KEY
 - **Никогда** не оставлять `console.log` в продакшен-логике платежей, писем, авторизации. Использовать `req.log` (структурированный лог) или winston
 - **Никогда** не добавлять `cors({ origin: '*' })` в веб-версии продакшена. Только для Capacitor (`native.ts` определяет режим)
 - **Никогда** не использовать `fs.writeFile` для пользовательских загрузок без валидации пути. Только uuid имена, только `/uploads/` директория
-- **Никогда** не менять `adminAuth` middleware с passive на blocking. Это сломает dev-login и админку
+- **Никогда** не возвращать `adminAuth` из активного в пассивный/blocking-режим и не снимать гейт `/api/admin` — это откроет админку без авторизации. `dev-login` в production возвращает 404 — не открывать его заново
 - **Никогда** не хранить `refresh_token` в localStorage/Preferences без httpOnly альтернативы. (Сейчас проект использует Bearer в заголовке — это ок, но не добавлять новые sensitive токены в storage)
 
 ---
 
 ## Past mistakes (fixed, do NOT repeat)
 
-1. **Admin save 401** — admin routes require JWT. Keep `adminAuth` middleware PASSIVE (call `next()` on failure, don't block). `/api/admin/me` has its own auth check — leave it alone.
+1. **Admin save 401** — admin routes require JWT. Since этап 9 `adminAuth` is ACTIVE (401/403) and mounted as a single gate on `/api/admin` (public: only `GET /api/admin/features`). Do NOT revert to passive. `/api/admin/me` has its own auth check — leave it alone.
 2. **Education badge styling** — Don't change `py`, `px`, `rounded-*`, `border-*`, or any visual classes in `admin-content.tsx` unless asked. The user wants them identical to interests.
 3. **Stale token redirect loop** — When Supabase is absent, AdminGuard must ALWAYS try dev-login. The `!getToken()` guard causes redirect to `/login` if a stale token exists.
 4. **Translation keys** — DB stores slugs (`secondary`, `sport`) without prefix. Frontend adds `education.`/`interest.` prefix via `t()`. Never store Russian/English text in DB.
 5. **Server port** — Server runs on **3002**, not 3001. Vite proxy, server .env, and any tooling must all agree on 3002.
 6. **Feature flags** — Must load from both Supabase AND API fallback. When adding a new flag, register it in: (a) `server/src/routes/admin/features.js` (GET + PUT), (b) `feature-flags-context.tsx` (interface + mapper + fetch), (c) `admin-features.tsx` (table rows).
-7. **Admin routes protection** — `adminAuth` middleware is passive (calls `next()` on failure). Don't make it blocking — the frontend's `AdminGuard` handles auth.
+7. **Admin routes protection** — `adminAuth` is ACTIVE (401/403) and applied as a single gate on `/api/admin` (index.js), public only `GET /api/admin/features`. The frontend's `AdminGuard` does dev-login to get a token, then sends Bearer.
 8. **UTF-8 only** — All `.ts`, `.tsx`, `.js`, `.jsx` files MUST be UTF-8. UTF-16 BE causes parse errors and infinite recursion in some editors.
 9. **vi.mock factory + hoisting** — `vi.mock()` is hoisted above `const` declarations. Always use `vi.hoisted(() => vi.fn())` to create mocks referenced inside `vi.mock` factories. Using plain `vi.fn()` causes ReferenceError (TDZ).
 10. **jsdom constraint validation** — jsdom blocks form `submit` event if a `required` field is empty or `type="email"` has invalid value. Always add `noValidate` to `<form>` elements that use custom JS validation (standard practice).
@@ -789,7 +790,7 @@ POST /api/admin/impersonate/:id
 
 ### 6. БЕЗОПАСНОСТЬ СВЯЗКИ
 
-- [ ] adminAuth middleware — passive (next() на ошибке) или blocking?
+- [ ] adminAuth — активный (401/403)? Гейт на `/api/admin` на месте? Публичен только `GET /api/admin/features`?
 - [ ] Проверяется ли `req.user.role === 'admin'` ВНУТРИ каждого admin handler?
 - [ ] SQL-инъекции: используются ли prepared statements? (?? в mysql2)
 - [ ] IDOR: может ли админ изменить данные другого админа? Себя?
@@ -1118,13 +1119,14 @@ e2e/
 
 ## 🛡️ Security Rules (быстрый чеклист)
 
-- `adminAuth` middleware — **passive** (вызывает `next()` на ошибке, не блокирует)
+- `adminAuth` middleware — **ACTIVE** (с этапа 9): 401 без/невалидный токен, 403 не-админ. Единый гейт `app.use('/api/admin', ...)` в index.js; публичен только `GET /api/admin/features`; `dev-login` → 404 в production
 - Все SQL-запросы — prepared statements (`??` в mysql2). Никакой конкатенации строк.
 - Server-side только uuid для имён файлов, ограничение 5MB, только image/*
 - CORS: `*` для Capacitor (dev), env-переменная для production
 - Sentry beforeSend: фильтрует authorization, cookie, email, IP
 - Stripe webhook: `express.raw({ type: 'application/json' })` ДО express.json()
 - JWT: 256-bit ключ, 7d expiry, Bearer header
+- **Auth-модель (этап 28, ADR):** основной Bearer-токен хранится в sessionStorage (`src/lib/token.ts`) — стандарт для SPA; переход на httpOnly cookie отложен: требует CSRF-защиты, credentials:include во всех 80+ fetch и переписывания E2E. Включать только отдельным этапом с полным прогоном тестов. НЕ добавлять новые sensitive токены (refresh_token) в storage — они в httpOnly-недоступных местах или БД (refresh_tokens)
 - Rate limit: `/api/auth/` 60 req/min, общий `/api/` 30 req/s
 - Helmet: CSP, X-Frame-Options, X-Content-Type-Options, и др. security headers
 - Request ID: UUID на каждый запрос, X-Request-Id в ответе

@@ -149,13 +149,6 @@ jobs:
       - name: Install server deps (production)
         run: npm ci --omit=dev
         working-directory: server
-      - name: Run DB migrations
-        run: node database/migrations/migrate.js
-        env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_NAME: ${{ secrets.DB_NAME }}
       - name: Deploy via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -165,14 +158,19 @@ jobs:
           source: "dist/,server/,database/,package.json,package-lock.json"
           target: "/app/swiftmatch"
           strip_components: 0
-      - name: Restart backend
+      - name: Migrate + restart backend
         uses: appleboy/ssh-action@v1.1.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
-            cd /app/swiftmatch/server
+            cd /app/swiftmatch
+            set -a
+            . ./server/.env
+            set +a
+            node database/migrations/migrate.js
+            cd server
             npm ci --omit=dev
             pm2 restart swiftmatch-api || pm2 start src/index.js --name swiftmatch-api
             sudo nginx -s reload || true
