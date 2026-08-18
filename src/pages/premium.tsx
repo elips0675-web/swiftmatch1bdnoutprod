@@ -7,6 +7,8 @@ import { useRouter } from "@/shims/next-navigation"
 import { Sparkles, Check, Zap, Eye, ShieldCheck, Star, Loader2, ArrowLeft } from "lucide-react"
 import { motion } from 'framer-motion'
 import { getToken } from '@/lib/token'
+import { isNative } from '@/lib/native'
+import { purchaseWithIAP } from '@/lib/iap'
 import { toast } from 'sonner'
 
 interface Tier {
@@ -60,6 +62,18 @@ export default function Premium() {
     if (!activeTier) return
     setLoading(true)
     try {
+      if (isNative()) {
+        const iap = await purchaseWithIAP(activeTier.id, selectedDuration)
+        if (iap.ok) {
+          toast.success(t('premium.activated'))
+          router.push('/premium/success')
+          return
+        }
+        if (!iap.fallback) {
+          toast.error(iap.message || t('premium.error'))
+          return
+        }
+      }
       const token = getToken()
       const res = await fetch('/api/premium/create-checkout', {
         method: 'POST',

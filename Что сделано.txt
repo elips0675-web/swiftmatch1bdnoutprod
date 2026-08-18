@@ -1,6 +1,13 @@
 # Что сделано
 
-> Актуально на август 2026. Все тесты: **226/226** — E2E 44/44 ✅, фронт 56/56 ✅, сервер 126/126 ✅. Vite build: ✅. Swagger: ✅.
+> Актуально на август 2026. Все тесты: **227/227** — E2E 44/44 ✅, фронт 57/57 ✅, сервер 126/126 ✅. Vite build: ✅. Swagger: ✅.
+
+## Этап 22: RevenueCat IAP-клиент (август 2026)
+
+- Новый `src/lib/iap.ts` — клиентская обвязка RevenueCat для Capacitor: guarded `require('@revenuecat/purchases-capacitor')` (no-op без пакета — как остальные нативные плагины), configure + offerings + purchasePackage, маппинг тарифов `plus/gold/platinum_1m|6m|12m`
+- `premium.tsx`: на нативной платформе покупка идёт через IAP (отмена → сообщение, ошибка конфигурации → фолбэк на старый флоу), веб — без изменений (Stripe/mock)
+- Требуется для APK: `npm install @revenuecat/purchases-capacitor` + `VITE_REVENUECAT_API_KEY` (добавлен в .env.example); подписки создаёт серверный webhook (`iap.js`, 503 без ключа)
+- Тесты: фронт 57/57 ✅ (добавлен unit «blocks submit without age confirmation»), tsc ✅, build ✅, E2E 44/44 ✅
 
 ## Этапы 19–21: Юридические страницы, age-gate, backup-verify (август 2026)
 

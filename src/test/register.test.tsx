@@ -68,6 +68,7 @@ describe("RegisterPage", () => {
     await user.type(screen.getByPlaceholderText("Имя"), "Test User")
     await user.type(screen.getByPlaceholderText("Email"), "new@test.com")
     await user.type(screen.getByPlaceholderText("Пароль (мин. 8 символов)"), "password123")
+    await user.click(screen.getByTestId("age-checkbox"))
     await user.click(screen.getByTestId("consent-checkbox"))
     await user.click(screen.getByText("СОЗДАТЬ АККАУНТ"))
 
@@ -140,11 +141,29 @@ describe("RegisterPage", () => {
     await user.type(screen.getByPlaceholderText("Имя"), "Test")
     await user.type(screen.getByPlaceholderText("Email"), "test@test.com")
     await user.type(screen.getByPlaceholderText("Пароль (мин. 8 символов)"), "password123")
+    await user.click(screen.getByTestId("age-checkbox"))
     await user.click(screen.getByText("СОЗДАТЬ АККАУНТ"))
 
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
         description: "Необходимо согласие на обработку персональных данных",
+      }))
+    })
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it("blocks submit without age confirmation", async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<RegisterPage />)
+
+    await user.type(screen.getByPlaceholderText("Имя"), "Test")
+    await user.type(screen.getByPlaceholderText("Email"), "test@test.com")
+    await user.type(screen.getByPlaceholderText("Пароль (мин. 8 символов)"), "password123")
+    await user.click(screen.getByText("СОЗДАТЬ АККАУНТ"))
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
+        description: "Подтвердите, что вам есть 18 лет",
       }))
     })
     expect(mockFetch).not.toHaveBeenCalled()
