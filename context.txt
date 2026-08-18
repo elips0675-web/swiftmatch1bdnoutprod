@@ -37,7 +37,8 @@
 - **22** — RevenueCat IAP-клиент: `src/lib/iap.ts` (guarded require, offerings/purchase, productId маппинг), premium.tsx нативная ветка с фолбэком; требуется `npm i @revenuecat/purchases-capacitor` + `VITE_REVENUECAT_API_KEY` при сборке APK
 - **23** — k6: починен дрейф контрактов (`/api/users/search`, `liked_user_id`, динамический chatId, креды user5@mail.ru); лайт-прогон 10 VU: p95 < 250 ms, 5–8 ms/запрос; полный ramp 100 VU — только staging (rate-limit'ы 600/мин глобальный + 30/мин лайки)
 - **24** — product analytics: воронка расширена — login_completed, register_completed, message_sent (+ttl), purchase_completed (+tier/duration/channel); retention/revenue-mix/registrations уже в админке; PostHog не нужен (self-hosted)
-- Тесты после этапов 22–24: E2E 44/44 ✅, фронт 57/57 ✅, сервер 126/126 ✅, tsc ✅, build ✅, lint 0 errors
+- **25–26** — UI: кнопка «Открыть профиль» в поиске (variant_b) уменьшена до пилюли `h-9 px-8 rounded-full` и отцентрирована по высоте между рядом лайк-кнопок и BottomNav (`mt-8 mb-8` в зазоре `pb-24`)
+- Тесты после этапов 22–26: E2E 44/44 ✅, фронт 57/57 ✅, сервер 126/126 ✅, tsc ✅, build ✅, lint 0 errors
 
 ---
 ## Что сделано

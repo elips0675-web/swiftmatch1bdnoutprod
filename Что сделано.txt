@@ -2,6 +2,12 @@
 
 > Актуально на август 2026. Все тесты: **227/227** — E2E 44/44 ✅, фронт 57/57 ✅, сервер 126/126 ✅. Vite build: ✅. Swagger: ✅.
 
+## UI-фиксы: кнопка «Открыть профиль» в поиске (август 2026)
+
+- `src/pages/search.tsx` (variant_b CTA в `card_cta` эксперименте): кнопка была `w-full max-w-sm h-11` — широкой под карточкой
+- Уменьшена: `h-9 px-8 rounded-full text-sm` (пилюля вместо блока)
+- Отцентрирована по вертикали между рядом лайк-кнопок и нижней навигацией: `mt-8 mb-8` в 96px-зазоре `pb-24` (BottomNav — fixed-оверлей)
+
 ## Этап 24: Product analytics — расширение трекинга (август 2026)
 
 - Внутренняя аналитика уже была: `/api/analytics/track` + `analytics_events` (metadata JSON), админ-дашборд с retention/revenue-mix/registrations, A/B-эксперименты (useExperiment)
