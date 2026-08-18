@@ -247,6 +247,7 @@ New pulled files used `require()` in an ESM project (`"type": "module"` in serve
 - Kill old node processes: `Get-Process -Name "node" | Stop-Process -Force`
 - Start server: `cd C:\swiftmatch1bd\server && node src/index.js` — **обязательно из `server/`**: `import 'dotenv/config'` грузит `.env` относительно CWD; при запуске из корня `JWT_SECRET()` вернёт случайный секрет, все токены «сгорят» → 401 на всех эндпоинтах (проверка: `npm run check:ports` фейлит без JWT_SECRET в server/.env)
 - Start frontend: `cd C:\swiftmatch1bd && npx vite --port 8081 --host`
+- **Инфра может умереть сама:** mysqld падал с `RADAR_PRE_LEAK_64` (нехватка памяти под нагрузкой E2E: 3 chromium + node + vite + mysql), vite может завершиться при закрытии Laragon/перезагрузке. Признак: `ERR_CONNECTION_REFUSED` на 8081/3002, глобальный health фейлит в global-setup. Подъём: `Start-Process C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysqld.exe --defaults-file=...\my.ini` (или Laragon), сервер/фронт — командами выше. Первый E2E-прогон после холодного старта может дать флаки (vite компилирует модули) — retries: 1 локально, 2 в CI уже настроены.
 
 ### 9. Read receipts & emoji reactions missing in chat
 Chat page had no "seen" indicator or emoji reaction UI. **Fix:** Added `seenIndicator` boolean, reaction picker (happy/love/sad/angry/like) with `reactions` array per message, and UI rendering in `src/pages/chats-chatId.tsx`.
