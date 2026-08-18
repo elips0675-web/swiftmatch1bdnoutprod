@@ -22,6 +22,7 @@ import { useWebSocket } from "@/hooks/use-websocket";
 import { useWebRTC } from "@/hooks/use-webrtc";
 import { VideoCallDialog } from "@/components/video-call";
 import { VoiceCallDialog } from "@/components/voice-call";
+import { useTrackEvent } from "@/hooks/useExperiment";
 
 const QUICK_REACTIONS = [
   { id: 'heart', icon: Heart, color: 'text-red-500', label: '❤️' },
@@ -99,6 +100,7 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
   const { data: chatPartner, loading: partnerLoading, error: partnerError } = useApi<any>(
     `/api/chats/${params.chatId}`
   );
+  const trackEvent = useTrackEvent();
   const { mutate: sendMessage, loading: isSending } = useApiMutation();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -140,6 +142,7 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
       const body: Record<string, unknown> = { text: content }
       if (selectedTtl) body.ttl_seconds = selectedTtl
       await sendMessage(`/api/chats/${params.chatId}/messages`, 'POST', body);
+      trackEvent('message_sent', { chat_id: Number(params.chatId), ttl: selectedTtl ?? null });
     } catch (error) {
       toast({ title: t('error.generic_title'), description: t('error.send_message'), variant: "destructive" });
       setOptimisticMessages(prev => prev.filter(m => m.id !== tempId));

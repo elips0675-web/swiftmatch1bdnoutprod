@@ -18,6 +18,7 @@ import { toast } from "@/hooks/use-toast";
 import Link from "@/shims/next-link";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/context/language-context";
+import { useTrackEvent } from "@/hooks/useExperiment";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function RegisterPage() {
   const [ageConfirm, setAgeConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { t } = useLanguage();
+  const trackEvent = useTrackEvent();
 
   const validateEmail = (email: string) => {
     return String(email)
@@ -80,6 +82,7 @@ export default function RegisterPage() {
         const data = await response.json();
 
         if (response.ok) {
+            trackEvent('register_completed', {});
             toast({
                 title: t('common.success'),
                 description: t('register.account_created'),

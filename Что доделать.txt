@@ -20,6 +20,7 @@
 | Profile Score | kimi #14 | Этап 8 E2E #17 |
 | Date Check-in (Safety) | kimi #15 | Этап 10 E2E #18 |
 | A/B + feature flags | kimi #16 | Этап 8 E2E #15 |
+| Product analytics | kimi #17, qwen 🟡 | **Этап 24**: внутренняя аналитика полная (track + retention + revenue-mix в админке); воронка расширена: login_completed, register_completed, message_sent, purchase_completed (плюс swipe_like/super_like) |
 | CI/CD | kimi #18 | deploy.yml (lint→test→E2E→deploy), нужны только secrets |
 | Docker Compose | kimi #19 | app + nginx + Prometheus + Grafana |
 | Redis Adapter Socket.IO | kimi #20 | ws.js adapter |
@@ -47,7 +48,6 @@
 - **SMS-верификация** — scaffold + mock; реальная после ключей Twilio (kimi #4)
 - **AI-модерация фото** — эвристика/regex fallback; Rekognition после AWS-ключей (kimi #5)
 - **CDN/S3** — локальный диск; S3 после AWS-ключей (kimi #6)
-- **Product analytics (PostHog/Amplitude)** — есть базовые endpoint'ы, нет retention/funnel (kimi #17)
 - **CSRF** — не критично для JWT API-only (дипсик)
 - **Мониторинг доступности** (UptimeRobot) и SSL в docker-compose (дипсик #5 инфра)
 - **AGENTS.md** — разделить при >1500 строк (сейчас ~1150)

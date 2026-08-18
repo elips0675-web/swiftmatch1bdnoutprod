@@ -9,6 +9,7 @@ import { motion } from 'framer-motion'
 import { getToken } from '@/lib/token'
 import { isNative } from '@/lib/native'
 import { purchaseWithIAP } from '@/lib/iap'
+import { useTrackEvent } from '@/hooks/useExperiment'
 import { toast } from 'sonner'
 
 interface Tier {
@@ -36,6 +37,7 @@ export default function Premium() {
   const [selectedTier, setSelectedTier] = useState('')
   const [selectedDuration, setSelectedDuration] = useState(DURATIONS[0].months)
   const [loading, setLoading] = useState(false)
+  const trackEvent = useTrackEvent()
 
   useEffect(() => {
     fetch('/api/premium/tiers')
@@ -65,6 +67,7 @@ export default function Premium() {
       if (isNative()) {
         const iap = await purchaseWithIAP(activeTier.id, selectedDuration)
         if (iap.ok) {
+          trackEvent('purchase_completed', { tier: activeTier.id, duration_months: selectedDuration, channel: 'iap' })
           toast.success(t('premium.activated'))
           router.push('/premium/success')
           return
@@ -85,6 +88,7 @@ export default function Premium() {
       if (data.url) {
         window.location.href = data.url
       } else {
+        trackEvent('purchase_completed', { tier: activeTier.id, duration_months: selectedDuration, channel: 'web' })
         toast.success(t('premium.activated'))
         router.push('/premium/success')
       }

@@ -2,6 +2,17 @@
 
 > Актуально на август 2026. Все тесты: **227/227** — E2E 44/44 ✅, фронт 57/57 ✅, сервер 126/126 ✅. Vite build: ✅. Swagger: ✅.
 
+## Этап 24: Product analytics — расширение трекинга (август 2026)
+
+- Внутренняя аналитика уже была: `/api/analytics/track` + `analytics_events` (metadata JSON), админ-дашборд с retention/revenue-mix/registrations, A/B-эксперименты (useExperiment)
+- Было покрытие только swipe_like/swipe_super_like (search.tsx) — добавлены события в воронку:
+  - `login_completed` (login.tsx, метод email)
+  - `register_completed` (register.tsx)
+  - `message_sent` (chats-chatId.tsx, chat_id + ttl)
+  - `purchase_completed` (premium.tsx, tier + duration + канал iap/web)
+- PostHog внешне не нужен — self-hosted эквивалент уже в продукте (admin/analytics); внешний сервис опционален позже
+- Проверки: tsc ✅, lint 0 errors, vitest 57/57 ✅
+
 ## Этап 23: k6 — фикс скрипта + лайт-прогон (август 2026)
 
 - Установлен k6 (v0.57.0, winget завис → прямой zip в Temp)
