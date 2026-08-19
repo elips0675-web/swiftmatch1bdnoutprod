@@ -76,6 +76,7 @@
 ## 🗺 Этапы 30+ (после ключей / внешних действий, см. «Ждёт действий пользователя»)
 
 - ✅ **Этап 30 (19.08.2026)** — проверка работоспособности всего: `/api/invites` давал 500 (дрейф колонок `sender_id/receiver_id/type` → `from_user_id/to_user_id/invite_type/message` в social.js) — починен (GET/POST/PUT, валидация enum, message). Прочие смоук-точки 200/201. Сервер 126/126 ✅, E2E 44/44 ✅
+- ✅ **Этап 31 (19.08.2026)** — EXPLAIN-аудит всех SQL из server/src против схемы: найдены и починены дрейфы — `iap.js` webhook ссылался на несуществующую `subscriptions.updated_at` (500 на каждом событии RevenueCat), `location.js` использовал `user_profiles.user_id` вместо `id` (500 на PUT/GET /api/location). Проверено: PUT/GET location 200, EXPLAIN 55/56 (1 — ложное срабатывание audit.js). Сервер 126/126 ✅, фронт 57/57 ✅
 - SMS-верификация (Twilio), AI-модерация фото (Rekognition), CDN/S3, IAP (RevenueCat), push (FCM), staging-E2E с реальными ключами, Android-сборка
 - GitHub secrets для deploy.yml: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY (DB_* больше не нужны — миграции читают server/.env на сервере)
 - Полный k6 ramp 100 VU на staging (проверка RADAR_PRE_LEAK_64 под реальной нагрузкой)

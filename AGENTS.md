@@ -267,6 +267,9 @@ New pulled files used `require()` in an ESM project (`"type": "module"` in serve
 ### 27. invites: колонки переименованы, роут не обновлён (этап 30, 19.08.2026)
 Таблица `invites` (дизайн «date invitations»): `from_user_id`, `to_user_id`, `invite_type` (enum coffee/cinema/walk/dinner/other), `message`. Роут `/api/invites` (social.js) использовал старые `sender_id`/`receiver_id`/`type` → GET 500 на проде. **Проверять дрейф схемы при 500:** `SHOW COLUMNS FROM <table>` vs запрос в коде. Ответ API сохранён для фронта: `sender_id`/`sender_name`/`type` (алиасы из from_user_id/invite_type).
 
+### 28. EXPLAIN-аудит SQL против схемы (этап 31, 19.08.2026)
+После бага invites прогонялся статический аудит всех SQL из `server/src`: каждый `SELECT/INSERT/UPDATE/DELETE` → `EXPLAIN` с `? → NULL`. Найдены ещё 2 дрейфа: `subscriptions` без `updated_at` (iap.js webhook → 500 на каждом событии RevenueCat) и `user_profiles` без `user_id` (location.js → 500 на PUT/GET /api/location; у user_profiles id = users.id 1-to-1). **Правило:** при добавлении колонок в код — сверять с `SHOW COLUMNS`, при 500 — первым делом EXPLAIN запроса. Инструмент: `schema-audit2.cjs` (временный, в репозиторий не входит).
+
 ## Startup reminder
 - After `git pull noutadm main` in `C:\swiftmatch1bd` (the run directory), also run `cd server && npm install` if new packages were added.
 - Kill old node processes: `Get-Process -Name "node" | Stop-Process -Force`
