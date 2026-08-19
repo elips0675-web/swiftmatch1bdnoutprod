@@ -264,6 +264,9 @@ New pulled files used `require()` in an ESM project (`"type": "module"` in serve
 ### 26. Product analytics — self-hosted, PostHog не нужен (этап 24)
 Воронка: `login_completed`, `register_completed`, `message_sent` (+ttl), `purchase_completed` (+tier/duration/channel), `swipe_like`/`swipe_super_like` — всё через `/api/analytics/track` (`analytics_events`, metadata JSON). Админ-дашборд: retention, revenue-mix, registrations (`/api/admin/analytics/*`). Эксперименты: `useExperiment` + `experiment_assignments` (variant_a/b по MD5-хешу).
 
+### 27. invites: колонки переименованы, роут не обновлён (этап 30, 19.08.2026)
+Таблица `invites` (дизайн «date invitations»): `from_user_id`, `to_user_id`, `invite_type` (enum coffee/cinema/walk/dinner/other), `message`. Роут `/api/invites` (social.js) использовал старые `sender_id`/`receiver_id`/`type` → GET 500 на проде. **Проверять дрейф схемы при 500:** `SHOW COLUMNS FROM <table>` vs запрос в коде. Ответ API сохранён для фронта: `sender_id`/`sender_name`/`type` (алиасы из from_user_id/invite_type).
+
 ## Startup reminder
 - After `git pull noutadm main` in `C:\swiftmatch1bd` (the run directory), also run `cd server && npm install` if new packages were added.
 - Kill old node processes: `Get-Process -Name "node" | Stop-Process -Force`
