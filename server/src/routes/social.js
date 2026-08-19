@@ -271,14 +271,17 @@ router.get('/api/matches', auth, cacheRoutePerUser(30), async (req, res) => {
 })
 
 // ─── Invites ───────────────────────────────────────────────────
+const INVITE_TYPES = ['coffee', 'cinema', 'walk', 'dinner', 'other']
+
 router.post('/api/invites', auth, async (req, res) => {
-  const { invitee_id, type } = req.body
+  const { invitee_id, type, message } = req.body
   if (!invitee_id || !type) return res.status(400).json({ message: 'invitee_id and type are required' })
+  if (!INVITE_TYPES.includes(type)) return res.status(400).json({ message: 'Invalid invite type' })
 
   try {
     await pool.query(
-      'INSERT INTO invites (sender_id, receiver_id, type, status) VALUES (?, ?, ?, ?)',
-      [req.userId, invitee_id, type, 'pending'],
+      'INSERT INTO invites (from_user_id, to_user_id, invite_type, message, status) VALUES (?, ?, ?, ?, ?)',
+      [req.userId, invitee_id, type, message ? String(message).slice(0, 500) : null, 'pending'],
     )
 
     const [notifResult] = await pool.query(
@@ -301,11 +304,11 @@ router.post('/api/invites', auth, async (req, res) => {
 router.get('/api/invites', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT i.id, i.type, i.status, i.created_at,
-              up.display_name as sender_name, up.avatar_url as sender_avatar
+      `SELECT i.id, i.invite_type as type, i.message, i.status, i.created_at,
+              i.from_user_id as sender_id, up.display_name as sender_name, up.avatar_url as sender_avatar
        FROM invites i
-       JOIN user_profiles up ON i.sender_id = up.id
-       WHERE i.receiver_id = ?
+       JOIN user_profiles up ON i.from_user_id = up.id
+       WHERE i.to_user_id = ?
        ORDER BY i.created_at DESC`,
       [req.userId],
     )
@@ -318,11 +321,11 @@ router.get('/api/invites', auth, async (req, res) => {
 
 router.put('/api/invites/:id/status', auth, async (req, res) => {
   const { status } = req.body
-  if (!['accepted', 'declined'].includes(status)) return res.status(400).json({ message: 'Invalid status' })
+  if (!['accepted', 'declined', 'cancelled'].includes(status)) return res.status(400).json({ message: 'Invalid status' })
 
   try {
     await pool.query(
-      'UPDATE invites SET status = ? WHERE id = ? AND receiver_id = ?',
+      'UPDATE invites SET status = ? WHERE id = ? AND to_user_id = ?',
       [status, req.params.id, req.userId],
     )
     res.json({ message: `Invite ${status}` })
