@@ -270,6 +270,14 @@ New pulled files used `require()` in an ESM project (`"type": "module"` in serve
 ### 28. EXPLAIN-аудит SQL против схемы (этап 31, 19.08.2026)
 После бага invites прогонялся статический аудит всех SQL из `server/src`: каждый `SELECT/INSERT/UPDATE/DELETE` → `EXPLAIN` с `? → NULL`. Найдены ещё 2 дрейфа: `subscriptions` без `updated_at` (iap.js webhook → 500 на каждом событии RevenueCat) и `user_profiles` без `user_id` (location.js → 500 на PUT/GET /api/location; у user_profiles id = users.id 1-to-1). **Правило:** при добавлении колонок в код — сверять с `SHOW COLUMNS`, при 500 — первым делом EXPLAIN запроса. Инструмент: `schema-audit2.cjs` (временный, в репозиторий не входит).
 
+### 29. Android-сборка: окружение и грабли (этап 32, 19.08.2026)
+- **Java для Gradle:** Android Studio 2026 ставит JBR = Java 25, а Gradle 8.14.3 не стартует (major version 69). Нужен JDK 21 (zip Temurin из api.adoptium.net, распакован в %TEMP%\opencode\jdk21\jdk-21.0.12+8), `JAVA_HOME` на него.
+- **SDK:** cmdline-tools (dl.google.com, 146 MB) → `sdkmanager` с `JAVA_HOME`; `platform-tools`, `platforms;android-35`, `build-tools;35.0.0` (compileSdk 36 AGP докачивает сам при лицензиях). Лицензии: `y` × 10 через pipe.
+- **AGP 8.13.0 баг `:app:compressDebugAssets`** на Windows: «Failed to create MD5 hash ... info-*.js.jar as it does not exist» (1 из ~150 ассетов не получает jar). Лечится повторным standalone-прогоном `gradlew :app:compressDebugAssets` (после первого фейла) — дальше assembleDebug проходит. Не тратить время на clean/AGP-бамп (8.13.2 тоже воспроизводится).
+- **Запуск gradlew строго из `android/`** — Gradle берёт корень проекта из CWD.
+- Перед сборкой: `npm run build` с `VITE_API_URL` (для теста на устройстве — LAN IP машины, `cleartext: true` уже в capacitor.config) → `npx cap sync android` (генерирует capacitor-cordova-android-plugins, при первом add может отсутствовать) → `gradlew assembleDebug`. APK: `android/app/build/outputs/apk/debug/app-debug.apk`.
+- RevenueCat: `@revenuecat/purchases-capacitor` установлен, `VITE_REVENUECAT_API_KEY` — плейсхолдер в .env (gitignored).
+
 ## Startup reminder
 - After `git pull noutadm main` in `C:\swiftmatch1bd` (the run directory), also run `cd server && npm install` if new packages were added.
 - Kill old node processes: `Get-Process -Name "node" | Stop-Process -Force`
