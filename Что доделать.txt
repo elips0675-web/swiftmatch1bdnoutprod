@@ -1,6 +1,6 @@
 # Что доделать — сводный статус по аудитам kimi, дипсик, qwen
 
-> Актуально: 18.08.2026, после этапа 24. Каждый пункт — из аудитов «Оценка kimi.txt», «Оценка дипсик.txt», «Оценка qwen.txt»; статус сверен с кодом и тестами.
+> Актуально: 22.08.2026, после этапа 33 + свежий консолидированный аудит трёх моделей (внизу). Каждый пункт — из аудитов «Оценка kimi.txt», «Оценка дипсик.txt», «Оценка qwen.txt»; статус сверен с кодом и тестами.
 
 ## ✅ Закрыто (в т.ч. этапами 8–22)
 
@@ -51,11 +51,11 @@
 - **CDN/S3** — локальный диск; S3 после AWS-ключей (kimi #6)
 - **CSRF** — не критично для JWT API-only (дипсик)
 - **Мониторинг доступности** (UptimeRobot) и SSL в docker-compose (дипсик #5 инфра)
-- **AGENTS.md** — разделить при >1500 строк (сейчас ~1150)
+- **AGENTS.md** — разделить при >1500 строк (сейчас ~1180; qwen в свежем аудите называл >1500 — завышено)
 - **AGENTS.md противоречия по adminAuth** — одновременно написано «ACTIVE (401/403, этап 9)» и «passive (вызывает next() на ошибке)», «NEVER add auth checks» и «проверять req.user.role внутри хендлеров». Переписать секции, чтобы состояние было однозначным (qwen #1, топ-рекомендация)
 - **Windows-центричность** — Laragon, Task Scheduler, .bat, PowerShell — основной workflow; staging/prod обычно Linux. Docker Compose есть, но не является основным путём (qwen #3)
 - **mysqld RADAR_PRE_LEAK_64 под E2E-нагрузкой** — mysqld падал при прогоне (3 chromium + node + vite + mysql). Проверить память/утечки пула mysql2, протестировать под k6 100 VU на staging (qwen #4)
-- **JWT в localStorage** — правило «never store refresh_token» есть, но основной Bearer-токен лежит в localStorage; для веб-версии рассмотреть HttpOnly cookie (qwen #7)
+- ~~JWT в localStorage~~ — ✅ закрыто этапом 33: httpOnly cookie на web, Bearer только для нативных сборок
 - **План отката** на случай проблем с платежами или БД (дипсик, рекомендации)
 - **Проверка rules-of-hooks** — баг useApi.ts (useMemo внутри useEffect + двойной fetch) нашли только на этапе 17; убедиться, что линтер rules-of-hooks включён и ловит такие случаи (qwen 🟡)
 
@@ -82,7 +82,73 @@
 - SMS-верификация (Twilio), AI-модерация фото (Rekognition), CDN/S3, push (FCM), staging-E2E с реальными ключами, публикация в Google Play (AAB, App Links, политика 17+, сторы)
 - GitHub secrets для deploy.yml: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY (DB_* больше не нужны — миграции читают server/.env на сервере)
 - Полный k6 ramp 100 VU на staging (проверка RADAR_PRE_LEAK_64 под реальной нагрузкой)
-- JWT → httpOnly cookie — отдельным этапом, если потребуется (ADR в AGENTS.md, Security Rules)
+- ~~JWT → httpOnly cookie~~ — ✅ сделан этапом 33 (см. выше)
+
+## 🆕 Свежий аудит kimi/qwen/дипсик после этапа 33 (22.08.2026)
+
+Оценки: **kimi 7.5/10** («готов к staging и закрытой бете; не готов к открытому проду без блокеров безопасности»), **qwen 8/10** pet / 6.5/10 prod-SaaS (~70% готовности: код и тесты — отлично, окружение и релиз — нет), **дипсик ~95%** технически («держат релиз только внешние ключи, домен и сторы»). Консенсус всех трёх: **новый продуктовый код не нужен — разблокировать прод** (staging → ключи → домен → релиз Android).
+
+### Этап 34 (предложен аудитом): безопасность до прода
+
+| # | Пункт | Кто флагил |
+|---|---|---|
+| 1 | **Refresh rotation**: на каждый refresh выдавать новую пару access+refresh, старый sm_refresh инвалидинировать (token_family в БД). Сейчас украденный refresh = 7-дневное окно без инвалидации | kimi 🔴 |
+| 2 | **Revoke all sessions**: endpoint инвалидации всех refresh-токенов пользователя (смена пароля, подозрение на взлом) | kimi |
+| 3 | **Account lockout**: после 5 неудачных логинов — блок IP/аккаунта на 15 мин (отдельный лимит, строже authLimiter 60/мин) | kimi 🟡 |
+| 4 | **Admin TOTP 2FA** для /api/admin/* — сейчас один фактор (admin@mail.ru/demo123456) | kimi 🔴 |
+| 5 | **CSRF double-submit token** — SameSite=Lax не защищает от same-site атак (поддомены, open redirect); критично при выносе API на отдельный домен (уже в бэклоге, теперь с обоснованием) | все три 🔴/🟠 |
+| 6 | Привязка сессии к устройству/IP (fingerprinting) | kimi 🟡 |
+| 7 | Race condition параллельного refresh → два access-токена → цикл 401→refresh (покрыть тестом) | kimi 🟡 |
+
+Быстрые проверки (часть уже закрыта проверкой кода):
+- ✅ `secure:true` по NODE_ENV — подтверждено в cookies.js (`secure: isProduction`), замечание дипсика закрыто
+- ⚠️ **ws.js:79 принимает токен из query-param** (`socket.handshake.query?.token`) — убрать fallback или задокументировать: токены оседают в логах nginx/proxy (kimi)
+- migrate.js должен читать server/.env с DB_PASSWORD — проверить при первом staging-деплое (дипсик)
+- Nginx: WS upgrade headers + таймауты — проверить при настройке прода (дипсик)
+- CSP vs Stripe.js/сторонние скрипты — прогнать страницы оплаты в реальном браузере (дипсик)
+- Grace period Bearer+cookie для существующих юзеров — НЕ актуально: прод ещё не запущен, пользователей ноль (закрыто анализом)
+
+### Инфраструктурные находки аудита (этапы 35+)
+
+1. **Schema validation в CI**: сравнение mysql_schema.sql ↔ information_schema на staging перед деплоем — дрейф колонок ловился трижды (invites, iap.js, location.js) и не ловится тестами (kimi)
+2. **EXPLAIN/SQL-аудит статически в CI** перед каждым PR (qwen)
+3. **Redis fallback под нагрузкой**: REDIS_URL=invalid → кэш-промахи не должны DDOS'ить MySQL, queue fallback не теряет письма (kimi)
+4. **Docker Compose up реально не прогонялся** — поднять на staging, проверить healthcheck/volumes/сеть (все три)
+5. **CI guard для Android**: production build + cleartext=true → fail сборки (MITM-риск LAN-IP) (kimi)
+6. Circuit breaker для Stripe/OpenAI/S3 — не копить очередь webhook'ов при недоступности (после релиза) (kimi)
+7. Backup retention 7 дней мало: 30–90 дней для БД, ~1 год для платежей (GDPR/финансы) (kimi)
+8. Down-миграций нет в migrate.js — при поломке только restore из бэкапа (осознанно, отметить в rollback-plan.md) (kimi)
+9. Внешний мониторинг: UptimeRobot + Grafana alerts в Telegram/Slack (CPU, 5xx, DB connections) — «если VPS умрёт, никто не узнает» (qwen, дипсик)
+10. Log aggregation (Loki/ELK) вместо Winston-на-диск + SSL Let's Encrypt auto-renewal (после релиза) (kimi)
+11. Windows-центричность: при переезде на Linux VPS адаптировать .bat→.sh (backup, запуск) (qwen, дипсик)
+12. Разбить AGENTS.md — сейчас ~1180 строк (qwen называл >1500 — завышено) (qwen, дипсик)
+13. Задокументировать процесс обновления ключей (.env) (дипсик)
+
+### Слепые зоны тестов (бэклог этапа 36+, консолидировано из kimi + дипсик)
+
+- Redis fallback integration (ECONNREFUSED → приложение живёт)
+- Refresh race E2E: два окна одного юзера, быстрый refresh в обоих
+- Cookie edge cases: expired cookie mid-session, revoked refresh, concurrent tabs
+- File upload security: 15MB отклоняется, `.php.jpg`, path traversal `../../etc/passwd` → сохраняется как uuid
+- Rate-limit spec: 61-й запрос к логину → 429
+- WS reconnect + exponential backoff (эмуляция обрыва мобильного интернета)
+- GDPR full erasure cascade E2E (юзер → активность → erase → 404 везде)
+- Stripe webhook security unit: invalid signature → 400, replay, idempotency-key без дублей
+- RevenueCat webhook E2E с моком событий (дипсик)
+- i18n completeness unit: все t("...") есть в RU и EN
+- Backup/restore smoke в CI (restore → smoke-тесты)
+- Migration idempotency: migrate.js дважды подряд → 0 errors
+- Security headers supertest (CSP/HSTS/XFO на /health)
+- Impersonation guard: админ→админ → 403
+- Cross-browser: projects [chromium, firefox, webkit] в playwright.config.ts
+- IAP sandbox-тест покупок после публикации в Google Play (дипсик)
+
+### Приоритизация (фазы qwen, консенсус)
+
+1. **«Первый рубль» (1–2 нед)**: staging VPS + GitHub secrets → ключи (Stripe test→live, SMTP, Sentry DSN) → E2E на staging с реальными ключами → docker compose up
+2. **«Мобильный релиз» (2–3 нед)**: домен + SSL → keystore + AAB → App Links (assetlinks.json + SHA256) → RevenueCat проект + ключ → Google Play (17+)
+3. **«Надёжность» (параллельно)**: k6 100 VU на staging → UptimeRobot + алерты → тест плана отката → этап 34 (безопасность) → чистка AGENTS.md
+4. **«Масштабирование» (после релиза)**: S3/CDN → FCM → Twilio → Rekognition/OpenAI фото-модерация → Storybook
 
 ## 📌 Правила для будущих этапов (из этапа 18)
 
