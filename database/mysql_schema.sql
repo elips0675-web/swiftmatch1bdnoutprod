@@ -13,7 +13,6 @@ CREATE TABLE users (
   password_hash       VARCHAR(255) NOT NULL,
   role                ENUM('user','admin') NOT NULL DEFAULT 'user',
   is_active           BOOLEAN NOT NULL DEFAULT TRUE,
-  email_verified_at   TIMESTAMP NULL,
   verification_token  VARCHAR(64) NULL,
   reset_token         VARCHAR(64) NULL,
   reset_token_expires TIMESTAMP NULL,
@@ -83,11 +82,8 @@ CREATE TABLE user_photos (
   is_avatar           BOOLEAN NOT NULL DEFAULT FALSE,
   moderation_status   ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
   moderation_reason   VARCHAR(500) DEFAULT NULL,
-  moderated_by        INT UNSIGNED DEFAULT NULL,
-  moderated_at        TIMESTAMP NULL,
   created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (moderated_by) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_photos_user (user_id),
   INDEX idx_photos_moderation (moderation_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -203,7 +199,6 @@ CREATE TABLE messages (
   image_url   VARCHAR(500) DEFAULT NULL,
   reply_to    INT UNSIGNED DEFAULT NULL,
   ttl_seconds INT UNSIGNED DEFAULT NULL COMMENT 'Auto-delete after N seconds',
-  read_by     JSON DEFAULT NULL COMMENT 'Array of user_ids who read this message',
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
   FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -213,8 +208,6 @@ CREATE TABLE messages (
   INDEX idx_messages_created (chat_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Migration for existing DBs:
--- ALTER TABLE messages ADD COLUMN read_by JSON DEFAULT NULL COMMENT 'Array of user_ids who read this message';
 
 -- -----------------------------------------------------------
 -- 12. MESSAGE REACTIONS

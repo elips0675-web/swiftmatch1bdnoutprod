@@ -1,5 +1,15 @@
 -- Migration 018: seed icebreaker themes and questions (fallback AI content)
-INSERT INTO icebreaker_themes (key_id, icon, color_class, sort_order) VALUES
+-- Идемпотентно (этап 35): INSERT IGNORE + уникальный ключ на слоты вопросов
+
+SET @ddl := (
+  SELECT IF(COUNT(*) = 0,
+    'ALTER TABLE icebreaker_questions ADD UNIQUE KEY uq_icebreaker_q (theme_id, sort_order)',
+    'SELECT ''uq_icebreaker_q exists''')
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'icebreaker_questions' AND INDEX_NAME = 'uq_icebreaker_q'
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+INSERT IGNORE INTO icebreaker_themes (key_id, icon, color_class, sort_order) VALUES
   ('romantic', 'Heart', 'text-rose-500', 1),
   ('funny', 'Laugh', 'text-amber-500', 2),
   ('hobbies', 'Palette', 'text-violet-500', 3),
@@ -9,7 +19,7 @@ INSERT INTO icebreaker_themes (key_id, icon, color_class, sort_order) VALUES
   ('movies', 'Clapperboard', 'text-indigo-500', 7),
   ('deep', 'MessageCircle', 'text-teal-500', 8);
 
-INSERT INTO icebreaker_questions (theme_id, text_ru, text_en, sort_order) VALUES
+INSERT IGNORE INTO icebreaker_questions (theme_id, text_ru, text_en, sort_order) VALUES
   (1, 'Что для тебя идеальное первое свидание?', 'What does your perfect first date look like?', 1),
   (1, 'Какое самое романтичное, что с тобой делали?', 'What is the most romantic thing someone has done for you?', 2),
   (1, 'Где бы ты хотела, чтобы я увел тебя в будущем?', 'Where would you want me to take you in the future?', 3),

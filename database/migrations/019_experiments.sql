@@ -22,5 +22,5 @@ CREATE TABLE IF NOT EXISTS experiment_assignments (
   CONSTRAINT fk_assignment_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO experiments (name, experiment_key, description, enabled) VALUES
+INSERT IGNORE INTO experiments (name, experiment_key, description, enabled) VALUES
   ('CTA на карточке', 'card_cta', 'Variant B — доп. кнопка «Открыть профиль» на карточке свайпа', 1);

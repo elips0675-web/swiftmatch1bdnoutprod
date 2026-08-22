@@ -35,6 +35,8 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm test -- --reporter=verbose
+      - name: Android cleartext guard (этап 35)
+        run: node scripts/check-native-config.mjs
       - run: npx vite build
 
   server-test:
@@ -66,6 +68,13 @@ jobs:
         run: mysql -h127.0.0.1 -uroot -pswiftmatch_test swiftmatch_test < database/mysql_schema.sql
         env:
           MYSQL_PWD: swiftmatch_test
+      - name: Validate schema vs live DB (этап 35)
+        run: node scripts/schema-validate.mjs
+        env:
+          DB_HOST: 127.0.0.1
+          DB_USER: root
+          DB_PASSWORD: swiftmatch_test
+          DB_NAME: swiftmatch_test
       - run: npm test -- --reporter=verbose
         working-directory: server
         env:
@@ -155,7 +164,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "dist/,server/,database/,package.json,package-lock.json"
+          source: "dist/,server/,database/,scripts/schema-validate.mjs,package.json,package-lock.json"
           target: "/app/swiftmatch"
           strip_components: 0
       - name: Migrate + restart backend
@@ -169,6 +178,7 @@ jobs:
             set -a
             . ./server/.env
             set +a
+            node scripts/schema-validate.mjs
             node database/migrations/migrate.js
             cd server
             npm ci --omit=dev

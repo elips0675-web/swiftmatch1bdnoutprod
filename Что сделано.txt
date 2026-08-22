@@ -366,3 +366,19 @@
 - AI Icebreakers (OpenAI в чаты) → ✅ Сделано (этап 3, август 2026) — fallback из БД без ключа OpenAI
 - A/B Testing + Product Analytics → ✅ Сделано (этап 4, август 2026) — таблицы experiments, assign/track API, админка
 - API Versioning → ✅ Сделано (этап 5, август 2026) — `/api/v1` alias
+
+## Этап 35 (22.08.2026): CI schema-validation + security из слепых зон аудита
+
+**Баги, найденные и исправленные:**
+1. migrate.js падал на 018_icebreakers_seed.sql (Duplicate entry 'romantic'): миграции 018-023 не были записаны в _migrations живой БД, а seed/ALTER-миграции не были идемпотентными. Починено: 018 - INSERT IGNORE + уникальный ключ uq_icebreaker_q(theme_id, sort_order) через information_schema+PREPARE guard; 019 - INSERT IGNORE; 020/022/023 - ALTER через information_schema+PREPARE. Прогон migrate.js дважды подряд - чисто.
+2. Дрейф схемы (аудит kimi): mysql_schema.sql содержал 4 мёртвые колонки, которых нет в живой БД и не использует код: users.email_verified_at, user_photos.moderated_by/moderated_at, messages.read_by (+ комментарий). Удалены из схемы. Новый scripts/schema-validate.mjs сравнивает схему с information_schema живой БД: 53 таблицы OK, exit 1 при расхождении. Подключён в CI (server-test после Init DB) и в deploy ДО migrate.js (дрейф ломает деплой до миграций, а не после). scripts/schema-validate.mjs добавлен в rsync source.
+3. usesCleartextTraffic=true в main AndroidManifest (аудит qwen) - MITM-риск в release. Убран; создан android/app/src/debug/AndroidManifest.xml с cleartext только для debug-сборок. Guard scripts/check-native-config.mjs падает при возврате cleartext в main; встроен в build:native и CI (frontend job).
+
+**Остальное по этапу:**
+- Backup retention 7 -> 30 дней (backup-mysql.ps1 + .sh)
+- docs/rollback-plan.md: раздел "Миграции БД: откат только через бэкап" (down-миграций нет)
+- server/src/__tests__/security.headers.test.js: 7 тестов заголовков безопасности против живого сервера (skipIf сервер не поднят): CSP, XFO/frame-ancestors, nosniff, HSTS, Referrer-Policy, /health 200 без auth, кеш-контроль auth-эндпоинтов
+
+**Имперсонация admin->admin (пункт аудита):** N/A - фича имперсонации в коде отсутствует.
+
+**Счётчики:** server 156/156 (15 файлов), front 58/58, E2E 44/44 = 258/258. Линт: 0 ошибок. Build OK.

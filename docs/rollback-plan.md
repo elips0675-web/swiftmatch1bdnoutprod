@@ -65,3 +65,10 @@
 - [ ] Один тестовый checkout (mock при NODE_ENV=production + без STRIPE_LIVE - недоступен; тестировать Stripe test-mode ключами)
 - [ ] `SELECT COUNT(*) FROM subscriptions WHERE is_active = 1` - нет дублей
 - [ ] Prometheus/Grafana отдают метрики
+
+## N. Миграции БД: откат только через бэкап (этап 35)
+
+- Down-миграций НЕТ: migrate.js применяет .sql только вперёд, записи в _migrations не удаляются.
+- Откат схемы = восстановление из бэкапа (scripts/backup-mysql.ps1|sh), затем git checkout <prev-tag> + рестарт.
+- Перед деплоем CI прогоняет scripts/schema-validate.mjs против живой БД — дрейф схемы ломает деплой ДО миграций, а не после.
+- Все новые миграции обязаны быть идемпотентными (information_schema + PREPARE), чтобы повторный прогон после сбоя не ломал базу.
