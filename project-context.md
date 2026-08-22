@@ -273,13 +273,14 @@ UI: зелёный badge ≥80, жёлтый ≥50, красный <50; спис
 
 `server/src/metrics.js` использует prom-client: counters (http_requests_total, db_queries_total, ws_events_total) + histograms (http_request_duration_ms, db_query_duration_ms).
 
-## Актуальный статус (август 2026, этапы 27–33)
+## Актуальный статус (август 2026, этапы 27–34)
 
-- **Тесты: 231/231** — E2E 44/44 ✅, фронт 58/58 ✅, сервер 129/129 ✅; vite build ✅, lint 0 errors
+- **Тесты: 245/245** — E2E 44/44 ✅, фронт 58/58 ✅, сервер 143/143 ✅; vite build ✅, lint 0 errors
 - **CI/CD:** миграции БД выполняются на сервере перед pm2 restart (секреты DB_* не нужны)
 - **Redis:** подключен локально (127.0.0.1:6379), graceful fallback
 - **Этапы 30–31:** починены скрытые 500 (invites-дрейф колонок, iap.js updated_at, location.js user_id→id); все SQL сверены EXPLAIN'ом со схемой
 - **Этап 32 (Android):** toolchain готов (SDK 35/36 + JDK 21, AGP 8.13.2), debug APK собран (ndroid/app/build/outputs/apk/debug/app-debug.apk); RevenueCat IAP-клиент подключён
 - **Этап 33 (auth):** JWT в httpOnly cookie sm_token/sm_refresh (SameSite=Lax, Secure в prod), мидлвари читают Bearer ?? cookie, /api/auth/me probe + /api/auth/logout; web-фронт не хранит токен в JS-storage (XSS-safe), нативные — Bearer
+- **Этап 34 (безопасность):** refresh rotation + reuse detection (отзыв семьи при replay, миграция 025), `/api/auth/logout-all`, revoke всех сессий при смене пароля, account lockout 5→15 мин, ws.js без query-token
 - **GDPR-консент:** работает и покрыт E2E (регистрация блокируется без согласия, consent_log пишется)
-- Детали: «Что сделано.txt» (этапы 30–33), AGENTS.md (грабли #27–30)
+- Детали: «Что сделано.txt» (этапы 30–34), AGENTS.md (грабли #27–31)

@@ -14,7 +14,7 @@ Node.js/Express + MySQL (mysql2) бэкенд, Socket.IO real-time, Capacitor An
 
 ## Статус проверок (всё зелёное)
 
-- Тесты **231/231**: сервер 129/129 (13 файлов), фронт 58/58 (12 файлов), E2E 44/44 (5 spec: audit-full, features, login, profile, register)
+- Тесты **245/245**: сервер 143/143 (13 файлов), фронт 58/58 (12 файлов), E2E 44/44 (5 spec: audit-full, features, login, profile, register)
 - vite build ✅, eslint 0 errors (154 warnings — стилевые), Swagger ✅
 - E2E: Playwright, storageState из global-setup (.auth/*.json), аудит console-errors на каждой странице, screenshot/video/trace на падение
 - Pre-flight: `npm run check:ports` (порты + JWT_SECRET), `scripts/check-keys.ps1` (какие прод-ключи не заполнены)
@@ -28,10 +28,17 @@ Node.js/Express + MySQL (mysql2) бэкенд, Socket.IO real-time, Capacitor An
   refresh через POST с пустым body (сервер берёт куку), защита от цикла (flag `refreshed`);
   `GET /api/auth/me` — probe, всегда 200 `{authenticated:false}` без сессии;
   `POST /api/auth/logout` — чистит куку + удаляет refresh-токен из БД.
+- **Refresh rotation + reuse detection (этап 34)**: каждый refresh-токен принадлежит `family_id`;
+  ротация атомарно отзывает старый токен и выдаёт новый в той же семье; replay ротированного =
+  компрометация → отзыв всей семьи. Гонка параллельных refresh закрыта atomic claim'ом.
+- **Revoke all sessions**: POST `/api/auth/logout-all`; смена пароля (reset-password) отзывает все сессии юзера.
+- **Account lockout**: 5 неудачных логинов подряд на email → 429 на 15 мин (`server/src/lockout.js`, env `AUTH_LOCKOUT_MAX_ATTEMPTS`).
+- WS handshake принимает токен только из `handshake.auth.token` (query-param убран).
 - CSRF: SameSite=Lax + строгий CORS_ORIGIN (fail-fast в production без него).
-  Полные CSRF-токены отложены до выноса API на отдельный домен (осознанное решение, см. AGENTS Security Rules).
+  Полные CSRF-токены отложены до выноса API на отдельный домен (осознанное решение, см. AGENTS Security Rules);
+  Admin TOTP 2FA и fingerprinting сессий — этап 35+ после staging.
 - Helmet (CSP и др.), request-id, Sentry c PII-фильтром в beforeSend, Winston без тела запросов.
-- Rate-limit: глобальный 600/мин, лайки 30/мин, auth 60/мин (поднят для E2E).
+- Rate-limit: глобальный 600/мин, лайки 30/мин, auth 60/мин (поднят для E2E) + лок-аут логина.
 - Модерация: banned-words в чатах, auto-escalation репортов (3+ → temp ban, severe → мгновенный).
 
 ## Инфраструктура
@@ -53,6 +60,7 @@ Node.js/Express + MySQL (mysql2) бэкенд, Socket.IO real-time, Capacitor An
   `@revenuecat/purchases-capacitor@13.4.0`; **debug APK собран** (27,8 MB, `android/app/build/outputs/apk/debug/app-debug.apk`).
   Грабля: `compressDebugAssets` MD5-jar лечится standalone-прогоном задачи.
 - **33:** миграция на httpOnly cookie (см. «Безопасность») по ADR; все тесты обновлены и зелёные.
+- **34:** refresh rotation + reuse detection (отзыв семьи), logout-all, revoke при смене пароля, account lockout 5→15 мин, ws.js без query-token. Сервер 143/143 (+14 тестов).
 
 ## Реализованный функционал (кратко)
 

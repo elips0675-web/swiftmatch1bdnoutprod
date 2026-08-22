@@ -94,6 +94,9 @@ npx vite --port 8081 --host
 
 ### 🔐 Безопасность и инфраструктура
 - JWT в **httpOnly cookie** (`sm_token` 24h + `sm_refresh` 7d, SameSite=Lax, Secure в prod) — ставятся на login/register/refresh/dev-login; мидлвари читают `Bearer ?? cookie` (`server/src/cookies.js`); нативные сборки работают через Bearer; `POST /api/auth/logout` чистит куку + refresh_tokens в БД; probe `GET /api/auth/me` всегда 200
+- **Refresh rotation + reuse detection**: ротация в пределах `family_id`, replay ротированного токена отзывает всю семью; гонка параллельных refresh закрыта атомарным claim'ом (этап 34)
+- **Revoke all sessions**: `POST /api/auth/logout-all`; смена пароля отзывает все сессии пользователя
+- **Account lockout**: 5 неудачных логинов подряд → 429 на 15 мин (`server/src/lockout.js`)
 - **Sentry:** `@sentry/react` + `@sentry/node`, `beforeSend` фильтрует PII (email, токены, пароли)
 - **Helmet:** CSP, X-Frame-Options, X-Content-Type-Options и др. security headers
 - **Request ID:** UUID на каждый запрос, `X-Request-Id` в ответе
@@ -145,7 +148,7 @@ npx vite --port 8081 --host
 
 ### 🧪 Тестирование
 - **Фронтенд (Vitest):** 58 тестов, 12 файлов — **0 failures**
-- **Сервер (Vitest):** 129 тестов, 13 файлов — **0 failures** (включая cookie-auth)
+- **Сервер (Vitest):** 143 теста, 13 файлов — **0 failures** (включая cookie-auth, rotation, lockout)
 - **E2E (Playwright):** 44 теста, 5 spec-файлов (audit-full, features, login, profile, register) — **0 failures**
 - **Pre-flight:** `npm run check:ports` — сверка портов (vite/proxy/.env/CORS_ORIGIN) + warn на `console.log` в `server/src`
 - **Swagger:** OpenAPI-документация с JSDoc-аннотациями
