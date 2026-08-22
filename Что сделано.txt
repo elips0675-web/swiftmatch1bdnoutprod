@@ -1,6 +1,30 @@
 # Что сделано
 
-> Актуально на август 2026. Все тесты: **227/227** — E2E 44/44 ✅, фронт 57/57 ✅, сервер 126/126 ✅. Vite build: ✅. Swagger: ✅.
+> Актуально на август 2026. Все тесты: **231/231** — E2E 44/44 ✅, фронт 58/58 ✅, сервер 129/129 ✅. Vite build: ✅. Lint: 0 errors. Swagger: ✅.
+
+## Этапы 30–33: работоспособность, Android-сборка, httpOnly cookie (19.08.2026)
+
+**Этап 30 — Проверка работоспособности всего:**
+- Найден реальный баг: `/api/invites` отдавал **500** — дрейф колонок (`sender_id/receiver_id/type` в social.js vs `from_user_id/to_user_id/invite_type/message` в таблице). Починен: GET (алиасы sender_id/type для фронта), POST (валидация enum `INVITE_TYPES`, message), PUT (+`cancelled`)
+- Смоук 18 API-точек: 200/201; `/profile/edit` рендерится без ошибок (Playwright)
+- GDPR-консент работает: POST /api/consent → consent_log, GET /api/consent/history — покрыто E2E #13 (регистрация блокируется без согласия)
+
+**Этап 31 — EXPLAIN-аудит всех SQL против схемы:**
+- Скрипт-аудит (EXPLAIN с `?→NULL`) нашёл ещё 2 скрытых дрейфа: `iap.js` webhook ссылался на несуществующую `subscriptions.updated_at` (**500 на каждом событии RevenueCat**), `location.js` использовал `user_profiles.user_id` вместо `id` (**500 на PUT/GET /api/location**). Оба починены, PUT/GET location 200 проверены
+- Итог аудита: 55 ok / 1 ложное срабатывание (template audit.js). Грабли #27–28 в AGENTS.md
+
+**Этап 32 — Android-сборка:**
+- Toolchain: Android Studio + cmdline-tools + SDK (platform 35/36, build-tools 35) + Temurin JDK 21 (Gradle 8.14.3 не стартует на JBR Java 25); AGP 8.13.0→8.13.2
+- `@revenuecat/purchases-capacitor@13.4.0` подключён к capacitor
+- **APK собран**: `android/app/build/outputs/apk/debug/app-debug.apk` (27,8 MB), копия на рабочем столе; собран с VITE_API_URL=LAN-IP для живого теста на устройстве (cleartext уже включён). Для прода: домен + релизная подпись + ключ RevenueCat
+- Грабля #29: каприз `compressDebugAssets` (MD5 jar) лечится standalone-прогоном задачи
+
+**Этап 33 — JWT → httpOnly cookie (по ADR этапа 28):**
+- Сервер: `cookie-parser`; login/register/refresh/dev-login ставят `sm_token` (24h) + `sm_refresh` (7d, SameSite=Lax, Secure в prod); все auth-мидлвари читают **Bearer ?? cookie** (`server/src/cookies.js`); новый `GET /api/auth/me` (probe — всегда 200, `{authenticated:false}` без сессии — иначе console-error валит E2E-аудит) и `POST /api/auth/logout` (чистит куку + refresh_tokens в БД)
+- Фронт: на web токен больше не пишется в JS-доступный storage (XSS не украдёт), но читается легаси-storage (E2E storageState и старые сессии); восстановление сессии через `/me`; refresh через куку пустым body (флаг против цикла); логаут дергает сервер
+- Нативные сборки (APK): Bearer работает как раньше
+- CSRF: SameSite=Lax + строгий CORS_ORIGIN; полный CSRF-token — при выносе API на отдельный домен
+- Проверки: сервер **129/129** (+3 cookie-теста), фронт **58/58** (+1 тест восстановления по куке), E2E **44/44**, lint 0 errors, build ✅
 
 ## Этапы 25–29: доки-консистентность, операционная стабильность, CI, Redis (18.08.2026)
 

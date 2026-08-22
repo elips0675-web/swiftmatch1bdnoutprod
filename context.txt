@@ -447,7 +447,7 @@
 Полное описание — в `Оценка kimi.txt`.
 
 ## Playwright E2E Test Coverage
-- **30 tests, 0 failures** (35s, 8 workers)
+- **44 tests, 0 failures** (~55s): `e2e/audit-full.spec.ts` (31) + `e2e/features.spec.ts` (13)
 - **audit-full.spec.ts** — 12 сьюитов, все используют storageState:
   - `Health & Infrastructure` — API healthcheck, frontend loads
   - `Registration flow` — регистрация нового юзера через UI
@@ -470,3 +470,15 @@
 | user2@mail.ru | demo123456 | Обычный пользователь |
 | user4..user50@mail.ru | demo123456 | 47 демо-пользователей |
 | user1@mail.ru | demo123456 | Забанен (is_active=0) |
+
+## Актуальный статус — этапы 27–33 (август 2026)
+
+> Свежие детали: «Что сделано.txt» (этапы 30–33), «Что доделать.txt» (журнал этапов 30+), AGENTS.md (грабли #27–30).
+
+- **Тесты: 231/231** — E2E 44/44 ✅, фронт 58/58 ✅, сервер 129/129 ✅; vite build ✅, lint 0 errors ✅
+- **Этап 27 (CI/CD):** deploy.yml — миграции БД выполняются на сервере перед pm2 restart (атомарно, secrets DB_* не нужны)
+- **Этап 29 (Redis):** локальный Redis 5.0.14 на 127.0.0.1:6379, REDIS_URL в server/.env, сервер держит пул
+- **Этап 30:** починен 500 на /api/invites (дрейф колонок social.js ↔ таблица invites); GDPR-консент работает и покрыт E2E (#13 — регистрация блокируется без согласия, consent_log пишется)
+- **Этап 31 (EXPLAIN-аудит SQL):** все запросы сверены со схемой; найдены и починены скрытые 500: iap.js webhook (`subscriptions.updated_at` не существовала) и location.js (`user_profiles.user_id` → `id`)
+- **Этап 32 (Android):** toolchain установлен (SDK 35/36 + JDK 21), AGP 8.13.2; `@revenuecat/purchases-capacitor` подключён; **debug APK собран** (`android/app/build/outputs/apk/debug/app-debug.apk`, копия на рабочем столе); для прода — домен, релизная подпись, ключ RevenueCat
+- **Этап 33 (JWT → httpOnly cookie):** сервер ставит `sm_token` (24h) + `sm_refresh` (7d, SameSite=Lax, Secure в prod) на login/register/refresh/dev-login; мидлвари читают Bearer ?? cookie (`server/src/cookies.js`); GET `/api/auth/me` — probe (всегда 200), POST `/api/auth/logout` чистит куку + refresh_tokens; фронт на web не пишет токен в JS-storage (XSS-safe), читает легаси-storage для storageState/старых сессий; нативные сборки работают через Bearer как раньше
