@@ -284,6 +284,9 @@ JWT теперь ставится сервером в httpOnly cookie `sm_token`
 ### 31. Refresh-токены: ротация, семьи, лок-аут (этап 34, 22.08.2026)
 `refresh_tokens` получил `family_id` (одна семья = одна логин-сессия) и `revoked`. Ротация: refresh помечает старый токен `revoked=1` атомарным UPDATE (`... AND revoked = 0`, по affectedRows ловится гонка параллельных refresh'ей) и выдаёт новый в той же семье. **Повторное использование ротированного токена = компрометация → отзывается ВСЯ семья** (`UPDATE ... WHERE family_id = ?`). НЕ удаляй использованные токены из таблицы — без строки с `revoked=1` детект переиспользования невозможен. Смена пароля (reset-password) и POST `/api/auth/logout-all` отзывают все семьи юзера. Лок-аут логина (`server/src/lockout.js`, in-memory): 5 неудач подряд на email → 429 на 15 мин; порог через env `AUTH_LOCKOUT_MAX_ATTEMPTS`; успех сбрасывает счётчик; E2E-негатив бьёт в несуществующий `demo@mail.ru`, порог не задевает. ws.js handshake принимает токен ТОЛЬКО из `handshake.auth.token` — query-param `?token=` убран (оседает в логах nginx).
 
+### 32. Пользовательский текст: срезай HTML на входе (этап 34+, 22.08.2026)
+Свободные текстовые поля юзера чистятся сервером через `stripHtml` из `server/src/sanitize.js`: profile PUT (bio/display_name/name/city/country/education/dating_goal), register display_name, посты групп, сообщения чатов (social.js). Паттерн `<\/?[a-zA-Z][^>]*>` ловит только настоящие теги — «<3» и «a<b» не ломаются. Клиент в React экранирует сам (dangerouslySetInnerHTML в коде НЕТ — проверено), так что это defense in depth против хранения payload'ов в БД. Новый текстовый input = добавь stripHtml. E2E «XSS in profile bio is sanitized» ждёт ОТСУТСТВИЕ тегов в DOM, а не экранированный показ.
+
 ## Startup reminder
 - After `git pull noutadm main` in `C:\swiftmatch1bd` (the run directory), also run `cd server && npm install` if new packages were added.
 - Kill old node processes: `Get-Process -Name "node" | Stop-Process -Force`

@@ -3,6 +3,7 @@ import pool from '../db.js'
 import { auth } from '../middleware.js'
 import logger from '../logger.js'
 import { cacheRoute, invalidate } from '../cache.js'
+import { stripHtml } from '../sanitize.js'
 
 const router = Router()
 
@@ -189,6 +190,17 @@ router.put('/api/profile/:id', async (req, res) => {
   try {
     const { display_name, name, age, bio, gender, looking_for, dating_goal, height, city, country, zodiac, circadian, attachment_style, education, interests, incognito, passport_mode, passport_city, passport_lat, passport_lng } = req.body
 
+    // Пользовательский текст храним без HTML-тегов (XSS defence in depth, этап 34+)
+    const clean = {
+      display_name: stripHtml(display_name),
+      name: stripHtml(name),
+      bio: stripHtml(bio),
+      city: stripHtml(city),
+      country: stripHtml(country),
+      education: stripHtml(education),
+      dating_goal: stripHtml(dating_goal),
+    }
+
     await pool.query(
       `UPDATE user_profiles SET
         display_name = COALESCE(?, display_name),
@@ -211,7 +223,7 @@ router.put('/api/profile/:id', async (req, res) => {
         attachment_style = COALESCE(?, attachment_style),
         education = COALESCE(?, education)
       WHERE id = ?`,
-      [display_name, name, age, bio, gender, looking_for, dating_goal, height, city, incognito, passport_mode, passport_city, passport_lat, passport_lng, country, zodiac, circadian, attachment_style, education, req.params.id],
+      [clean.display_name, clean.name, age, clean.bio, gender, looking_for, clean.dating_goal, height, clean.city, incognito, passport_mode, passport_city, passport_lat, passport_lng, clean.country, zodiac, circadian, attachment_style, clean.education, req.params.id],
     )
 
     if (interests && Array.isArray(interests)) {

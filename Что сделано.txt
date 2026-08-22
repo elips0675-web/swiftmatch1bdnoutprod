@@ -1,6 +1,6 @@
 # Что сделано
 
-> Актуально на август 2026. Все тесты: **245/245** — E2E 44/44 ✅, фронт 58/58 ✅, сервер 143/143 ✅. Vite build: ✅. Lint: 0 errors. Swagger: ✅.
+> Актуально на август 2026. Все тесты: **251/251** — E2E 44/44 ✅, фронт 58/58 ✅, сервер 149/149 ✅. Vite build: ✅. Lint: 0 errors. Swagger: ✅.
 
 ## Этап 34: безопасность авторизации по аудиту kimi/qwen/дипсик (22.08.2026)
 
@@ -9,7 +9,8 @@
 - **Account lockout**: `server/src/lockout.js` — 5 неудачных логинов подряд на email → 429 на 15 мин (env `AUTH_LOCKOUT_MAX_ATTEMPTS`), успех сбрасывает счётчик
 - **ws.js**: handshake принимает токен только из `handshake.auth.token` — query-param `?token=` убран (оседал бы в логах nginx); фронт уже слал auth.token
 - Проверено живьём: login → refresh 200 → replay старого refresh 401 → новый токен тоже отозван (семья) ✅; лок-аут 5×401 → 429 ✅
-- Тесты: сервер **143/143** (+14), фронт 58/58 ✅, E2E 44/44 ✅, lint 0 errors ✅. Остаток аудита (TOTP 2FA, CSRF double-submit, fingerprinting) — этапом 35+ после staging, см. «Что доделать.txt»
+- **XSS-санитизация пользовательского текста**: `<script>alert("xss")</script>` в «О себе» больше не хранится — сервер срезает HTML-теги на входе (`server/src/sanitize.js` stripHtml) в profile PUT (bio/display_name/name/city/country/education/dating_goal), регистрации (display_name), постах групп и сообщениях чатов; паттерн не трогает «<3» и «a<b». Клиентский рендер и так безопасен (React экранирует, dangerouslySetInnerHTML в коде нет — проверено рекурсивным grep'ом). E2E-тест обновлён: теги отсутствуют в DOM
+- Тесты: сервер **149/149** (+14 rotation/lockout, +6 sanitize), фронт 58/58 ✅, E2E 44/44 ✅, lint 0 errors ✅. Остаток аудита (TOTP 2FA, CSRF double-submit, fingerprinting) — этапом 35+ после staging, см. «Что доделать.txt»
 
 ## Этапы 30–33: работоспособность, Android-сборка, httpOnly cookie (19.08.2026)
 

@@ -6,6 +6,7 @@ import { getBannedWords, containsBannedWord } from '../banned-words.js'
 import { sendPushToUser } from './push.js'
 import { auth } from '../middleware.js'
 import logger from '../logger.js'
+import { stripHtml } from '../sanitize.js'
 import { cacheRoutePerUser, invalidate } from '../cache.js'
 import { trackEvent } from './experiments.js'
 
@@ -456,7 +457,7 @@ router.post('/api/groups/:groupId/posts', auth, async (req, res) => {
   try {
     const [result] = await pool.query(
       'INSERT INTO group_posts (group_id, user_id, text, images) VALUES (?, ?, ?, ?)',
-      [req.params.groupId, req.userId, text || null, JSON.stringify(images || [])],
+      [req.params.groupId, req.userId, stripHtml(text) || null, JSON.stringify(images || [])],
     )
     const [[post]] = await pool.query(
       `SELECT gp.id, gp.group_id, gp.user_id, gp.text, gp.images, gp.created_at,
@@ -660,7 +661,7 @@ router.post('/api/chats/:chatId/messages', auth, async (req, res) => {
     const ttl = ttl_seconds > 0 ? ttl_seconds : null
     const [result] = await pool.query(
       'INSERT INTO messages (chat_id, sender_id, text, image_url, ttl_seconds) VALUES (?, ?, ?, ?, ?)',
-      [req.params.chatId, req.userId, text || null, image_url || null, ttl],
+      [req.params.chatId, req.userId, stripHtml(text) || null, image_url || null, ttl],
     )
 
     const preview = image_url ? '📷 Photo' : (text || '')

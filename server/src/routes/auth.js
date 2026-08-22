@@ -7,6 +7,7 @@ import { sendVerificationEmail, sendPasswordResetEmail } from '../mail.js'
 import logger from '../logger.js'
 import { trackEvent } from './experiments.js'
 import { setAuthCookies, clearAuthCookies } from '../cookies.js'
+import { stripHtml } from '../sanitize.js'
 
 const router = Router()
 
@@ -162,7 +163,7 @@ router.post('/api/auth/register', async (req, res) => {
 
     await pool.query(
       'INSERT INTO user_profiles (id, display_name, name, age, location) VALUES (?, ?, ?, 18, ST_SRID(POINT(0, 0), 4326))',
-      [userId, displayName || email.split('@')[0], displayName || email.split('@')[0]],
+      [userId, stripHtml(displayName || email.split('@')[0]), stripHtml(displayName || email.split('@')[0])],
     )
 
     const token = jwt.sign({ userId, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
