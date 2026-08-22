@@ -13,6 +13,7 @@ import pool from './db.js'
 import { initIO, startMessageCleanup, startCheckinCleanup } from './ws.js'
 import { createLogger, rootLogger } from './logger.js'
 import { idempotency } from './middleware/idempotency.js'
+import { isLocked, recordFailure, recordSuccess } from './lockout.js'
 import { initSentry, registerSentryErrorHandler } from './sentry.js'
 import { getRedis, disconnectRedis } from './redis.js'
 import { initQueues, closeQueues } from './queue.js'
@@ -130,12 +131,21 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ message: 'Email and password required' })
   }
 
+  // Account lockout: 5 неудач подряд -> блок на 15 мин (этап 34, аудит kimi)
+  const lockKey = String(email).toLowerCase()
+  const lockedForMin = isLocked(lockKey)
+  if (lockedForMin !== null) {
+    rootLogger.warn(`Login locked for ${lockKey} (${lockedForMin} min left)`)
+    return res.status(429).json({ message: `Too many failed attempts. Try again in ${lockedForMin} min` })
+  }
+
   try {
     const [rows] = await pool.query(
       'SELECT id, email, role, password_hash FROM users WHERE email = ? AND is_active = 1',
       [email],
     )
     if (rows.length === 0) {
+      recordFailure(lockKey)
       return res.status(401).json({ message: 'Invalid credentials' })
     }
 
@@ -143,8 +153,10 @@ app.post('/api/auth/login', async (req, res) => {
     const { default: bcrypt } = await import('bcryptjs')
     const valid = await bcrypt.compare(password, user.password_hash)
     if (!valid) {
+      recordFailure(lockKey)
       return res.status(401).json({ message: 'Invalid credentials' })
     }
+    recordSuccess(lockKey)
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET(), { expiresIn: '24h' })
     const refresh_token = await createRefreshToken(user.id)

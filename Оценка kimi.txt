@@ -1,49 +1,89 @@
-На основе анализа вашего проекта SwiftMatch и текущих трендов рынка дейтинг-приложений 2026 года, вот структурированный план доработок до полноценного продукта.
-🔴 Критично — блокирует запуск (Недели 1–2)
+Провёл аудит по четырём направлениям: безопасность (фокус на cookie-схеме), риски прод-миграции, приоритизация оставшегося и слепые зоны тестов.
+1. Безопасность
+Cookie-схема (этап 33) — что хорошо
+httpOnly sm_token/sm_refresh с корректными флагами (SameSite=Lax, Secure в проде).
+XSS-safe: web-фронт не пишет токен в localStorage/sessionStorage (только память + чтение легаси для совместимости).
+Гибрид Bearer/cookie покрывает и web, и нативные сборки.
+Пробелы и риски
 Таблица
-#	Задача	Почему срочно	Что нужно сделать
-1	Push-уведомления для Android (FCM)	Без пушей мобильное приложение мёртвое — пользователи не узнают о мэтчах и сообщениях	Интегрировать @capacitor/push-notifications + Firebase Cloud Messaging. Заменить/дополнить текущие VAPID Web Push на FCM для нативного Android. Сейчас у вас только VAPID (веб-пуши), но в APK они не работают без Google Services.
-2	Deep Links	Пуши открывают главную страницу вместо конкретного чата/профиля	Настроить Android App Links (assetlinks.json) + iOS Universal Links. В capacitor.config.ts добавить server.url для deep link handling.
-3	Apple/Google IAP через RevenueCat	App Store и Google Play отклонят приложение без нативных встроенных покупок	Интегрировать purchases-capacitor (RevenueCat). Stripe оставить для веб-версии, но для мобильных сторов обязательны IAP. Это требование обоих магазинов для приложений с подписками.
-4	SMS-верификация (Twilio/Vonage)	Дейтинг без верификации = 80% ботов и фейков	Докрутить существующий scaffold server/src/sms.js — добавить реальные API-ключи Twilio, rate-limit 3 SMS/час, интегрировать в флоу регистрации.
-5	AI-модерация фото (AWS Rekognition)	NSFW-контент не отсекается автоматически = бан в сторах	Докрутить scaffold server/src/ai-moderation.js — подключить реальные ключи AWS Rekognition для nudity/violence detection при загрузке фото. Сейчас fallback на эвристику (regex) — недостаточно.
-🟠 Высокий приоритет — влияет на retention (Недели 3–4)
+Риск	Уровень	Почему
+CSRF без double-submit token	🔴 Высокий	SameSite=Lax не защищает от same-site атак (поддомены, XSS на субдомене, open redirect). При выносе API на отдельный домен это станет критичным.
+Нет rotation refresh-токенов	🔴 Высокий	Если sm_refresh украден (malware, XSS на поддомене), атакующий получает 7-дневное окно. Нет механизма инвалидации всех сессий пользователя.
+Нет привязки сессии к устройству/IP	🟡 Средний	Украденный токен работает с любого устройства. Нет fingerprinting'а.
+Brute-force на auth слабый	🟡 Средний	60 req/min = ~1 запрос/сек. Для логина это много. Нет account lockout после N неудач.
+Race condition на refresh	🟡 Средний	Два параллельных POST /api/auth/refresh с одним sm_refresh создадут два новых access-токена. Один из них «осиротеет» и вызовет цикл 401→refresh.
+WebSocket auth через query-param?	🟡 Средний	Не видел в сниппетах, но если токен передаётся в ?token= при WS handshake — он осядет в логах nginx/proxy.
+Нет 2FA для админки	🔴 Высокий	admin@mail.ru / demo123456 — единственный фактор. При компрометации одного пароля — полный доступ к банам, имперсонации, рассылкам.
+Быстрые фиксы (до продакшена)
+Refresh rotation: при refresh выдавать новую пару access+refresh, старый refresh инвалидировать (хранить token_family в БД).
+Account lockout: после 5 неудачных попыток — блокировать IP/аккаунт на 15 мин (отдельный rate-limit, строже authLimiter).
+Session list / revoke all: endpoint для инвалидации всех refresh-токенов пользователя (при смене пароля, подозрении на взлом).
+Admin TOTP: минимум TOTP для /api/admin/* (Google Authenticator).
+2. Риски миграции на прод
+🔴 Критичные
 Таблица
-#	Задача	Почему важно	Что нужно сделать
-6	CDN для фото + Image Optimization	Трафик фото через сервер убьёт CPU в первый же день	Подключить S3 (Yandex Cloud/Selectel) + CloudFront/CDN. Сейчас scaffold готов (server/src/image-pipeline.js с Sharp/WebP/AVIF), но загрузка идёт на локальный диск.
-7	GDPR / Data Privacy Compliance	Штраф до 4% оборота за утечку данных дейтинг-приложения	Добавить: consent flow при регистрации, data export (GDPR Article 20), right to erasure, privacy policy страницу. Данные дейтинга — особо чувствительные.
-8	Background GPS + Geofence	Текущий геопоиск работает только при открытом приложении	Добавить @capacitor/geolocation с background mode. Adaptive polling: частый при открытом, раз в 5 минут в фоне. Геофенс для обновления пула мэтчей при смещении 100м+.
-9	Ghost Mode / Incognito (Premium)	Базовая фича premium-дейтинга — скрытое присутствие в ленте	Добавить флаг incognito в user_profiles. При включении — профиль не появляется в чужой ленте, но сам пользователь видит других.
-10	Passport Mode (Premium)	Возможность менять локацию на другой город перед поездкой	Добавить passport_location в профиль. При passport_mode = true — использовать эту локацию вместо GPS для поиска.
-🟡 Средний приоритет — конкурентное преимущество (Недели 5–8)
+Риск	Последствие	Митигация
+Cookie-migration для существующих пользователей	Все текущие Bearer-токены в localStorage станут невалидными при переходе на cookie-only. Массовый logout.	Graceful period: 2 недели принимать и Bearer (из заголовка), и cookie. Фронт пытается сначала cookie, fallback на Bearer из памяти.
+Schema drift на проде	История показывает постоянный дрейф (invites, subscriptions, location, messages). На проде SHOW COLUMNS может отличаться от локальной БД.	Добавить в CI шаг schema:validate — сравнение mysql_schema.sql с information_schema на staging перед деплоем.
+Docker Compose не тестировался	«Локально не поднимался — нет Docker на машине». На проде первый запуск Docker = неизвестные ошибки конфигурации.	Поднять staging в Docker перед продом. Проверить healthcheck'и, volume permissions, сеть между app↔nginx↔Prometheus.
+Redis single point of failure	Redis теперь поднят локально, но на проде (VPS) может упасть. Fallback на in-memory не тестировался под нагрузкой.	Нагрузочный тест с REDIS_URL=invalid — убедиться, что кэш промахи не DDOS'ят MySQL, а queue fallback не теряет email'ы.
+Android: LAN IP + cleartext	VITE_API_URL = LAN IP, cleartext: true в capacitor.config. Если это попадёт в production APK — MITM.	Жёсткий guard в CI: если NODE_ENV=production и cleartext=true — fail build. Для релиза только домен + SSL pinning.
+🟠 Средние
+Stripe/RevenueCat webhooks: без ключей — 502/503 (осознанно). Но с ключами и при недоступности Stripe — нет circuit breaker'а. Можно накопить очередь необработанных webhook'ов.
+Backup retention 7 дней: для GDPR и финансовых транзакций мало. Рекомендую 30-90 дней для БД, 1 год для бухгалтерских данных (платежи).
+No migration rollback: в migrate.js нет down-миграций. Если миграция сломает прод — только restore из backup.
+3. Приоритизация оставшегося списка
+До продакшена (блокеры)
+Staging + real keys + E2E — без этого нельзя проверить реальные платежи, пуши, email.
+CSRF double-submit token — при текущей архитектуре (web ↔ API на одном домене — ок, но при разделении — критично).
+Refresh token rotation + revoke all sessions.
+Account lockout / brute-force protection на auth.
+Admin 2FA (TOTP).
+Schema validation CI step (mysql_schema.sql vs information_schema).
+Redis failover test (убедиться, что fallback не ломает кэш-инвалидацию).
+Первые 2 недели после запуска
+k6 100 VU на staging — проверить RADAR_PRE_LEAK_64 под реальной нагрузкой.
+Circuit breakers для Stripe, OpenAI, S3 (не пытаться бесконечно при недоступности).
+SSL + auto-renewal (Let's Encrypt в docker-compose/nginx).
+Android release: keystore, AAB, Google Play политика 17+ (датинг = строгая модерация).
+Log aggregation (не только Winston на диск, а centralized — Loki/ELK).
+Первый месяц
+Design System / Storybook — не начато, но при команде >1 человека это тормозит.
+Grafana alerts — не только dashboards, а alerting в Telegram/Slack (CPU, 5xx, DB connections).
+SMS верификация (Twilio keys).
+AI модерация фото (Rekognition/OpenAI keys).
+CDN/S3 (AWS keys).
+4. Слепые зоны тестов
+Что покрыто хорошо ✅
+Unit: 231/231 (129 сервер + 58 фронт).
+E2E: 44 теста, 5 spec-файлов, console-error audit, screenshot на падение.
+API smoke: 18 точек.
+Cookie-auth: +3 теста (этап 33).
+Что НЕ покрыто ❌
 Таблица
-#	Задача	Что нужно сделать
-11	AI Icebreakers	Интеграция OpenAI API для генерации персонализированных первых сообщений на основе общих интересов. Сейчас у вас scaffold готов, но не подключён к чатам.
-12	Video Date Scheduling	WebRTC уже есть (Stage 1), но нет планирования: календарь, dual reminders, blur background.
-13	Disappearing Messages	Таймер 24ч/7д/90д для сообщений, enforced server-side с TTL.
-14	Profile Score + AI Recommendations	Анализ профиля и рекомендации по улучшению («добавьте фото с улыбкой», «опишите хобби подробнее»).
-15	Date Check-in (Safety)	Поделиться локацией с доверенным контактом, авто-алерт если нет чек-ина.
-16	A/B Testing Framework	Feature flags (LaunchDarkly/Flagsmith) для контролируемого rollout фич по когортам и гео.
-17	Analytics (PostHog/Amplitude)	Retention curves (D1/D7/D30), funnel analysis, match rate, message conversion. Сейчас у вас базовые endpoint'ы в admin/analytics.js, но нет product analytics.
-🟢 Инфраструктура и масштабирование (Месяц 2–3)
+Зона	Почему важно	Как покрыть
+Redis fallback	Нет тестов на поведение при ECONNREFUSED Redis. Кэш-промахи могут убить MySQL.	Интеграционный тест: REDIS_URL=redis://invalid:6379, проверить что приложение живёт, queue выполняет задачи синхронно (fallback).
+Race condition refresh	Два параллельных refresh создают цикл 401.	Playwright: два окна одного пользователя, быстрый refresh в обоих.
+Cookie edge cases	Expired cookie mid-session, revoked refresh, concurrent tabs.	E2E: выставить sm_token с exp=-1h, проверить silent refresh. Удалить refresh из БД, проверить logout.
+File upload security	Нет тестов на 10MB+ файлы, .php.jpg, path traversal (../../etc/passwd).	E2E: загрузить 15MB PNG (должен отклонить), файл с именем ../../../etc/passwd (должен сохранить как uuid).
+Rate limiting	E2E тестирует при поднятых лимитах (60/мин), но не проверяет 429.	Отдельный spec: 61 запросов к /api/auth/login → ожидать 429 на 61-м.
+WebSocket reconnect	Нет тестов на обрыв соединения и exponential backoff.	Playwright: page.evaluate(() => window.socket.disconnect()), проверить reconnect и доставку сообщения после восстановления.
+GDPR full erasure	Endpoint есть, но нет E2E на каскадное удаление (чаты, фото, matches, analytics).	E2E: создать пользователя → накопить активность → вызвать erase → проверить 404 на профиль и чаты.
+Stripe webhook security	Нет тестов на invalid signature, replay attack, idempotency.	Unit: подписать валидный payload, невалидный payload (должен 400), повторный запрос с тем же idempotency-key (должен 200, но не создавать дубль).
+i18n completeness	Нет теста, что все keys есть в RU и EN.	Unit: сканировать src/ на t("..."), проверять наличие в language-context.tsx для обоих языков.
+Backup/restore	verify-backup.ps1 есть, но не в CI.	CI job: restore backup в swiftmatch_test, прогнать smoke-тесты.
+Migration idempotency	Миграции заявлены как idempotent, но нет теста повторного запуска.	CI: запустить migrate.js дважды подряд, ожидать 0 errors.
+Security headers	Нет тестов на CSP, HSTS, X-Frame-Options.	Unit: supertest на /health, проверить заголовки Helmet.
+Admin impersonation security	Нет тестов на то, что админ не может имперсонировать другого админа или себя.	Unit: POST /api/admin/impersonate/:id с role=admin target → ожидать 403.
+Cross-browser	Playwright по умолчанию Chromium.	Добавить projects: [chromium, firefox, webkit] в playwright.config.ts.
+Итоговая оценка
 Таблица
-#	Задача	Статус в проекте	Действие
-18	CI/CD Pipeline (GitHub Actions)	❌ Нет	.github/workflows/deploy.yml есть scaffold, но нужно настроить runner'ы, секреты, staging environment
-19	Docker Compose (app + mysql + redis + nginx)	❌ Нет	Создать docker-compose.yml для production stack
-20	Redis Adapter для Socket.IO	❌ Нет	Горизонтальное масштабирование WS через socket.io-redis-adapter
-21	Load Testing (k6/Artillery)	❌ Нет	Нагрузочные тесты на геопоиск и чаты
-22	Monitoring (Grafana + Prometheus)	❌ Нет	Метрики: DAU, latency, error rate, match rate
-23	Backup Verification	⚠️ Есть скрипт	Добавить автоматическую проверку восстановления из бэкапа раз в неделю
-📋 Чеклист перед подачей в App Store / Google Play
-Таблица
-Проверка	Статус	Действие
-Реальные API-ключи (7 штук) в server/.env	⚠️ Ждут	Заполнить: Stripe, SMTP, Sentry, S3, Redis, Twilio, AWS Rekognition
-IAP интегрирован (RevenueCat)	❌ Нет	Обязательно для сторов
-Privacy Policy + Terms of Service	❌ Нет	Юридические страницы
-Content Rating (17+)	❌ Нет	Настроить в консолях
-Screenshots для сторов	❌ Нет	5+ скриншотов с реальными данными
-TestFlight / Internal Testing	❌ Нет	Загрузить билд
-Age Verification (18+)	⚠️ Scaffold	Докрутить проверку при регистрации
-💡 Ключевой инсайт из рынка 2026
-Согласно анализу рынка, 60–70% оттока пользователей из дейтинг-приложений происходит на этапе онбординга. Ваше текущее приложение уже имеет solid foundation (177 тестов, WebRTC, WebSocket, админка), но главный риск сейчас — не технический долг, а отсутствие мобильных пушей и нативных платежей. Без этих двух компонентов приложение в APK-билде фактически нежизнеспособно.
-Приоритет: FCM → RevenueCat → Deep Links → SMS verify → CDN. Это 4–6 недель работы и разделит ваш продукт от «тестовой копии» до «приложения, которое можно выкладывать в сторы».
+Критерий	Балл (10)	Комментарий
+Функциональность	9	Почти полный цикл датинга + соцфичи + монетизация + админка.
+Кодовое качество	8	TypeScript strict, SRP, тесты, но есть legacy-debt (127 any).
+Безопасность	6	Cookie-схема — шаг вперёд, но CSRF, brute force, rotation, 2FA — нет.
+Инфраструктура	7	Docker, CI/CD, monitoring есть, но не оттестировано «в бою».
+Тестирование	7	Хорошее покрытие happy path, но слепые зоны в security, fallback, load.
+Документация	9	AGENTS.md — образцовый документ для AI-ассистентов.
+Общий балл: 7.5/10
+Вердикт: проект готов к staging и закрытому бета-тесту, но не готов к открытому продакшену без устранения блокеров безопасности (CSRF, rotation, brute-force, admin 2FA) и развёртывания staging'а с реальными ключами.

@@ -76,7 +76,8 @@ export function initIO(httpServer) {
   }
 
   io.use((socket, next) => {
-    const token = socket.handshake.auth?.token || socket.handshake.query?.token
+    // Только handshake.auth — query-param ?token= оседает в логах nginx/proxy (этап 34, аудит kimi)
+    const token = socket.handshake.auth?.token
     if (!token) return next(new Error('Authentication required'))
     try {
       const decoded = jwt.verify(token, JWT_SECRET())
