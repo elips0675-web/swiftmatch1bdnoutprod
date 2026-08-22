@@ -93,7 +93,7 @@ npx vite --port 8081 --host
 - Блокировка пользователей
 
 ### 🔐 Безопасность и инфраструктура
-- JWT (Bearer token), refresh tokens, dev-login для админки
+- JWT в **httpOnly cookie** (`sm_token` 24h + `sm_refresh` 7d, SameSite=Lax, Secure в prod) — ставятся на login/register/refresh/dev-login; мидлвари читают `Bearer ?? cookie` (`server/src/cookies.js`); нативные сборки работают через Bearer; `POST /api/auth/logout` чистит куку + refresh_tokens в БД; probe `GET /api/auth/me` всегда 200
 - **Sentry:** `@sentry/react` + `@sentry/node`, `beforeSend` фильтрует PII (email, токены, пароли)
 - **Helmet:** CSP, X-Frame-Options, X-Content-Type-Options и др. security headers
 - **Request ID:** UUID на каждый запрос, `X-Request-Id` в ответе
@@ -101,7 +101,7 @@ npx vite --port 8081 --host
 - **Модерация чатов:** проверка banned-слов при отправке сообщений
 - Бан пользователя + WS `user:banned` (мгновенный разлогин)
 - **API Versioning:** `/api/v1/*` → `/api/*` + заголовок `X-API-Version: v1` (обратная совместимость)
-- CORS `*` (для Capacitor), CSRF не нужен (API-only JWT)
+- CORS: строгий `CORS_ORIGIN` (fail-fast без него в production); CSRF — SameSite=Lax куки + Bearer для нативных
 
 ### 📁 Загрузка файлов
 - MIME-фильтр: только `image/*` + whitelist расширений (.jpg, .jpeg, .png, .gif, .webp)
@@ -144,8 +144,8 @@ npx vite --port 8081 --host
 - `GET /api/referral/code`, `POST /api/referral/apply`, `GET /api/referral/stats`
 
 ### 🧪 Тестирование
-- **Фронтенд (Vitest):** 56 тестов, 13 файлов
-- **Сервер (Vitest):** 126 тестов, 12 файлов — **0 failures**
+- **Фронтенд (Vitest):** 58 тестов, 12 файлов — **0 failures**
+- **Сервер (Vitest):** 129 тестов, 13 файлов — **0 failures** (включая cookie-auth)
 - **E2E (Playwright):** 44 теста, 5 spec-файлов (audit-full, features, login, profile, register) — **0 failures**
 - **Pre-flight:** `npm run check:ports` — сверка портов (vite/proxy/.env/CORS_ORIGIN) + warn на `console.log` в `server/src`
 - **Swagger:** OpenAPI-документация с JSDoc-аннотациями
@@ -303,19 +303,26 @@ crontab -l | { cat; echo "0 3 * * * /path/to/swiftmatch1bd/scripts/backup-mysql.
 
 ### Структура
 - `android/` — Gradle-проект (в git)
-- `capacitor.config.ts` — конфиг (appId, webDir, plugins)
+- `capacitor.config.ts` — конфиг (appId `com.swiftmatch.app`, webDir, cleartext для LAN-тестов)
 - `src/lib/native.ts` — адаптер fetch/WS для нативного режима
+- `@revenuecat/purchases-capacitor` — IAP-клиент (`src/lib/iap.ts`)
 
 ### Требования
-- Android Studio (скачать [developer.android.com/studio](https://developer.android.com/studio))
-- JDK 17+
-- Android SDK (устанавливается через Android Studio)
+- Android Studio + SDK (platform 35/36, build-tools 35) — ставятся через cmdline-tools
+- **JDK 21** (Temurin): Gradle 8.14.3 не работает на JBR Java 25 из Android Studio
+- AGP 8.13.2, compileSdk 36
 
-### Сборка APK
-```bash
-VITE_API_URL=https://swiftmatch.app npm run build:native
+### Сборка APK (проверено, APK собирается)
+```powershell
+npm run build            # или с VITE_API_URL=http://<LAN-IP>:3002 для теста на устройстве
+npx cap sync android     # из корня; подтягивает capacitor-cordova-android-plugins
+# строго из папки android/ (Gradle берёт root от CWD):
+$env:JAVA_HOME="<путь к JDK 21>"; android\gradlew.bat :app:assembleDebug
+# → android\app\build\outputs\apk\debug\app-debug.apk
 ```
-После сборки открыть `android/` в Android Studio → **Build → Build Bundle(s) / APK**.
+> Грабля: если `compressDebugAssets` падает с «Failed to create MD5 hash ...jar as it does not exist» — прогнать задачу standalone (`gradlew :app:compressDebugAssets`), затем полный `assembleDebug`. Детали в AGENTS.md (#29).
+
+Для релиза: домен вместо LAN-IP, подпись keystore, ключ RevenueCat в .env, App Links.
 
 ### Live Reload (отладка на устройстве)
 Запустить на ПК:
@@ -330,11 +337,12 @@ npx cap run android --livereload=http://192.168.x.x:8081 --open
 ### Нативные фичи
 - **Камера**: `@capacitor/camera` — нативный UI фото/видео
 - **Файлы**: `@capacitor/filesystem`
-- **Хранилище**: `@capacitor/preferences` (замена localStorage)
+- **Хранилище**: `@capacitor/preferences` + sessionStorage/localStorage для JWT (Bearer)
+- **IAP**: RevenueCat (`VITE_REVENUECAT_API_KEY`)
 - **Пуши**: VAPID-ключи в `server/.env` готовы
 
 ### Как это работает
-На сервере настроен `cors({ origin: '*' })` — подходит для Capacitor.
+На сервере строгий CORS_ORIGIN (для нативных сборок авторизация идёт через Bearer-заголовок, не cookie).
 В нативном режиме `src/lib/native.ts` перехватывает все `fetch('/api/...')` и подставляет `VITE_API_URL`.
 WebSocket в `use-websocket.ts` использует `VITE_WS_URL` или `wss://swiftmatch.app`.
 
