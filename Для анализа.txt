@@ -33,6 +33,7 @@ Node.js/Express + MySQL (mysql2) бэкенд, Socket.IO real-time, Capacitor An
   компрометация → отзыв всей семьи. Гонка параллельных refresh закрыта atomic claim'ом.
 - **Revoke all sessions**: POST `/api/auth/logout-all`; смена пароля (reset-password) отзывает все сессии юзера.
 - **Account lockout**: 5 неудачных логинов подряд на email → 429 на 15 мин (`server/src/lockout.js`, env `AUTH_LOCKOUT_MAX_ATTEMPTS`).
+- **Санитизация ввода**: пользовательский текст хранится без HTML-тегов (`stripHtml` в profile PUT, register, постах групп, сообщениях; «<3» и «a<b» не ломаются). В коде нет dangerouslySetInnerHTML — React экранирует рендер.
 - WS handshake принимает токен только из `handshake.auth.token` (query-param убран).
 - CSRF: SameSite=Lax + строгий CORS_ORIGIN (fail-fast в production без него).
   Полные CSRF-токены отложены до выноса API на отдельный домен (осознанное решение, см. AGENTS Security Rules);

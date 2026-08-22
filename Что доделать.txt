@@ -102,7 +102,7 @@
 
 Быстрые проверки: secure-cookie ✅ (подтверждён код), **ws query-token убран** ✅ (ws.js — только `handshake.auth.token`, фронт уже слал auth.token), migrate.js/.env и Nginx WS-upgrade — при первом staging-деплое, CSP vs Stripe.js — на staging с реальными ключами.
 
-Проверки этапа: сервер **143/143** (+14: ротация ×5, logout-all ×2, reset-revoke ×1, lockout ×6), фронт 58/58 ✅, E2E 44/44 ✅ (WS-тесты подтверждают отказ от query-token), lint 0 errors ✅. Живая проверка: login → refresh 200 → replay старого refresh 401 «reuse» → новый токен тоже отозван (семья) ✅.
+Проверки этапа: сервер **149/149** (+14 rotation/lockout, +6 sanitize), фронт 58/58 ✅, E2E 44/44 ✅ (WS-тесты подтверждают отказ от query-token), lint 0 errors ✅. Живая проверка: login → refresh 200 → replay старого refresh 401 «reuse» → новый токен тоже отозван (семья) ✅. **XSS в «О себе»**: `<script>` больше не хранится — `stripHtml` на входе (profile PUT/register/посты/сообщения), см. AGENTS #32; полная верификация 22.08: check:ports ✅, build ✅, 251/251 ✅, смоук API 200 ✅.
 
 ### Этап 35 (предложен аудитом): безопасность до прода — остаток
 

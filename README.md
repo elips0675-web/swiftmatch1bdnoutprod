@@ -97,6 +97,7 @@ npx vite --port 8081 --host
 - **Refresh rotation + reuse detection**: ротация в пределах `family_id`, replay ротированного токена отзывает всю семью; гонка параллельных refresh закрыта атомарным claim'ом (этап 34)
 - **Revoke all sessions**: `POST /api/auth/logout-all`; смена пароля отзывает все сессии пользователя
 - **Account lockout**: 5 неудачных логинов подряд → 429 на 15 мин (`server/src/lockout.js`)
+- **Санитизация ввода**: свободный текст (bio, имена, посты, сообщения) хранится без HTML-тегов (`server/src/sanitize.js`)
 - **Sentry:** `@sentry/react` + `@sentry/node`, `beforeSend` фильтрует PII (email, токены, пароли)
 - **Helmet:** CSP, X-Frame-Options, X-Content-Type-Options и др. security headers
 - **Request ID:** UUID на каждый запрос, `X-Request-Id` в ответе
@@ -148,7 +149,7 @@ npx vite --port 8081 --host
 
 ### 🧪 Тестирование
 - **Фронтенд (Vitest):** 58 тестов, 12 файлов — **0 failures**
-- **Сервер (Vitest):** 143 теста, 13 файлов — **0 failures** (включая cookie-auth, rotation, lockout)
+- **Сервер (Vitest):** 149 тестов, 14 файлов — **0 failures** (включая cookie-auth, rotation, lockout, sanitize)
 - **E2E (Playwright):** 44 теста, 5 spec-файлов (audit-full, features, login, profile, register) — **0 failures**
 - **Pre-flight:** `npm run check:ports` — сверка портов (vite/proxy/.env/CORS_ORIGIN) + warn на `console.log` в `server/src`
 - **Swagger:** OpenAPI-документация с JSDoc-аннотациями
