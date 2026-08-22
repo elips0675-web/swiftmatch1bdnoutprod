@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url'
 import crypto from 'crypto'
 import rateLimit from 'express-rate-limit'
 import helmet from 'helmet'
+import cookieParser from 'cookie-parser'
 import pool from './db.js'
 import { initIO, startMessageCleanup, startCheckinCleanup } from './ws.js'
 import { createLogger, rootLogger } from './logger.js'
@@ -44,6 +45,7 @@ import icebreakersRoutes from './routes/icebreakers.js'
 import experimentsRoutes from './routes/experiments.js'
 import { metricsMiddleware, metricsRoute } from './metrics.js'
 import { JWT_SECRET } from './middleware.js'
+import { setAuthCookies, clearAuthCookies, extractToken } from './cookies.js'
 import { setupSwagger } from './swagger.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -58,6 +60,7 @@ if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
 }
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }))
 app.use(helmet())
+app.use(cookieParser())
 
 // Sentry must be initialized BEFORE routes and the final error handler,
 // otherwise its errorHandler (registered last) never fires.
@@ -90,12 +93,11 @@ app.use('/api/auth/', authLimiter)
 app.use('/api/premium/create-checkout', idempotency)
 
 async function adminAuth(req, res, next) {
-  const authHeader = req.headers.authorization
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = extractToken(req)
+  if (!token) {
     return res.status(401).json({ message: 'ADMIN_REQUIRED' })
   }
   try {
-    const token = authHeader.split(' ')[1]
     const decoded = jwt.verify(token, JWT_SECRET())
 
     const [rows] = await pool.query(
@@ -118,6 +120,7 @@ app.post('/api/auth/dev-login', async (req, res) => {
     return res.status(404).json({ message: 'Not found' })
   }
   const token = jwt.sign({ userId: 2, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
+  setAuthCookies(res, token)
   res.json({ token, role: 'user' })
 })
 
@@ -145,11 +148,21 @@ app.post('/api/auth/login', async (req, res) => {
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET(), { expiresIn: '24h' })
     const refresh_token = await createRefreshToken(user.id)
+    setAuthCookies(res, token, refresh_token)
     res.json({ token, refresh_token, role: user.role })
   } catch (err) {
     rootLogger.error('Login error: ' + err.message)
     res.status(500).json({ message: 'Internal server error' })
   }
+})
+
+app.post('/api/auth/logout', (req, res) => {
+  const refreshToken = req.cookies?.sm_refresh || req.body?.refresh_token
+  if (refreshToken) {
+    pool.query('DELETE FROM refresh_tokens WHERE token = ?', [refreshToken]).catch(() => {})
+  }
+  clearAuthCookies(res)
+  res.json({ message: 'Logged out' })
 })
 
 // Public content endpoint (no auth)
@@ -200,12 +213,12 @@ app.use('/api/admin', (req, res, next) => {
 })
 
 app.get('/api/admin/me', async (req, res) => {
-  const authHeader = req.headers.authorization
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = extractToken(req)
+  if (!token) {
     return res.status(401).json({ message: 'No token' })
   }
   try {
-    const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET())
+    const decoded = jwt.verify(token, JWT_SECRET())
     const [rows] = await pool.query(
       'SELECT u.id, u.role, up.display_name as name, u.email FROM users u LEFT JOIN user_profiles up ON u.id = up.id WHERE u.id = ?',
       [decoded.userId],

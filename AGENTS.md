@@ -278,6 +278,9 @@ New pulled files used `require()` in an ESM project (`"type": "module"` in serve
 - Перед сборкой: `npm run build` с `VITE_API_URL` (для теста на устройстве — LAN IP машины, `cleartext: true` уже в capacitor.config) → `npx cap sync android` (генерирует capacitor-cordova-android-plugins, при первом add может отсутствовать) → `gradlew assembleDebug`. APK: `android/app/build/outputs/apk/debug/app-debug.apk`.
 - RevenueCat: `@revenuecat/purchases-capacitor` установлен, `VITE_REVENUECAT_API_KEY` — плейсхолдер в .env (gitignored).
 
+### 30. Миграция на httpOnly cookie: не ломай storageState и E2E (этап 33, 19.08.2026)
+JWT теперь ставится сервером в httpOnly cookie `sm_token` (+`sm_refresh` 7d) при login/register/refresh/dev-login; все auth-проверки читают **Bearer ?? cookie** (`extractToken` в server/src/cookies.js). На web `setToken` больше НЕ пишет токен в storage (только память), но `getToken` по-прежнему ЧИТАЕТ sessionStorage/localStorage — иначе падают E2E (global-setup сеет токены в storage через `test.use({ storageState })`, два «разных пользователя» склеивались в dev-login user2 → 403/401). `/api/auth/me` — probe: всегда **200** (`{authenticated:false}` без токена), иначе браузер пишет console-error 401 на каждой загрузке и валит audit.expectClean. Refresh на web — POST /api/auth/refresh с пустым body (сервер берёт куку), флаг `refreshed` против цикла. Логаут: POST /api/auth/logout (чистит куку + refresh_tokens) + clearToken. CSRF: SameSite=Lax + CORS_ORIGIN strict; Bearer остаётся для нативных сборок.
+
 ## Startup reminder
 - After `git pull noutadm main` in `C:\swiftmatch1bd` (the run directory), also run `cd server && npm install` if new packages were added.
 - Kill old node processes: `Get-Process -Name "node" | Stop-Process -Force`

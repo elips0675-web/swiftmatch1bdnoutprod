@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
+import { extractToken } from './cookies.js'
 
 function getJwtSecret() {
   if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
@@ -9,12 +10,12 @@ function getJwtSecret() {
 }
 
 export function auth(req, res, next) {
-  const authHeader = req.headers.authorization
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = extractToken(req)
+  if (!token) {
     return res.status(401).json({ message: 'Authentication required' })
   }
   try {
-    const decoded = jwt.verify(authHeader.split(' ')[1], getJwtSecret())
+    const decoded = jwt.verify(token, getJwtSecret())
     req.userId = decoded.userId
     next()
   } catch {
@@ -23,13 +24,13 @@ export function auth(req, res, next) {
 }
 
 export function optionalAuth(req, res, next) {
-  const authHeader = req.headers.authorization
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = extractToken(req)
+  if (!token) {
     req.userId = null
     return next()
   }
   try {
-    const decoded = jwt.verify(authHeader.split(' ')[1], getJwtSecret())
+    const decoded = jwt.verify(token, getJwtSecret())
     req.userId = decoded.userId
   } catch {
     req.userId = null

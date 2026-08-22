@@ -2,14 +2,14 @@ import jwt from 'jsonwebtoken'
 import pool from '../db.js'
 import { rootLogger } from '../logger.js'
 import { JWT_SECRET } from '../middleware.js'
+import { extractToken } from '../cookies.js'
 
 export async function adminAuth(req, res, next) {
-  const authHeader = req.headers.authorization
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = extractToken(req)
+  if (!token) {
     return res.status(401).json({ message: 'ADMIN_REQUIRED' })
   }
   try {
-    const token = authHeader.split(' ')[1]
     const decoded = jwt.verify(token, JWT_SECRET())
 
     const [rows] = await pool.query(

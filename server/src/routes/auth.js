@@ -6,6 +6,7 @@ import { JWT_SECRET } from '../middleware.js'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../mail.js'
 import logger from '../logger.js'
 import { trackEvent } from './experiments.js'
+import { setAuthCookies } from '../cookies.js'
 
 const router = Router()
 
@@ -163,6 +164,7 @@ router.post('/api/auth/register', async (req, res) => {
 
     const token = jwt.sign({ userId, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
     const refresh_token = await createRefreshToken(userId)
+    setAuthCookies(res, token, refresh_token)
     if (consent === true) {
       await pool.query(
         'INSERT INTO consent_log (user_id, consent_type, granted, ip_address) VALUES (?, ?, 1, ?)',
@@ -281,7 +283,7 @@ router.post('/api/auth/verify-email', async (req, res) => {
 })
 
 router.post('/api/auth/refresh', async (req, res) => {
-  const { refresh_token } = req.body
+  const refresh_token = req.body?.refresh_token || req.cookies?.sm_refresh
   if (!refresh_token) return res.status(400).json({ message: 'Refresh token required' })
 
   try {
@@ -296,10 +298,41 @@ router.post('/api/auth/refresh', async (req, res) => {
 
     const token = jwt.sign({ userId, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
     const new_refresh_token = await createRefreshToken(userId)
+    setAuthCookies(res, token, new_refresh_token)
     res.json({ token, refresh_token: new_refresh_token })
   } catch (err) {
     logger.error('Refresh error:', err)
     res.status(500).json({ message: 'Failed to refresh token' })
+  }
+})
+
+router.get('/api/auth/me', async (req, res) => {
+  const token = req.headers.authorization?.startsWith('Bearer ')
+    ? req.headers.authorization.split(' ')[1]
+    : req.cookies?.sm_token
+  // Прobe-эндпоинт: без валидного токена отдаём 200 (без консольного шума 401 на клиенте)
+  const unauthenticated = () => res.json({ authenticated: false })
+  if (!token) return unauthenticated()
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET())
+    const [rows] = await pool.query(
+      `SELECT u.id, u.email, u.role, up.display_name, up.avatar_url
+       FROM users u LEFT JOIN user_profiles up ON u.id = up.id WHERE u.id = ?`,
+      [decoded.userId],
+    )
+    if (rows.length === 0) return unauthenticated()
+    const u = rows[0]
+    res.json({
+      authenticated: true,
+      id: u.id,
+      email: u.email,
+      role: u.role,
+      name: u.display_name,
+      avatar: u.avatar_url,
+    })
+  } catch {
+    unauthenticated()
   }
 })
 

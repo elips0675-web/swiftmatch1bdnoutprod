@@ -58,7 +58,9 @@ export default function LoginPage() {
 
       if (response.ok) {
         setToken(data.token);
-        if (data.refresh_token) sessionStorage.setItem('swiftmatch_refresh_token', data.refresh_token);
+        // Web: refresh_token в httpOnly cookie; храним в sessionStorage только на native
+        const { isNative } = await import('@/lib/native');
+        if (isNative() && data.refresh_token) sessionStorage.setItem('swiftmatch_refresh_token', data.refresh_token);
         localStorage.setItem('email_verified', data.email_verified ? '1' : '0');
         localStorage.setItem('email', email);
         trackEvent('login_completed', { method: 'email' });
