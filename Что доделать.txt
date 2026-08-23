@@ -149,13 +149,13 @@
 - Redis fallback integration (ECONNREFUSED в†’ РїСЂРёР»РѕР¶РµРЅРёРµ Р¶РёРІС‘С‚)
 - Refresh race E2E: РґРІР° РѕРєРЅР° РѕРґРЅРѕРіРѕ СЋР·РµСЂР°, Р±С‹СЃС‚СЂС‹Р№ refresh РІ РѕР±РѕРёС…
 - Cookie edge cases: expired cookie mid-session, revoked refresh, concurrent tabs
-- File upload security: 15MB РѕС‚РєР»РѕРЅСЏРµС‚СЃСЏ, `.php.jpg`, path traversal `../../etc/passwd` в†’ СЃРѕС…СЂР°РЅСЏРµС‚СЃСЏ РєР°Рє uuid
+- ~~File upload security: 15MB РѕС‚РєР»РѕРЅСЏРµС‚СЃСЏ, `.php.jpg`, path traversal `../../etc/passwd` в†’ СЃРѕС…СЂР°РЅСЏРµС‚СЃСЏ РєР°Рє uuid~~ ЗАКРЫТО: этап 39 (+5 тестов в upload.test.js)
 - Rate-limit spec: 61-Р№ Р·Р°РїСЂРѕСЃ Рє Р»РѕРіРёРЅСѓ в†’ 429
 - WS reconnect + exponential backoff (СЌРјСѓР»СЏС†РёСЏ РѕР±СЂС‹РІР° РјРѕР±РёР»СЊРЅРѕРіРѕ РёРЅС‚РµСЂРЅРµС‚Р°)
 - GDPR full erasure cascade E2E (СЋР·РµСЂ в†’ Р°РєС‚РёРІРЅРѕСЃС‚СЊ в†’ erase в†’ 404 РІРµР·РґРµ)
-- Stripe webhook security unit: invalid signature в†’ 400, replay, idempotency-key Р±РµР· РґСѓР±Р»РµР№
+- ~~Stripe webhook security unit: invalid signature в†’ 400, replay, idempotency-key Р±РµР· РґСѓР±Р»РµР№~~ ЗАКРЫТО: этап 39 (premium-webhook.test.js, 5 тестов; идемпотентность через webhook_events)
 - RevenueCat webhook E2E СЃ РјРѕРєРѕРј СЃРѕР±С‹С‚РёР№ (РґРёРїСЃРёРє)
-- i18n completeness unit: РІСЃРµ t("...") РµСЃС‚СЊ РІ RU Рё EN
+- ~~i18n completeness unit~~ ЗАКРЫТО: этап 40 (i18n.test.ts; закрыты пробелы zodiac x12 en + circadian x5 ru)
 - Backup/restore smoke РІ CI (restore в†’ smoke-С‚РµСЃС‚С‹)
 - ~~Migration idempotency: migrate.js РґРІР°Р¶РґС‹ РїРѕРґСЂСЏРґ в†’ 0 errors~~ вњ… СЌС‚Р°Рї 35 (Рё РЅР°Р№РґРµРЅ СЂРµР°Р»СЊРЅС‹Р№ Р±Р°Рі 018)
 - ~~Security headers supertest (CSP/HSTS/XFO РЅР° /health)~~ вњ… СЌС‚Р°Рї 35 (7 С‚РµСЃС‚РѕРІ, skipIf Р±РµР· СЃРµСЂРІРµСЂР°)
@@ -178,3 +178,14 @@
 - **РџСѓСЃС‚С‹Рµ catch** вЂ” РѕР±СЏР·Р°С‚РµР»РµРЅ РєРѕРјРјРµРЅС‚Р°СЂРёР№ (Р»РёРЅС‚ no-empty)
 - **`any`** вЂ” warn (СЂРµС€РµРЅРёРµ СЌС‚Р°РїР° 17), РЅРѕРІС‹Рµ РѕС€РёР±РєРё lint РЅРµ РІРЅРѕСЃРёС‚СЊ
 - **CI-РјРёРіСЂР°С†РёРё (СЌС‚Р°Рї 27)** вЂ” РІ deploy.yml РјРёРіСЂР°С†РёРё РІС‹РїРѕР»РЅСЏСЋС‚СЃСЏ РќРђ РЎР•Р Р’Р•Р Р• РїРµСЂРµРґ pm2 restart (`set -a; . ./server/.env; node database/migrations/migrate.js`), РЅРµ СЃ CI-СЂР°РЅРЅРµСЂР°
+
+## Этапы 38-41 (23.08.2026)
+
+| Этап | Что сделано |
+|---|---|
+| **Этап 38** | Admin TOTP 2FA: миграция 026 (users.totp_secret/totp_enabled), server/src/totp.js (otplib v13), routes/totp-2fa.js (setup/enable/disable через adminAuth), login требует totp_code при включённой 2FA (401 TOTP_REQUIRED/TOTP_INVALID + lockout), UI two-fa-settings.tsx, i18n two_fa_*; живой смоук 8/8 |
+| **Этап 39** | Webhook replay/idempotency: миграция 027 webhook_events (UNIQUE provider+event_id), INSERT IGNORE дедуп в checkout.session.completed, premium-webhook.test.js 5/5; upload security +5 тестов (non-image/no-file/auth/traversal/double-ext) |
+| **Этап 40** | Лимитеры вынесены в middleware/limiters.js (фабрики для тестов); ratelimit.test.js 3/3 (60 ок -> 61-й 429, api 600, изоляция экземпляров); i18n.test.ts RU<->EN синхронность; E2E icebreakers починен (эрозия данных - диапазон кандидатов расширен до 199) |
+| **Этап 41** | docs/runbook-keys.md: ротация всех ключей (.env vs VITE_*), порядок для каждого провайдера, чеклист полной ротации при утечке |
+
+Счётчики после этапа 41: server 179/179 (18 файлов), front 61/61 (13 файлов), E2E 44/44 = **284/284**
