@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useLanguage } from "@/context/language-context";
+import { useWebSocket } from "@/hooks/use-websocket";
 import { getToken } from "@/lib/token";
 import { formatEventDate, type Hangout } from "@/lib/hangouts";
 import { categoryIcon } from "./hangouts";
@@ -64,6 +65,20 @@ export default function HangoutDetailPage() {
   }, [id, t]);
 
   useEffect(() => { load(); }, [load]);
+
+  const { socket } = useWebSocket();
+  useEffect(() => {
+    if (!socket) return;
+    const refetch = () => { load(); };
+    socket.on("hangout:new_response", refetch);
+    socket.on("hangout:response_accepted", refetch);
+    socket.on("hangout:cancelled", refetch);
+    return () => {
+      socket.off("hangout:new_response", refetch);
+      socket.off("hangout:response_accepted", refetch);
+      socket.off("hangout:cancelled", refetch);
+    };
+  }, [socket, load]);
 
   const respond = async () => {
     if (!id) return;

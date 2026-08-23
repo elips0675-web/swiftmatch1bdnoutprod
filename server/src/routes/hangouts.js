@@ -353,6 +353,16 @@ router.delete('/api/hangouts/:id', auth, async (req, res) => {
     )
     const io = getIO()
     for (const r of respondents) {
+      try {
+        const [nr] = await pool.query(
+          'INSERT INTO notifications (user_id, type, payload) VALUES (?, ?, ?)',
+          [r.user_id, 'hangout_cancelled', JSON.stringify({ hangout_id: Number(id) })],
+        )
+        if (io) {
+          const [[row]] = await pool.query('SELECT id, type, payload, is_read, created_at FROM notifications WHERE id = ?', [nr.insertId])
+          io.to(`user:${r.user_id}`).emit('notification:new', row)
+        }
+      } catch {}
       sendPushToUser(r.user_id, 'SwiftMatch', 'The hangout was cancelled by its author').catch(() => {})
       try {
         if (io) io.to(`user:${r.user_id}`).emit('hangout:cancelled', { hangoutId: Number(id) })
@@ -544,6 +554,18 @@ router.put('/api/hangouts/:id/responses/:responseId', auth, async (req, res) => 
           chatId: chatId ? Number(chatId) : null,
           status,
         })
+      }
+    } catch {}
+
+    try {
+      const notifType = status === 'accepted' ? 'hangout_accepted' : 'hangout_declined'
+      const [notifResult] = await pool.query(
+        'INSERT INTO notifications (user_id, type, payload) VALUES (?, ?, ?)',
+        [response.user_id, notifType, JSON.stringify({ hangout_id: Number(id), chat_id: chatId, from_user_id: req.userId })],
+      )
+      if (io) {
+        const [[row]] = await pool.query('SELECT id, type, payload, is_read, created_at FROM notifications WHERE id = ?', [notifResult.insertId])
+        io.to(`user:${response.user_id}`).emit('notification:new', row)
       }
     } catch {}
 

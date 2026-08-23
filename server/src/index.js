@@ -50,6 +50,7 @@ import referralRoutes from './routes/referral.js'
 import icebreakersRoutes from './routes/icebreakers.js'
 import experimentsRoutes from './routes/experiments.js'
 import hangoutsRoutes from './routes/hangouts.js'
+import notificationsRoutes from './routes/notifications.js'
 import { metricsMiddleware, metricsRoute } from './metrics.js'
 import { JWT_SECRET } from './middleware.js'
 import { setAuthCookies, clearAuthCookies, extractToken, REFRESH_COOKIE } from './cookies.js'
@@ -268,6 +269,7 @@ app.use('/api/checkin', dateCheckinRoutes)
 app.use(icebreakersRoutes)
 app.use(experimentsRoutes)
 app.use(hangoutsRoutes)
+app.use(notificationsRoutes)
 
 app.get('/health', async (req, res) => {
   try {

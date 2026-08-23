@@ -218,13 +218,32 @@ describe('DELETE /api/hangouts/:id', () => {
     pool.query
       .mockResolvedValueOnce([[{ user_id: 2, status: 'active' }], []])
       .mockResolvedValueOnce([{ affectedRows: 1 }, []])
-      .mockResolvedValueOnce([[{ user_id: 3 }], []])
+      .mockResolvedValueOnce([[], []])
     const res = await request(createApp(hangoutsRoutes))
       .delete('/api/hangouts/5')
       .set('Authorization', `Bearer ${authToken(2)}`)
     expect(res.status).toBe(200)
     expect(res.body.message).toBe('Hangout cancelled')
     expect(pool.query.mock.calls[1][0]).toContain("status = 'cancelled'")
+  })
+
+  it('cancel inserts hangout_cancelled notification for respondents', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ user_id: 2, status: 'active' }], []])
+      .mockResolvedValueOnce([{ affectedRows: 1 }, []])
+      .mockResolvedValueOnce([[{ user_id: 3 }], []])
+      .mockResolvedValueOnce([{ insertId: 91 }, []])
+      .mockResolvedValueOnce([[{ id: 91, type: 'hangout_cancelled', payload: '{}', is_read: 0, created_at: new Date() }], []])
+
+    const res = await request(createApp(hangoutsRoutes))
+      .delete('/api/hangouts/5')
+      .set('Authorization', `Bearer ${authToken(2)}`)
+
+    expect(res.status).toBe(200)
+    const notifInsert = pool.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO notifications'))
+    expect(notifInsert).toBeTruthy()
+    expect(notifInsert[1][0]).toBe(3)
+    expect(notifInsert[1][1]).toBe('hangout_cancelled')
   })
 })
 
@@ -281,7 +300,10 @@ describe('GET /api/hangouts/:id/responses', () => {
 
 describe('PUT /api/hangouts/:id/responses/:responseId (accept/decline)', () => {
   it('accept creates chat + participants + hangout_chats link', async () => {
-    pool.query.mockResolvedValueOnce([[{ display_name: 'Author' }], []])
+    pool.query
+      .mockResolvedValueOnce([{ insertId: 88 }, []])
+      .mockResolvedValueOnce([[{ id: 88, type: 'hangout_accepted', payload: '{}', is_read: 0, created_at: new Date() }], []])
+      .mockResolvedValueOnce([[{ display_name: 'Author' }], []])
     const conn = mockConnection({
       execute: vi.fn(async (sql) => {
         if (sql.startsWith('SELECT id, user_id, status')) return [[{ id: 7, user_id: 1, status: 'active', max_companions: 1 }], []]
@@ -317,6 +339,10 @@ describe('PUT /api/hangouts/:id/responses/:responseId (accept/decline)', () => {
     expect(executedParticipants).toBe(true)
     expect(executedLink).toBe(true)
     expect(completedUpdate).toBe(true)
+
+    const notifCall = pool.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO notifications'))
+    expect(notifCall).toBeTruthy()
+    expect(notifCall[1][1]).toBe('hangout_accepted')
   })
 
   it('declines without creating a chat', async () => {

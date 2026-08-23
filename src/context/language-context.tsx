@@ -921,6 +921,9 @@ const translations = {
     'time.days_ago': '{days} дн. назад',
     'time.hour_ago': '{hours} ч. назад',
     'time.min_ago': '{mins} мин. назад',
+    'time.min_ago_n': '{n} мин. назад',
+    'time.hour_ago_n': '{n} ч. назад',
+    'time.day_ago_n': '{n} дн. назад',
     'time.suffix_min': 'м',
     'time.suffix_hour': 'ч',
     'time.suffix_day': 'д',
@@ -1055,6 +1058,7 @@ const translations = {
     // Common
     'common.km': 'км',
     'common.loading': 'Загрузка...',
+    'common.someone': 'Кто-то',
 
     // Cookie
     'cookie.accept_all': 'Принять все',
@@ -1211,6 +1215,11 @@ const translations = {
     'notifications.profile_popular': 'Ваш профиль популярен',
     'notifications.read_all': 'Прочитать все',
     'notifications.sent_message': 'Отправил(а) сообщение',
+    'notifications.new_invite': 'Отправил(а) вам приглашение',
+    'notifications.hangout_response': '{name} хочет присоединиться к «{title}»',
+    'notifications.hangout_accepted': '{name} принял(а) ваш отклик на «{title}»',
+    'notifications.hangout_declined': '{name} отклонил(а) ваш отклик на «{title}»',
+    'notifications.hangout_cancelled': 'Встреча «{title}» отменена',
 
     // Ads
     'ads.banner_title': 'Реклама',
@@ -2241,6 +2250,9 @@ const translations = {
     'time.days_ago': '{days} days ago',
     'time.hour_ago': '{hours}h ago',
     'time.min_ago': '{mins}min ago',
+    'time.min_ago_n': '{n}m ago',
+    'time.hour_ago_n': '{n}h ago',
+    'time.day_ago_n': '{n}d ago',
     'time.suffix_min': 'm',
     'time.suffix_hour': 'h',
     'time.suffix_day': 'd',
@@ -2375,6 +2387,7 @@ const translations = {
     // Common
     'common.km': 'km',
     'common.loading': 'Loading...',
+    'common.someone': 'Someone',
 
     // Cookie
     'cookie.accept_all': 'Accept All',
@@ -2531,6 +2544,11 @@ const translations = {
     'notifications.profile_popular': 'Your profile is popular',
     'notifications.read_all': 'Read All',
     'notifications.sent_message': 'Sent a message',
+    'notifications.new_invite': 'Sent you an invitation',
+    'notifications.hangout_response': '{name} wants to join "{title}"',
+    'notifications.hangout_accepted': '{name} accepted your response to "{title}"',
+    'notifications.hangout_declined': '{name} declined your response to "{title}"',
+    'notifications.hangout_cancelled': 'Hangout "{title}" was cancelled',
 
     // Ads
     'ads.banner_title': 'Advertisement',
