@@ -295,3 +295,10 @@ UI: зелёный badge ≥80, жёлтый ≥50, красный <50; спис
 - **Этап 40:** лимитеры в middleware/limiters.js (фабрики для тестов); ratelimit.test.js — 60 ок → 61-й auth 429, api 600 → 429; i18n.test.ts RU↔EN синхронность (закрыт пробел circadian x5 ru); E2E icebreakers починен (эрозия данных → диапазон кандидатов 20..199)
 - **Этап 41:** docs/runbook-keys.md — ротация всех ключей (.env vs VITE_*), порядок для каждого провайдера, чеклист при утечке
 - **Коммиты:** 34320b2 (38), b08971b (39), ff23f1a (40), 2632106/a9d8a3a/b9ab518 (41+docs)
+
+## Этап 42 (23 августа 2026) — разбор обновлённых аудитов
+
+- **Redis fallback crash fix:** недостижимый REDIS_URL ронял процесс (ioredis flushQueue внутри Bull); queue.js теперь делает probe (lazyConnect+ping) до создания очередей → graceful disable + mail.js fallback; process-гварды unhandledRejection/uncaughtException. Подтверждено живым прогоном с invalid host
+- **__Host- cookie в prod** (cookies.js ACCESS_COOKIE/REFRESH_COOKIE), **cleanup revoked refresh-токенов** раз в сутки (cleanup.js), **RevenueCat webhook unit-тесты** (iap-webhook.test.js ×6)
+- Верифицировано: WS reconnect race закрыт ([token] deps + backoff), CORS native ok, deploy.yml cd ok
+- Счётчики: 296/296 (server 191 / front 61 / E2E 44). Коммиты: 4b8703e, 38db106
