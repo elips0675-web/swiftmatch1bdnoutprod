@@ -263,14 +263,27 @@
 - [ ] Фильтры дат date_from/date_to в ленте; пагинация page/limit
 - [ ] Лимит 1 объявление/день для free
 
-## Партнёрская экосистема по Mesta.txt — НОВАЯ БОЛЬШАЯ ЗАДАЧА
+## Этап 47 (23.08.2026): партнёрская экосистема Wave 1 по Mesta.txt — ЗАКРЫТО
 
-Единый движок (не 5 отдельных модулей): миграция 030_partner_ecosystem.sql
-(partners / partner_offers / partner_conversions), роутер partners.js
-(GET offers c гео+placement-фильтрами, POST track c utm_source=swiftmatch&ref),
-chat-partner-actions.tsx («🚕 Такси / 🍽 Ресторан / 🎬 Кино» рядом с input чата),
-выбор «из афиши» в hangout-create.tsx, admin-partners.tsx, флаг partnerOffersEnabled.
-**Wave 1** = deeplink-партнёры (такси, афиша, стриминг): без сложных API, только трекинг кликов — 1 вечер работы.
-**Волны 2–4**: рестораны/цветы (Stripe + webhook партнёра), отели в passport-mode (Redis-кэш офферов),
-B2B-услуги (фотографы/организаторы, роль partner, подписка через Stripe).
-Детальный план, схема таблиц и DoD — в конце part.txt (раздел «Доделать»).
+| Что | Чем закрыто |
+|---|---|
+| Миграция 030: partners / partner_offers / partner_conversions + флаг partner_offers_enabled; сид Yandex Go / KinoPoisk Afisha / Restoclub / Ostrovok | 030_partner_ecosystem.sql ×2 exit 0 + mysql_schema.sql |
+| API offers+track: гео/категория/город/placement-фильтры, конверсии, deeplink c utm_source=swiftmatch&ref={referral_code} | server/src/routes/partners.js; partners.test.js 13 тестов |
+| Admin-CRUD партнёров/офферов со статистикой clicks/conversions/commission_pending | admin/partners.js (относительные пути!) + страница /admin/partners |
+| Чат-экшены «Такси / Кино / Столик» с трекингом и fallback для схема-ссылок | chat-partner-actions.tsx в chats-chatId.tsx; chat-partner-actions.test.tsx 3 |
+| «Выбрать из афиши» в создании встречи (автозаполнение формы + lead) | hangout-create.tsx pick-from-listings |
+| Отели в passport-mode («Где остановиться») | settings-privacy.tsx при passport_mode + городе |
+| Флаг partnerOffersEnabled в 3 местах + i18n partner.* / admin.partners.* | features.js + feature-flags-context + admin-features |
+| Грабля #53: двойной префикс пути в admin-роутерах → тихий 404 | AGENTS.md #53, пути относительные |
+
+Счётчики после этапа 47: server 246/246, front 68/68, E2E 55/55 = **369/369**
+
+### Хвосты партнёрки Wave 1 (не блокируют)
+- [ ] Подстановка плейсхолдеров {lat}/{to_lat}/{lng}/{city} в deeplink'ах при track
+- [ ] S2S postback от партнёров для booking/purchase (сейчас пишутся только click/lead)
+- [ ] partner_offer_id в hangouts (связь встречи с оффером афиши)
+
+### Волны 2–4 (следующие, по Mesta.txt)
+- [ ] Wave 2: рестораны/цветы — Stripe + webhook партнёра, первая реальная комиссия
+- [ ] Wave 3: отели в passport-mode (Redis-кэш офферов TTL 1ч), спа/фитнес
+- [ ] Wave 4: B2B-маркетплейс услуг (роль partner, ЛК, подписка через Stripe)

@@ -533,3 +533,20 @@
 - **Грабли**: `.gitignore` паттерн `test/` цеплял src/test/ — анкорен к корню (`/test/`), тесты фронта закоммичены; accept API ждёт `{status:'accepted'}`, не `{action}`; PowerShell 5.1 ломается на экранированных кавычках в inline-командах — правки i18n только Edit-инструментом
 - **Осталось по фиче**: UI редактирования объявления (PUT есть, страницы нет), фильтры дат date_from/date_to в ленте, пагинация page/limit, лимит 1 объявление/день для free
 - Коммиты: 28c570ca (фича), 3fca56f (XSS+029), 67dbaae (баннер Home), 2d851ae (уведомления), cee117a (контекст в чате), 09bfbc4 (docs)
+
+## Этап 47 (23 августа 2026): партнёрская экосистема Wave 1 (Mesta.txt)
+
+> Единый движок партнёров вместо 5 отдельных модулей. Deeplink-партнёры без сложных API, сквозной трекинг кликов.
+
+- **Счётчик тестов: 369/369** — сервер 246/246 ✅, фронт 68/68 ✅, E2E 55/55 ✅; vite build ✅
+- **Миграция 030** (`030_partner_ecosystem.sql` + mysql_schema.sql): `partners` (type api/deeplink/saas, commission_rate, UNIQUE name для идемпотентного сида), `partner_offers` (10 категорий, deeplink VARCHAR(500), placement SET('hangout','chat','profile','passport','attachment_result'), valid_from/to), `partner_conversions` (click/booking/purchase/lead + amount/commission/status) + флаг `partner_offers_enabled`; сид: Yandex Go (yandextaxi://route...), KinoPoisk Afisha, Restoclub, Ostrovok
+- **API** (`server/src/routes/partners.js`, монтируется без префикса — пути ПОЛНЫЕ): GET /api/partners/offers?category=&city=&placement=&lat=&lng=&radius= — FIND_IN_SET по SET-placement, гео ST_Distance_Sphere + HAVING distance_m < ?, только active+valid даты, LIMIT 20; POST /api/partners/track {offer_id} → INSERT conversion + deeplink c utm_source=swiftmatch&ref={referral_code}
+- **Админ-CRUD** (`server/src/routes/admin/partners.js`): ОТНОСИТЕЛЬНЫЕ пути (/partners, /offers...) — монтируется на /api/admin; GET /partners со статистикой clicks/conversions/commission_pending, POST/PUT партнёров и офферов. Страница /admin/partners (admin-partners.tsx): таблицы партнёров и офферов, pause/activate, диалоги создания
+- **Чат**: chat-partner-actions.tsx — чипы категорий над полем ввода chats-chatId.tsx (гейт partnerOffersEnabled); клик → track → window.open для http; схема-ссылки → попытка location.href + fallback-диалог если приложение не открылось
+- **Афиша**: кнопка «Выбрать из афиши» в hangout-create.tsx (data-testid="pick-from-listings", placement=hangout) — модалка офферов, автозаполнение title/description/category/place_name + track lead
+- **Паспортный режим**: блок «Где остановиться» в settings-privacy.tsx при passport_mode + городе (placement=passport)
+- **Флаг partnerOffersEnabled** во всех 3 местах: features.js GET+PUT, feature-flags-context.tsx (mapApiFlags + default false), admin-features.tsx (+ i18n admin.features.partner_offers*)
+- **Грабля #53 (AGENTS.md)**: admin-роутеры монтируются на /api/admin → пути внутри ОТНОСИТЕЛЬНЫЕ; полный путь '/api/admin/x' даёт двойной префикс и тихий 404 в рантайме при зелёных юнит-тестах (роутер смонтирован без префикса)
+- **Тесты**: partners.test.js 13 (FIND_IN_SET, гео-HAVING, track→INSERT+utm+ref, paused 404, CRUD-валидация), chat-partner-actions.test.tsx 3 (чипы, track+window.open, пусто→null), e2e/partners.spec.ts 4 (feed, трекинг-цепочка с clicks_total в админке, 404, auth)
+- **Хвосты**: подстановка плейсхолдеров {lat}/{to_lat}/{city} в deeplink'ах, S2S postback booking/purchase, partner_offer_id в hangouts; Волны 2–4 по Mesta.txt
+- Коммит: 46e9e6d (feat, пуш на part)
