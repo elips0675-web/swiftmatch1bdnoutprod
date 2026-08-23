@@ -37,6 +37,11 @@ const ChatId = lazy(() => import("./pages/_chats-chatId-adapter"))
 const Contest = lazy(() => import("./pages/contest"))
 const Faq = lazy(() => import("./pages/faq"))
 const Groups = lazy(() => import("./pages/groups"))
+const Hangouts = lazy(() => import("./pages/hangouts"))
+const HangoutDetail = lazy(() => import("./pages/hangout-detail"))
+const HangoutCreate = lazy(() => import("./pages/hangout-create"))
+const HangoutsMy = lazy(() => import("./pages/hangouts-my"))
+const AdminHangouts = lazy(() => import("./pages/admin-hangouts"))
 const Matches = lazy(() => import("./pages/matches"))
 const Premium = lazy(() => import("./pages/premium"))
 const SettingsPrivacy = lazy(() => import("./pages/settings-privacy"))
@@ -109,6 +114,10 @@ const PAGE_TITLES: Record<string, string> = {
   "/premium": "Премиум — SwiftMatch",
   "/settings/privacy": "Конфиденциальность — SwiftMatch",
   "/schedule": "Видеосвидания — SwiftMatch",
+  "/hangouts": "Куда пойдем — SwiftMatch",
+  "/hangouts/create": "Создать встречу — SwiftMatch",
+  "/hangouts/my": "Мои встречи — SwiftMatch",
+  "/admin/hangouts": "Модерация встреч — SwiftMatch",
 }
 
 function DocumentTitle() {
@@ -160,6 +169,7 @@ const App = () => (
                     <Route path="/admin/monetization" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminMonetization /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/reports" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminReports /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/photos" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminPhotos /></SuspenseWrapper></AdminLayout></AdminGuard>} />
+                    <Route path="/admin/hangouts" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminHangouts /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/users" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminUsers /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/premium" element={<SuspenseWrapper><Premium /></SuspenseWrapper>} />
                     <Route path="/premium/success" element={<SuspenseWrapper><PremiumSuccess /></SuspenseWrapper>} />
@@ -177,6 +187,10 @@ const App = () => (
                             <Route path="/faq" element={<Faq />} />
                             <Route path="/groups" element={<Groups />} />
                             <Route path="/groups/:category" element={<GroupCategory />} />
+                            <Route path="/hangouts" element={<Hangouts />} />
+                            <Route path="/hangouts/create" element={<HangoutCreate />} />
+                            <Route path="/hangouts/my" element={<HangoutsMy />} />
+                            <Route path="/hangouts/:id" element={<HangoutDetail />} />
                             <Route path="/legal/data-processing" element={<LegalDataProcessing />} />
                             <Route path="/legal/privacy" element={<LegalPrivacy />} />
                             <Route path="/legal/terms" element={<LegalTerms />} />

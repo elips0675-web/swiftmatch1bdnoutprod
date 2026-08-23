@@ -43,6 +43,7 @@ export default function FeatureFlagsPage() {
           { key: 'contests', label: t('admin.features.contests'), description: t('admin.features.contests_desc'), enabled: data.contest ?? true, affectedUsers: 6500 },
           { key: 'premiumTiers', label: t('admin.features.premium_tiers'), description: t('admin.features.premium_tiers_desc'), enabled: true, affectedUsers: 2100 },
           { key: 'showAds', label: t('admin.features.show_ads'), description: t('admin.features.show_ads_desc'), enabled: data.showAds ?? false, affectedUsers: 12480 },
+          { key: 'hangouts', label: t('admin.features.hangouts'), description: t('admin.features.hangouts_desc'), enabled: data.hangouts ?? false, affectedUsers: 12480 },
         ];
         setFlags(mapped);
         setSavedFlags(mapped);

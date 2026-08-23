@@ -8,6 +8,7 @@ export interface FeatureFlags {
   aiCompatibilityEnabled: boolean;
   groupsPageEnabled: boolean;
   showAdsEnabled: boolean;
+  hangoutsEnabled: boolean;
 }
 
 const defaultFlags: FeatureFlags = {
@@ -16,6 +17,7 @@ const defaultFlags: FeatureFlags = {
   aiCompatibilityEnabled: true,
   groupsPageEnabled: true,
   showAdsEnabled: false,
+  hangoutsEnabled: false,
 };
 
 const mapApiFlags = (data: Record<string, boolean>): FeatureFlags => ({
@@ -24,6 +26,7 @@ const mapApiFlags = (data: Record<string, boolean>): FeatureFlags => ({
   aiCompatibilityEnabled: data.aiCompatibility ?? true,
   groupsPageEnabled: data.groupsPage ?? true,
   showAdsEnabled: data.showAds ?? false,
+  hangoutsEnabled: data.hangouts ?? false,
 });
 
 const FeatureFlagsContext = createContext<FeatureFlags>(defaultFlags);

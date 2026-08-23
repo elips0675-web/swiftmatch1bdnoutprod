@@ -7,7 +7,7 @@ import {
   SidebarContent,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, Users, Flag, Chrome as Home, Shield, LogOut, ChevronsLeft, ChevronsRight, SlidersHorizontal, DollarSign, Package, Mail, Image, ChartBar as BarChart3, Languages, Check, FlaskConical } from 'lucide-react';
+import { LayoutDashboard, Users, Flag, Chrome as Home, Shield, LogOut, ChevronsLeft, ChevronsRight, SlidersHorizontal, DollarSign, Package, Mail, Image, ChartBar as BarChart3, Languages, Check, FlaskConical, CalendarDays } from 'lucide-react';
 import { NavLink, useLocation, Link } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -30,6 +30,7 @@ export function AdminSidebar() {
     { title: t('admin.content'), path: '/admin/content', icon: Package },
     { title: t('admin.photos'), path: '/admin/photos', icon: Image },
     { title: t('admin.messaging'), path: '/admin/messaging', icon: Mail },
+    { title: t('admin.hangouts'), path: '/admin/hangouts', icon: CalendarDays },
   ];
 
   const isActive = (path: string, exact?: boolean) => exact ? pathname === path : pathname === path;

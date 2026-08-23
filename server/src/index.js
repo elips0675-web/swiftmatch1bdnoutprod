@@ -30,6 +30,7 @@ import adminContent from './routes/admin/content.js'
 import adminFeatures from './routes/admin/features.js'
 import adminMessaging from './routes/admin/messaging.js'
 import adminMonetization from './routes/admin/monetization.js'
+import adminHangouts from './routes/admin/hangouts.js'
 import profileRoutes from './routes/profile.js'
 import uploadRoutes from './routes/upload.js'
 import pushRoutes from './routes/push.js'
@@ -48,6 +49,7 @@ import dateCheckinRoutes from './routes/date-checkin.js'
 import referralRoutes from './routes/referral.js'
 import icebreakersRoutes from './routes/icebreakers.js'
 import experimentsRoutes from './routes/experiments.js'
+import hangoutsRoutes from './routes/hangouts.js'
 import { metricsMiddleware, metricsRoute } from './metrics.js'
 import { JWT_SECRET } from './middleware.js'
 import { setAuthCookies, clearAuthCookies, extractToken, REFRESH_COOKIE } from './cookies.js'
@@ -258,12 +260,14 @@ app.use('/api/admin', adminContent)
 app.use('/api/admin', adminFeatures)
 app.use('/api/admin', adminMessaging)
 app.use('/api/admin', adminMonetization)
+app.use('/api/admin', adminHangouts)
 app.use('/api/admin', adminModerationRoutes)
 app.use(gdprRoutes)
 app.use(referralRoutes)
 app.use('/api/checkin', dateCheckinRoutes)
 app.use(icebreakersRoutes)
 app.use(experimentsRoutes)
+app.use(hangoutsRoutes)
 
 app.get('/health', async (req, res) => {
   try {
