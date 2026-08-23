@@ -440,3 +440,12 @@
 - RTO замер (kimi 2.5): scripts/verify-backup.ps1 полный цикл restore+sanity = 3.6 сек (dev 0.3MB); экстраполяция прод ~10-15 мин/GB, целевой RTO беты <30 мин; записано в docs/rollback-plan.md секция N+1
 - Single-instance решение (kimi 1.1): prod строго один инстанс API до миграции на Redis store; pm2 fork mode совместим, nginx limit_req остаётся первой линией; зафиксировано в rollback-plan.md секция N+2
 - Счётчики: server 191/191, front 61/61, E2E 47/47 (+cross-browser 16/16 по флагу) = 299/299
+
+## Этап 45 (23.08.2026): XSS-проба alert("xss") в "О себе" - исправлено
+- Проба подтверждена: юзер id=2 сохранил alert("xss") в bio (React экранирует вывод - исполнения не было, но зонд хранился в БД как есть)
+- sanitize.js усилен: <script> режется С содержимым; inline-обработчики on*= вырезаются даже без тегов; javascript:/vbscript:/data:text/html URI вырезаются; зонды alert(...)/prompt(...)/confirm(...) удаляются полностью; "<3" и "a<b" не трогаются
+- Действие автоматом на всех свободных полях через существующий stripHtml: display_name/name/bio/city/country/education/dating_goal (profile.js PUT)
+- БД почищена: user_profiles.bio с зондами обнулён (id=2)
+- Живая проверка после рестарта: PUT био с 'тест <script>alert(1)</script> alert("xss") javascript:evil() onerror=go нормальный текст <3' -> сохранено 'тест evil() нормальный текст <3' (residue false), био восстановлено
+- sanitize.test.js: 7 тестов
+- Счётчики: server 192/192, front 61/61, E2E 47/47 = 300/300
