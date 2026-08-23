@@ -142,20 +142,20 @@
 10. Log aggregation (Loki/ELK) РІРјРµСЃС‚Рѕ Winston-РЅР°-РґРёСЃРє + SSL Let's Encrypt auto-renewal (РїРѕСЃР»Рµ СЂРµР»РёР·Р°) (kimi)
 11. Windows-С†РµРЅС‚СЂРёС‡РЅРѕСЃС‚СЊ: РїСЂРё РїРµСЂРµРµР·РґРµ РЅР° Linux VPS Р°РґР°РїС‚РёСЂРѕРІР°С‚СЊ .batв†’.sh (backup, Р·Р°РїСѓСЃРє) (qwen, РґРёРїСЃРёРє)
 12. Р Р°Р·Р±РёС‚СЊ AGENTS.md вЂ” СЃРµР№С‡Р°СЃ ~1180 СЃС‚СЂРѕРє (qwen РЅР°Р·С‹РІР°Р» >1500 вЂ” Р·Р°РІС‹С€РµРЅРѕ) (qwen, РґРёРїСЃРёРє)
-13. ~~Документировать процесс обновления внешних ключей (.env)~~ ЗАКРЫТО: этап 41 docs/runbook-keys.md (порядок ротации каждого ключа + чеклист при утечке)
+13. ~~Р”РѕРєСѓРјРµРЅС‚РёСЂРѕРІР°С‚СЊ РїСЂРѕС†РµСЃСЃ РѕР±РЅРѕРІР»РµРЅРёСЏ РІРЅРµС€РЅРёС… РєР»СЋС‡РµР№ (.env)~~ Р—РђРљР Р«РўРћ: СЌС‚Р°Рї 41 docs/runbook-keys.md (РїРѕСЂСЏРґРѕРє СЂРѕС‚Р°С†РёРё РєР°Р¶РґРѕРіРѕ РєР»СЋС‡Р° + С‡РµРєР»РёСЃС‚ РїСЂРё СѓС‚РµС‡РєРµ)
 
 ### РЎР»РµРїС‹Рµ Р·РѕРЅС‹ С‚РµСЃС‚РѕРІ (Р±СЌРєР»РѕРі СЌС‚Р°РїР° 36+, РєРѕРЅСЃРѕР»РёРґРёСЂРѕРІР°РЅРѕ РёР· kimi + РґРёРїСЃРёРє)
 
 - Redis fallback integration (ECONNREFUSED в†’ РїСЂРёР»РѕР¶РµРЅРёРµ Р¶РёРІС‘С‚)
 - Refresh race E2E: РґРІР° РѕРєРЅР° РѕРґРЅРѕРіРѕ СЋР·РµСЂР°, Р±С‹СЃС‚СЂС‹Р№ refresh РІ РѕР±РѕРёС…
 - Cookie edge cases: expired cookie mid-session, revoked refresh, concurrent tabs
-- ~~File upload security: 15MB РѕС‚РєР»РѕРЅСЏРµС‚СЃСЏ, `.php.jpg`, path traversal `../../etc/passwd` в†’ СЃРѕС…СЂР°РЅСЏРµС‚СЃСЏ РєР°Рє uuid~~ ЗАКРЫТО: этап 39 (+5 тестов в upload.test.js)
-- ~~Rate-limit spec: 61-й запрос к логину -> 429~~ ЗАКРЫТО: этап 40 (ratelimit.test.js, 3 теста)
+- ~~File upload security: 15MB РѕС‚РєР»РѕРЅСЏРµС‚СЃСЏ, `.php.jpg`, path traversal `../../etc/passwd` в†’ СЃРѕС…СЂР°РЅСЏРµС‚СЃСЏ РєР°Рє uuid~~ Р—РђРљР Р«РўРћ: СЌС‚Р°Рї 39 (+5 С‚РµСЃС‚РѕРІ РІ upload.test.js)
+- ~~Rate-limit spec: 61-Р№ Р·Р°РїСЂРѕСЃ Рє Р»РѕРіРёРЅСѓ -> 429~~ Р—РђРљР Р«РўРћ: СЌС‚Р°Рї 40 (ratelimit.test.js, 3 С‚РµСЃС‚Р°)
 - WS reconnect + exponential backoff (СЌРјСѓР»СЏС†РёСЏ РѕР±СЂС‹РІР° РјРѕР±РёР»СЊРЅРѕРіРѕ РёРЅС‚РµСЂРЅРµС‚Р°)
 - GDPR full erasure cascade E2E (СЋР·РµСЂ в†’ Р°РєС‚РёРІРЅРѕСЃС‚СЊ в†’ erase в†’ 404 РІРµР·РґРµ)
-- ~~Stripe webhook security unit: invalid signature в†’ 400, replay, idempotency-key Р±РµР· РґСѓР±Р»РµР№~~ ЗАКРЫТО: этап 39 (premium-webhook.test.js, 5 тестов; идемпотентность через webhook_events)
+- ~~Stripe webhook security unit: invalid signature в†’ 400, replay, idempotency-key Р±РµР· РґСѓР±Р»РµР№~~ Р—РђРљР Р«РўРћ: СЌС‚Р°Рї 39 (premium-webhook.test.js, 5 С‚РµСЃС‚РѕРІ; РёРґРµРјРїРѕС‚РµРЅС‚РЅРѕСЃС‚СЊ С‡РµСЂРµР· webhook_events)
 - RevenueCat webhook E2E СЃ РјРѕРєРѕРј СЃРѕР±С‹С‚РёР№ (РґРёРїСЃРёРє)
-- ~~i18n completeness unit~~ ЗАКРЫТО: этап 40 (i18n.test.ts; закрыты пробелы zodiac x12 en + circadian x5 ru)
+- ~~i18n completeness unit~~ Р—РђРљР Р«РўРћ: СЌС‚Р°Рї 40 (i18n.test.ts; Р·Р°РєСЂС‹С‚С‹ РїСЂРѕР±РµР»С‹ zodiac x12 en + circadian x5 ru)
 - Backup/restore smoke РІ CI (restore в†’ smoke-С‚РµСЃС‚С‹)
 - ~~Migration idempotency: migrate.js РґРІР°Р¶РґС‹ РїРѕРґСЂСЏРґ в†’ 0 errors~~ вњ… СЌС‚Р°Рї 35 (Рё РЅР°Р№РґРµРЅ СЂРµР°Р»СЊРЅС‹Р№ Р±Р°Рі 018)
 - ~~Security headers supertest (CSP/HSTS/XFO РЅР° /health)~~ вњ… СЌС‚Р°Рї 35 (7 С‚РµСЃС‚РѕРІ, skipIf Р±РµР· СЃРµСЂРІРµСЂР°)
@@ -179,68 +179,98 @@
 - **`any`** вЂ” warn (СЂРµС€РµРЅРёРµ СЌС‚Р°РїР° 17), РЅРѕРІС‹Рµ РѕС€РёР±РєРё lint РЅРµ РІРЅРѕСЃРёС‚СЊ
 - **CI-РјРёРіСЂР°С†РёРё (СЌС‚Р°Рї 27)** вЂ” РІ deploy.yml РјРёРіСЂР°С†РёРё РІС‹РїРѕР»РЅСЏСЋС‚СЃСЏ РќРђ РЎР•Р Р’Р•Р Р• РїРµСЂРµРґ pm2 restart (`set -a; . ./server/.env; node database/migrations/migrate.js`), РЅРµ СЃ CI-СЂР°РЅРЅРµСЂР°
 
-## Этапы 38-41 (23.08.2026)
+## Р­С‚Р°РїС‹ 38-41 (23.08.2026)
 
-| Этап | Что сделано |
+| Р­С‚Р°Рї | Р§С‚Рѕ СЃРґРµР»Р°РЅРѕ |
 |---|---|
-| **Этап 38** | Admin TOTP 2FA: миграция 026 (users.totp_secret/totp_enabled), server/src/totp.js (otplib v13), routes/totp-2fa.js (setup/enable/disable через adminAuth), login требует totp_code при включённой 2FA (401 TOTP_REQUIRED/TOTP_INVALID + lockout), UI two-fa-settings.tsx, i18n two_fa_*; живой смоук 8/8 |
-| **Этап 39** | Webhook replay/idempotency: миграция 027 webhook_events (UNIQUE provider+event_id), INSERT IGNORE дедуп в checkout.session.completed, premium-webhook.test.js 5/5; upload security +5 тестов (non-image/no-file/auth/traversal/double-ext) |
-| **Этап 40** | Лимитеры вынесены в middleware/limiters.js (фабрики для тестов); ratelimit.test.js 3/3 (60 ок -> 61-й 429, api 600, изоляция экземпляров); i18n.test.ts RU<->EN синхронность; E2E icebreakers починен (эрозия данных - диапазон кандидатов расширен до 199) |
-| **Этап 41** | docs/runbook-keys.md: ротация всех ключей (.env vs VITE_*), порядок для каждого провайдера, чеклист полной ротации при утечке |
+| **Р­С‚Р°Рї 38** | Admin TOTP 2FA: РјРёРіСЂР°С†РёСЏ 026 (users.totp_secret/totp_enabled), server/src/totp.js (otplib v13), routes/totp-2fa.js (setup/enable/disable С‡РµСЂРµР· adminAuth), login С‚СЂРµР±СѓРµС‚ totp_code РїСЂРё РІРєР»СЋС‡С‘РЅРЅРѕР№ 2FA (401 TOTP_REQUIRED/TOTP_INVALID + lockout), UI two-fa-settings.tsx, i18n two_fa_*; Р¶РёРІРѕР№ СЃРјРѕСѓРє 8/8 |
+| **Р­С‚Р°Рї 39** | Webhook replay/idempotency: РјРёРіСЂР°С†РёСЏ 027 webhook_events (UNIQUE provider+event_id), INSERT IGNORE РґРµРґСѓРї РІ checkout.session.completed, premium-webhook.test.js 5/5; upload security +5 С‚РµСЃС‚РѕРІ (non-image/no-file/auth/traversal/double-ext) |
+| **Р­С‚Р°Рї 40** | Р›РёРјРёС‚РµСЂС‹ РІС‹РЅРµСЃРµРЅС‹ РІ middleware/limiters.js (С„Р°Р±СЂРёРєРё РґР»СЏ С‚РµСЃС‚РѕРІ); ratelimit.test.js 3/3 (60 РѕРє -> 61-Р№ 429, api 600, РёР·РѕР»СЏС†РёСЏ СЌРєР·РµРјРїР»СЏСЂРѕРІ); i18n.test.ts RU<->EN СЃРёРЅС…СЂРѕРЅРЅРѕСЃС‚СЊ; E2E icebreakers РїРѕС‡РёРЅРµРЅ (СЌСЂРѕР·РёСЏ РґР°РЅРЅС‹С… - РґРёР°РїР°Р·РѕРЅ РєР°РЅРґРёРґР°С‚РѕРІ СЂР°СЃС€РёСЂРµРЅ РґРѕ 199) |
+| **Р­С‚Р°Рї 41** | docs/runbook-keys.md: СЂРѕС‚Р°С†РёСЏ РІСЃРµС… РєР»СЋС‡РµР№ (.env vs VITE_*), РїРѕСЂСЏРґРѕРє РґР»СЏ РєР°Р¶РґРѕРіРѕ РїСЂРѕРІР°Р№РґРµСЂР°, С‡РµРєР»РёСЃС‚ РїРѕР»РЅРѕР№ СЂРѕС‚Р°С†РёРё РїСЂРё СѓС‚РµС‡РєРµ |
 
-Счётчики после этапа 41: server 179/179 (18 файлов), front 61/61 (13 файлов), E2E 44/44 = **284/284**
+РЎС‡С‘С‚С‡РёРєРё РїРѕСЃР»Рµ СЌС‚Р°РїР° 41: server 179/179 (18 С„Р°Р№Р»РѕРІ), front 61/61 (13 С„Р°Р№Р»РѕРІ), E2E 44/44 = **284/284**
 
-## Разбор обновлённых аудитов kimi/qwen/дипсик от 23.08.2026 (написаны после этапа 37, счётчики в них 258 устарели)
+## Р Р°Р·Р±РѕСЂ РѕР±РЅРѕРІР»С‘РЅРЅС‹С… Р°СѓРґРёС‚РѕРІ kimi/qwen/РґРёРїСЃРёРє РѕС‚ 23.08.2026 (РЅР°РїРёСЃР°РЅС‹ РїРѕСЃР»Рµ СЌС‚Р°РїР° 37, СЃС‡С‘С‚С‡РёРєРё РІ РЅРёС… 258 СѓСЃС‚Р°СЂРµР»Рё)
 
-### Закрыто этапами 38-42
-| Находка аудита | Этап |
+### Р—Р°РєСЂС‹С‚Рѕ СЌС‚Р°РїР°РјРё 38-42
+| РќР°С…РѕРґРєР° Р°СѓРґРёС‚Р° | Р­С‚Р°Рї |
 |---|---|
-| Admin TOTP 2FA отсутствует (kimi 1.5, дипсик #1, qwen фаза-3) | 38: TOTP + lockout + UI + смоук 8/8 |
-| File upload security тестов нет (#4) | 39: +5 тестов |
-| Stripe webhook replay/idempotency (#8) | 39: webhook_events дедуп + 5 тестов |
-| Rate-limit spec 61->429 (#5) | 40: ratelimit.test.js 3 теста |
-| i18n completeness (#11/#10) | 40: i18n.test.ts + закрытые пробелы zodiac/circadian |
-| Redis fallback: ECONNREFUSED ронял процесс ФАКТИЧЕСКИ (kimi 2.3/5.1 - краш подтверждён живым прогоном!) | 42: probe в queue.js -> очереди отключаются graceful; process-гварды |
-| __Host- префикс cookie (kimi 1.2) | 42 |
-| Cleanup revoked refresh-токенов cron (kimi 1.3) | 42: cleanup.js, раз в сутки, 30 дней |
-| RevenueCat webhook без теста (дипсик #9) | 42: iap-webhook.test.js 6 тестов |
-| WS reconnect race после silent refresh (kimi 1.4) | Верифицировано: use-websocket.ts пересоздаёт сокет по [token] + backoff 1s->30s |
-| CORS для нативки vs CORS_ORIGIN (kimi 1.6) | Верифицировано: prod fail-fast требует CORS_ORIGIN; нативка ходит Bearer, CORS не участвует |
-| deploy.yml cd перед migrate.js (qwen) | Верифицировано: cd /app/swiftmatch есть |
-| Security headers regression (#10 kimi) | 35: security.headers.test.js уже в CI |
+| Admin TOTP 2FA РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚ (kimi 1.5, РґРёРїСЃРёРє #1, qwen С„Р°Р·Р°-3) | 38: TOTP + lockout + UI + СЃРјРѕСѓРє 8/8 |
+| File upload security С‚РµСЃС‚РѕРІ РЅРµС‚ (#4) | 39: +5 С‚РµСЃС‚РѕРІ |
+| Stripe webhook replay/idempotency (#8) | 39: webhook_events РґРµРґСѓРї + 5 С‚РµСЃС‚РѕРІ |
+| Rate-limit spec 61->429 (#5) | 40: ratelimit.test.js 3 С‚РµСЃС‚Р° |
+| i18n completeness (#11/#10) | 40: i18n.test.ts + Р·Р°РєСЂС‹С‚С‹Рµ РїСЂРѕР±РµР»С‹ zodiac/circadian |
+| Redis fallback: ECONNREFUSED СЂРѕРЅСЏР» РїСЂРѕС†РµСЃСЃ Р¤РђРљРўРР§Р•РЎРљР (kimi 2.3/5.1 - РєСЂР°С€ РїРѕРґС‚РІРµСЂР¶РґС‘РЅ Р¶РёРІС‹Рј РїСЂРѕРіРѕРЅРѕРј!) | 42: probe РІ queue.js -> РѕС‡РµСЂРµРґРё РѕС‚РєР»СЋС‡Р°СЋС‚СЃСЏ graceful; process-РіРІР°СЂРґС‹ |
+| __Host- РїСЂРµС„РёРєСЃ cookie (kimi 1.2) | 42 |
+| Cleanup revoked refresh-С‚РѕРєРµРЅРѕРІ cron (kimi 1.3) | 42: cleanup.js, СЂР°Р· РІ СЃСѓС‚РєРё, 30 РґРЅРµР№ |
+| RevenueCat webhook Р±РµР· С‚РµСЃС‚Р° (РґРёРїСЃРёРє #9) | 42: iap-webhook.test.js 6 С‚РµСЃС‚РѕРІ |
+| WS reconnect race РїРѕСЃР»Рµ silent refresh (kimi 1.4) | Р’РµСЂРёС„РёС†РёСЂРѕРІР°РЅРѕ: use-websocket.ts РїРµСЂРµСЃРѕР·РґР°С‘С‚ СЃРѕРєРµС‚ РїРѕ [token] + backoff 1s->30s |
+| CORS РґР»СЏ РЅР°С‚РёРІРєРё vs CORS_ORIGIN (kimi 1.6) | Р’РµСЂРёС„РёС†РёСЂРѕРІР°РЅРѕ: prod fail-fast С‚СЂРµР±СѓРµС‚ CORS_ORIGIN; РЅР°С‚РёРІРєР° С…РѕРґРёС‚ Bearer, CORS РЅРµ СѓС‡Р°СЃС‚РІСѓРµС‚ |
+| deploy.yml cd РїРµСЂРµРґ migrate.js (qwen) | Р’РµСЂРёС„РёС†РёСЂРѕРІР°РЅРѕ: cd /app/swiftmatch РµСЃС‚СЊ |
+| Security headers regression (#10 kimi) | 35: security.headers.test.js СѓР¶Рµ РІ CI |
 
-### Осталось (внешние блокеры - не код)
-- Staging VPS + docker compose up end-to-end + healthcheck/volumes/сеть (kimi 2.1, все аудиты фаза 0)
-- Реальные ключи: Stripe live/test, SMTP, Sentry DSN, S3, Twilio, OpenAI, FCM, REVENUECAT_WEBHOOK_SECRET, VITE_REVENUECAT_API_KEY
-- Домен + SSL Let's Encrypt auto-renewal (certbot) + App Links assetlinks.json + SHA256 + keystore/AAB + Google Play 17+
-- k6 100 VU на staging с мониторингом free -m / Threads_connected (kimi 2.2); возможно DB_POOL_MAX 20->10
-- UptimeRobot + Grafana alerts в Telegram/Slack; log aggregation Loki/ELK (пост-релиз)
+### РћСЃС‚Р°Р»РѕСЃСЊ (РІРЅРµС€РЅРёРµ Р±Р»РѕРєРµСЂС‹ - РЅРµ РєРѕРґ)
+- Staging VPS + docker compose up end-to-end + healthcheck/volumes/СЃРµС‚СЊ (kimi 2.1, РІСЃРµ Р°СѓРґРёС‚С‹ С„Р°Р·Р° 0)
+- Р РµР°Р»СЊРЅС‹Рµ РєР»СЋС‡Рё: Stripe live/test, SMTP, Sentry DSN, S3, Twilio, OpenAI, FCM, REVENUECAT_WEBHOOK_SECRET, VITE_REVENUECAT_API_KEY
+- Р”РѕРјРµРЅ + SSL Let's Encrypt auto-renewal (certbot) + App Links assetlinks.json + SHA256 + keystore/AAB + Google Play 17+
+- k6 100 VU РЅР° staging СЃ РјРѕРЅРёС‚РѕСЂРёРЅРіРѕРј free -m / Threads_connected (kimi 2.2); РІРѕР·РјРѕР¶РЅРѕ DB_POOL_MAX 20->10
+- UptimeRobot + Grafana alerts РІ Telegram/Slack; log aggregation Loki/ELK (РїРѕСЃС‚-СЂРµР»РёР·)
 
-### Осталось (код, низкий приоритет / после релиза)
-- CSRF double-submit - только при выносе API на поддомен (решение зафиксировано во всех аудитаx)
-- Fingerprint привязка refresh-токена к устройству/IP (дипсик #3) - риск сломать мобильный Bearer-flow, делать осторожно после беты
-- Circuit breaker Stripe/OpenAI/S3 (дипсик #4, kimi) - после релиза
+### РћСЃС‚Р°Р»РѕСЃСЊ (РєРѕРґ, РЅРёР·РєРёР№ РїСЂРёРѕСЂРёС‚РµС‚ / РїРѕСЃР»Рµ СЂРµР»РёР·Р°)
+- CSRF double-submit - С‚РѕР»СЊРєРѕ РїСЂРё РІС‹РЅРѕСЃРµ API РЅР° РїРѕРґРґРѕРјРµРЅ (СЂРµС€РµРЅРёРµ Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅРѕ РІРѕ РІСЃРµС… Р°СѓРґРёС‚Р°x)
+- Fingerprint РїСЂРёРІСЏР·РєР° refresh-С‚РѕРєРµРЅР° Рє СѓСЃС‚СЂРѕР№СЃС‚РІСѓ/IP (РґРёРїСЃРёРє #3) - СЂРёСЃРє СЃР»РѕРјР°С‚СЊ РјРѕР±РёР»СЊРЅС‹Р№ Bearer-flow, РґРµР»Р°С‚СЊ РѕСЃС‚РѕСЂРѕР¶РЅРѕ РїРѕСЃР»Рµ Р±РµС‚С‹
+- Circuit breaker Stripe/OpenAI/S3 (РґРёРїСЃРёРє #4, kimi) - РїРѕСЃР»Рµ СЂРµР»РёР·Р°
 
-- Backup/restore smoke в CI; RTO-замер в rollback-plan.md (kimi 2.5): прогнать scripts/verify-backup.ps1 и записать минуты restore
+- Backup/restore smoke РІ CI; RTO-Р·Р°РјРµСЂ РІ rollback-plan.md (kimi 2.5): РїСЂРѕРіРЅР°С‚СЊ scripts/verify-backup.ps1 Рё Р·Р°РїРёСЃР°С‚СЊ РјРёРЅСѓС‚С‹ restore
 
 
-- Разбить AGENTS.md (>1500 строк порог); Node 25 dev vs 22-alpine Docker - сверить поведение jsdom/localStorage
+- Р Р°Р·Р±РёС‚СЊ AGENTS.md (>1500 СЃС‚СЂРѕРє РїРѕСЂРѕРі); Node 25 dev vs 22-alpine Docker - СЃРІРµСЂРёС‚СЊ РїРѕРІРµРґРµРЅРёРµ jsdom/localStorage
 
-Счётчики после этапа 42: server 191/191 (21 файл), front 61/61 (13 файлов), E2E 44/44 = **296/296**
+РЎС‡С‘С‚С‡РёРєРё РїРѕСЃР»Рµ СЌС‚Р°РїР° 42: server 191/191 (21 С„Р°Р№Р»), front 61/61 (13 С„Р°Р№Р»РѕРІ), E2E 44/44 = **296/296**
 
-### Дополнение: закрыто этапами 43-44 (23.08.2026)
+### Р”РѕРїРѕР»РЅРµРЅРёРµ: Р·Р°РєСЂС‹С‚Рѕ СЌС‚Р°РїР°РјРё 43-44 (23.08.2026)
 
-| Пункт | Статус |
+| РџСѓРЅРєС‚ | РЎС‚Р°С‚СѓСЃ |
 |---|---|
-| E2E refresh race | Этап 43: security-blind-spots.spec.ts - параллельный refresh -> один 200 + reuse 401, семья отзывается целиком |
-| E2E cookie edge cases | Этап 43: мусорный Bearer -> authenticated:false мягко; silent refresh по sm_refresh cookie |
-| E2E GDPR erasure cascade | Этап 43: регистрация -> активность -> erase confirm -> me 401/404 + логин 401 |
-| Cross-browser firefox/webkit | Этап 43: projects по флагу CROSS_BROWSER=1, браузеры установлены, прогон 16/16 passed |
-| Rate-limit Retry-After | Этап 43: standardHeaders:true, тест на заголовок |
-| Nginx 86400s scope (kimi 2.6) | Этап 44: верифицировано - timeout только в /socket.io/, конфиг корректен |
-| RTO замер (kimi 2.5) | Этап 44: verify-backup.ps1 = 3.6 сек restore+sanity (dev); экстраполяция прод в rollback-plan.md N+1 |
-| Single-instance rate-limit (kimi 1.1) | Этап 44: решение зафиксировано в rollback-plan.md N+2 (запрещён cluster mode до Redis store) |
+| E2E refresh race | Р­С‚Р°Рї 43: security-blind-spots.spec.ts - РїР°СЂР°Р»Р»РµР»СЊРЅС‹Р№ refresh -> РѕРґРёРЅ 200 + reuse 401, СЃРµРјСЊСЏ РѕС‚Р·С‹РІР°РµС‚СЃСЏ С†РµР»РёРєРѕРј |
+| E2E cookie edge cases | Р­С‚Р°Рї 43: РјСѓСЃРѕСЂРЅС‹Р№ Bearer -> authenticated:false РјСЏРіРєРѕ; silent refresh РїРѕ sm_refresh cookie |
+| E2E GDPR erasure cascade | Р­С‚Р°Рї 43: СЂРµРіРёСЃС‚СЂР°С†РёСЏ -> Р°РєС‚РёРІРЅРѕСЃС‚СЊ -> erase confirm -> me 401/404 + Р»РѕРіРёРЅ 401 |
+| Cross-browser firefox/webkit | Р­С‚Р°Рї 43: projects РїРѕ С„Р»Р°РіСѓ CROSS_BROWSER=1, Р±СЂР°СѓР·РµСЂС‹ СѓСЃС‚Р°РЅРѕРІР»РµРЅС‹, РїСЂРѕРіРѕРЅ 16/16 passed |
+| Rate-limit Retry-After | Р­С‚Р°Рї 43: standardHeaders:true, С‚РµСЃС‚ РЅР° Р·Р°РіРѕР»РѕРІРѕРє |
+| Nginx 86400s scope (kimi 2.6) | Р­С‚Р°Рї 44: РІРµСЂРёС„РёС†РёСЂРѕРІР°РЅРѕ - timeout С‚РѕР»СЊРєРѕ РІ /socket.io/, РєРѕРЅС„РёРі РєРѕСЂСЂРµРєС‚РµРЅ |
+| RTO Р·Р°РјРµСЂ (kimi 2.5) | Р­С‚Р°Рї 44: verify-backup.ps1 = 3.6 СЃРµРє restore+sanity (dev); СЌРєСЃС‚СЂР°РїРѕР»СЏС†РёСЏ РїСЂРѕРґ РІ rollback-plan.md N+1 |
+| Single-instance rate-limit (kimi 1.1) | Р­С‚Р°Рї 44: СЂРµС€РµРЅРёРµ Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅРѕ РІ rollback-plan.md N+2 (Р·Р°РїСЂРµС‰С‘РЅ cluster mode РґРѕ Redis store) |
 
-Остаток по E2E (низкий приоритет): TOTP enrollment с QR-сканом - требует мобильный аутентификатор, покрывается unit-тестами totp.test.js и живым смоуком.
+РћСЃС‚Р°С‚РѕРє РїРѕ E2E (РЅРёР·РєРёР№ РїСЂРёРѕСЂРёС‚РµС‚): TOTP enrollment СЃ QR-СЃРєР°РЅРѕРј - С‚СЂРµР±СѓРµС‚ РјРѕР±РёР»СЊРЅС‹Р№ Р°СѓС‚РµРЅС‚РёС„РёРєР°С‚РѕСЂ, РїРѕРєСЂС‹РІР°РµС‚СЃСЏ unit-С‚РµСЃС‚Р°РјРё totp.test.js Рё Р¶РёРІС‹Рј СЃРјРѕСѓРєРѕРј.
 
-Счётчики после этапа 44: server 191/191, front 61/61, E2E 47/47 (+16/16 cross-browser по флагу) = **299/299**
+РЎС‡С‘С‚С‡РёРєРё РїРѕСЃР»Рµ СЌС‚Р°РїР° 44: server 191/191, front 61/61, E2E 47/47 (+16/16 cross-browser РїРѕ С„Р»Р°РіСѓ) = **299/299**
+
+## Р­С‚Р°Рї 46 (23.08.2026): С„РёС‡Р° В«Р’СЃС‚СЂРµС‡РёВ» (Hangouts, РІР°СЂРёР°РЅС‚ 1 РёР· part.txt) + Р¶РёРІС‹Рµ СѓРІРµРґРѕРјР»РµРЅРёСЏ вЂ” Р—РђРљР Р«РўРћ
+
+| Р§С‚Рѕ | Р§РµРј Р·Р°РєСЂС‹С‚Рѕ |
+|---|---|
+| Hangouts С†РµР»РёРєРѕРј: РјРёРіСЂР°С†РёСЏ 028, API + Р°РґРјРёРЅ-РјРѕРґРµСЂР°С†РёСЏ + 4 СЃС‚СЂР°РЅРёС†С‹ + С„Р»Р°Рі hangouts_enabled + i18n hangout.* | СЌС‚Р°Рї 46; hangouts.test.js 33 С‚РµСЃС‚Р° + e2e/hangouts.spec.ts 4 СЃС†РµРЅР°СЂРёСЏ |
+| Р–РёРІС‹Рµ СѓРІРµРґРѕРјР»РµРЅРёСЏ: GET /api/notifications (РѕР±РѕРіР°С‰РµРЅРёРµ actor_name/hangout_title), read-all/:id-read, РєРѕР»РѕРєРѕР»СЊС‡РёРє РЅР° СЂРµР°Р»СЊРЅС‹С… РґР°РЅРЅС‹С… СЃ WS notification:new Рё deep-link РєР»РёРєРѕРј | notifications.js + app-header.tsx; notifications.test.js 7 С‚РµСЃС‚РѕРІ |
+| РљРѕРЅС‚РµРєСЃС‚ РІСЃС‚СЂРµС‡Рё РІ С‡Р°С‚Рµ: GET /api/hangouts/by-chat/:chatId + Р±Р°РЅРЅРµСЂ РЅР°Рґ СЃРѕРѕР±С‰РµРЅРёСЏРјРё С‡Р°С‚Р° | hangouts.js by-chat + chats-chatId.tsx |
+| Pre-existing Р±Р°Рі: РѕС‚СЃСѓС‚СЃС‚РІРѕРІР°Р» GET /api/chats/:chatId вЂ” СЃС‚СЂР°РЅРёС†Р° С‡Р°С‚Р° РїР°РґР°Р»Р° СЃ HTML-404, С€Р°РїРєР° РїР°СЂС‚РЅС‘СЂР° РЅРµ РіСЂСѓР·РёР»Р°СЃСЊ | РїРѕС‡РёРЅРµРЅ РІ СЌС‚Р°РїРµ 46 (social.js) |
+| Р›РµРіР°СЃРё-XSS РІ bio/display_name СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёС… СЃС‚СЂРѕРє | РјРёРіСЂР°С†РёСЏ 029 REGEXP_REPLACE + sanitizeProfileText() РЅР° С‡С‚РµРЅРёРё; С‚РµСЃС‚ XSS-С‡С‚РµРЅРёСЏ РїСЂРѕС„РёР»СЏ |
+| .gitignore РїР°С‚С‚РµСЂРЅ `test/` С†РµРїР»СЏР» src/test/ в†’ frontend-С‚РµСЃС‚С‹ РѕС‚СЃСѓС‚СЃС‚РІРѕРІР°Р»Рё РІ git | Р°РЅРєРѕСЂ Рє РєРѕСЂРЅСЋ `/test/`, С„Р°Р№Р»С‹ Р·Р°РєРѕРјРјРёС‡РµРЅС‹ |
+
+РЎС‡С‘С‚С‡РёРєРё РїРѕСЃР»Рµ СЌС‚Р°РїР° 46: server 229/229, front 65/65, E2E 51/51 = **345/345**
+
+### РҐРІРѕСЃС‚С‹ Hangouts (РЅРµ Р±Р»РѕРєРёСЂСѓСЋС‚)
+- [ ] UI СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёСЏ РѕР±СЉСЏРІР»РµРЅРёСЏ (PUT /api/hangouts/:id РµСЃС‚СЊ, СЃС‚СЂР°РЅРёС†С‹ hangout-edit РЅРµС‚)
+- [ ] Р¤РёР»СЊС‚СЂС‹ РґР°С‚ date_from/date_to РІ Р»РµРЅС‚Рµ; РїР°РіРёРЅР°С†РёСЏ page/limit
+- [ ] Р›РёРјРёС‚ 1 РѕР±СЉСЏРІР»РµРЅРёРµ/РґРµРЅСЊ РґР»СЏ free
+
+## РџР°СЂС‚РЅС‘СЂСЃРєР°СЏ СЌРєРѕСЃРёСЃС‚РµРјР° РїРѕ Mesta.txt вЂ” РќРћР’РђРЇ Р‘РћР›Р¬РЁРђРЇ Р—РђР”РђР§Рђ
+
+Р•РґРёРЅС‹Р№ РґРІРёР¶РѕРє (РЅРµ 5 РѕС‚РґРµР»СЊРЅС‹С… РјРѕРґСѓР»РµР№): РјРёРіСЂР°С†РёСЏ 030_partner_ecosystem.sql
+(partners / partner_offers / partner_conversions), СЂРѕСѓС‚РµСЂ partners.js
+(GET offers c РіРµРѕ+placement-С„РёР»СЊС‚СЂР°РјРё, POST track c utm_source=swiftmatch&ref),
+chat-partner-actions.tsx (В«рџљ• РўР°РєСЃРё / рџЌЅ Р РµСЃС‚РѕСЂР°РЅ / рџЋ¬ РљРёРЅРѕВ» СЂСЏРґРѕРј СЃ input С‡Р°С‚Р°),
+РІС‹Р±РѕСЂ В«РёР· Р°С„РёС€РёВ» РІ hangout-create.tsx, admin-partners.tsx, С„Р»Р°Рі partnerOffersEnabled.
+**Wave 1** = deeplink-РїР°СЂС‚РЅС‘СЂС‹ (С‚Р°РєСЃРё, Р°С„РёС€Р°, СЃС‚СЂРёРјРёРЅРі): Р±РµР· СЃР»РѕР¶РЅС‹С… API, С‚РѕР»СЊРєРѕ С‚СЂРµРєРёРЅРі РєР»РёРєРѕРІ вЂ” 1 РІРµС‡РµСЂ СЂР°Р±РѕС‚С‹.
+**Р’РѕР»РЅС‹ 2вЂ“4**: СЂРµСЃС‚РѕСЂР°РЅС‹/С†РІРµС‚С‹ (Stripe + webhook РїР°СЂС‚РЅС‘СЂР°), РѕС‚РµР»Рё РІ passport-mode (Redis-РєСЌС€ РѕС„С„РµСЂРѕРІ),
+B2B-СѓСЃР»СѓРіРё (С„РѕС‚РѕРіСЂР°С„С‹/РѕСЂРіР°РЅРёР·Р°С‚РѕСЂС‹, СЂРѕР»СЊ partner, РїРѕРґРїРёСЃРєР° С‡РµСЂРµР· Stripe).
+Р”РµС‚Р°Р»СЊРЅС‹Р№ РїР»Р°РЅ, СЃС…РµРјР° С‚Р°Р±Р»РёС† Рё DoD вЂ” РІ РєРѕРЅС†Рµ part.txt (СЂР°Р·РґРµР» В«Р”РѕРґРµР»Р°С‚СЊВ»).

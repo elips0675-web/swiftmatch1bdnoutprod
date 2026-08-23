@@ -1,8 +1,8 @@
 # SwiftMatch1BD — снимок для AI-анализа (август 2026)
 
 > Самодостаточный контекст для аудита моделями (kimi / qwen / deepseek и т.д.).
-> Свежие детали: «Что сделано.txt» (этапы 30–33), «Что доделать.txt» (журнал этапов 30+),
-> AGENTS.md (грабли #1–30), context.txt, project-context.md, README.md.
+> Свежие детали: «Что сделано.txt» (этап 35 = Hangouts), «Что доделать.txt» (журнал до этапа 46),
+> AGENTS.md (грабли #1–52), context.txt, project-context.md, README.md.
 > Предыдущие оценки: «Оценка kimi.txt», «Оценка qwen.txt», «Оценка дипсик.txt».
 
 ## Что это за проект
@@ -14,7 +14,7 @@ Node.js/Express + MySQL (mysql2) бэкенд, Socket.IO real-time, Capacitor An
 
 ## Статус проверок (всё зелёное)
 
-- Тесты **245/245**: сервер 143/143 (13 файлов), фронт 58/58 (12 файлов), E2E 44/44 (5 spec: audit-full, features, login, profile, register)
+- Тесты **345/345**: сервер 229/229 (24 файла), фронт 65/65 (14 файлов), E2E 51/51 (8 spec: audit-full, features, hangouts, security-blind-spots, login, profile, register + cross-browser по флагу)
 - vite build ✅, eslint 0 errors (154 warnings — стилевые), Swagger ✅
 - E2E: Playwright, storageState из global-setup (.auth/*.json), аудит console-errors на каждой странице, screenshot/video/trace на падение
 - Pre-flight: `npm run check:ports` (порты + JWT_SECRET), `scripts/check-keys.ps1` (какие прод-ключи не заполнены)
@@ -62,15 +62,42 @@ Node.js/Express + MySQL (mysql2) бэкенд, Socket.IO real-time, Capacitor An
   Грабля: `compressDebugAssets` MD5-jar лечится standalone-прогоном задачи.
 - **33:** миграция на httpOnly cookie (см. «Безопасность») по ADR; все тесты обновлены и зелёные.
 - **34:** refresh rotation + reuse detection (отзыв семьи), logout-all, revoke при смене пароля, account lockout 5→15 мин, ws.js без query-token. Сервер 143/143 (+14 тестов).
+- **35–45 (кратко):** schema-validate в CI + идемпотентные миграции; Admin TOTP 2FA (otplib); Stripe webhook idempotency (webhook_events); rate-limit spec-тесты; i18n completeness; Redis probe fallback (нет Redis → очереди graceful); __Host-cookie в prod; cleanup revoked refresh; XSS sanitize.js усилен (on*, javascript:, alert-зонды) + миграция 029 чистки легаси; E2E security-blind-spots (GDPR cascade, refresh race, cookie edges).
+
+## Этап 46 — фича «Встречи» (Hangouts) + живые уведомления (23.08.2026)
+
+- Миграция 028: `hangouts` / `hangout_responses` / `hangout_chats`, флаг `hangouts_enabled`.
+- API `hangouts.js`: лента с гео-радиусом и категорией, CRUD (soft-cancel), respond/accept/decline/cancel;
+  при accept — авто-чат + hangout_chats + уведомления обеим сторонам; max_companions → статус completed.
+  Админ-модерация block/unblock (`admin/hangouts.js`). Категории: cinema/theater/exhibition/cafe/concert/sport/other.
+- Страницы: /hangouts (лента+фильтры), /hangouts/create, /hangouts/my (табы), /hangouts/:id; админка /admin/hangouts;
+  баннер «Куда пойдем» на Home с гейтингом. WS: new_response/response_accepted/cancelled → рефетч на my/detail.
+- Живые уведомления: `notifications.js` (GET c JSON_EXTRACT-обогащением actor_name/hangout_title, read-all, :id/read),
+  колокольчик app-header.tsx на реальных данных (демо — fallback гостей), бейдж+тост по WS notification:new,
+  клик = deep-link по типу уведомления, «Прочитать все». Типы: hangout_response/accepted/declined/cancelled, invite, like.
+- Контекст встречи в чате: GET /api/hangouts/by-chat/:chatId (403 не-участнику) + баннер над сообщениями чата.
+  Попутно починен pre-existing баг: отсутствовал GET /api/chats/:chatId — страница чата падала HTML-404.
+- Тесты этапа: сервер hangouts.test.js 33 + notifications.test.js 7 + XSS-чтение профиля; фронт hangouts.test.tsx 5 +
+  home-hangouts.test.tsx 2; E2E hangouts.spec.ts 4 (создание→отклик→accept→чат).
+- Хвосты (не блокируют): UI редактирования объявления (PUT есть), date_from/date_to фильтры, пагинация, лимит 1/день для free.
+
+## Следующая большая задача — партнёрская экосистема (Mesta.txt)
+
+Единый движок партнёров (10 типов: афиша, рестораны, цветы, такси, отели, спа, фотографы, психологи, стриминг, эвенты):
+миграция 030 (partners/partner_offers/partner_conversions), роутер partners.js (offers c гео/placement + track
+c utm_source=swiftmatch&ref), chat-partner-actions.tsx («Такси/Ресторан/Кино» в чате), выбор «из афиши» в hangout-create,
+admin-partners.tsx, флаг partnerOffersEnabled. Wave 1 = deeplink-партнёры без сложных API. План и DoD — в part.txt («Доделать»).
 
 ## Реализованный функционал (кратко)
 
 Знакомства: анкета, геопоиск (MySQL Spatial), Smart Matching, attachment-тест, лайки/мэтчи/чаты,
 группы, конкурсы, блокировки, AI Icebreakers (OpenAI или fallback из БД), реакции, TTL-сообщения,
-Video Date Scheduling, Safety Check-in, Profile Score, Ghost Mode + Passport Mode (premium gate).
+Video Date Scheduling, Safety Check-in, Profile Score, Ghost Mode + Passport Mode (premium gate),
+**Встречи/Hangouts** (объявления «Куда пойдем», отклики, авто-чат при accept, модерация),
+живые уведомления (колокольчик + WS).
 Монетизация: Stripe Checkout (idempotency-key), RevenueCat IAP-клиент, реклама через фича-флаги, тарифы Plus/Gold/Platinum.
 Админка: дашборд, аналитика (retention/revenue-mix/регистрации), юзеры (бан/имперсонация), фича-флаги,
-модерация, контент, email-кампании, A/B-эксперименты (стабильный assign по MD5).
+модерация, контент, email-кампании, A/B-эксперименты (стабильный assign по MD5), модерация hangouts.
 GDPR: consent при регистрации (consent_log), data export, erasure requests — покрыто E2E.
 i18n RU/EN, push VAPID + FCM hook, deep links hook, рефералка.
 
@@ -83,6 +110,8 @@ i18n RU/EN, push VAPID + FCM hook, deep links hook, рефералка.
 3. Релиз Android: домен вместо LAN-IP, keystore-подпись, App Links (assetlinks.json), AAB + Google Play (политика 17+, сторы).
 4. Полная CSRF-защита (double-submit token) — только при выносе API на отдельный домен.
 5. Design System/Storybook — не начато.
+6. Хвосты Hangouts: UI редактирования объявления, фильтры дат, пагинация ленты, лимит 1 объявление/день для free.
+7. Партнёрская экосистема (Mesta.txt) — не начата; план в part.txt («Доделать»).
 
 ## Ключевые файлы
 
@@ -91,14 +120,14 @@ i18n RU/EN, push VAPID + FCM hook, deep links hook, рефералка.
 | `server/src/index.js` | Express-корень: helmet/cors/rate-limit/versioning/admin-gate |
 | `server/src/cookies.js` | setAuthCookies/clearAuthCookies/extractToken (Bearer ?? cookie) |
 | `server/src/middleware.js` | auth/optionalAuth/errorHandler |
-| `server/src/routes/*.js` | auth, profile, social, chats, premium, stripe, iap, gdpr, location, invites… |
-| `server/src/ws.js` | Socket.IO: чаты, typing, online, TTL-cleanup |
+| `server/src/routes/*.js` | auth, profile, social, chats, hangouts, notifications, premium, stripe, iap, gdpr, location, invites… |
+| `server/src/ws.js` | Socket.IO: чаты, typing, online, TTL-cleanup, notification:new, hangout:* |
 | `src/lib/token.ts` | память на web (запись), чтение легаси-storage, sessionStorage на нативе |
 | `src/lib/api.ts` | fetch-обёртка: Bearer, один авто-refresh, auth:unauthorized event |
 | `src/context/auth-context.tsx` | restore через /me → dev-login fallback, logout через API |
 | `src/lib/native.ts` | нативный адаптер fetch/WS (Bearer вместо cookie) |
 | `e2e/setup/global-setup.ts` | health-check API + сеет storageState (localStorage.token!) |
-| `database/migrations/` | 23 нумерованных миграции + migrate.js |
+| `database/migrations/` | 29 нумерованных миграций + migrate.js |
 
 ## Демо-доступы
 
