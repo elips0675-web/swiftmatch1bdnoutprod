@@ -167,7 +167,15 @@ build: { target: 'es2020', minify: 'esbuild', chunkSizeWarningLimit: 600 }
 ## Feature Flags
 
 Р—Р°РіСЂСѓР¶Р°СЋС‚СЃСЏ РёР· `GET /api/admin/features`:
-`videoCalls`, `aiIcebreakers`, `aiCompatibility`, `groupsPage`, `contest`, `showAds`, `autosearch`, `ttlMessages`, `dateScheduling`, `profileScore`
+`videoCalls`, `aiIcebreakers`, `aiCompatibility`, `groupsPage`, `contest`, `showAds`, `autosearch`, `ttlMessages`, `dateScheduling`, `profileScore`, `hangoutsEnabled`
+
+## Hangouts (Р’СЃС‚СЂРµС‡Рё)
+
+- РўР°Р±Р»РёС†С‹: `hangouts` (author_id, category, title, event_date, location_text, max_companions, status), `hangout_responses`, `hangout_chats` (Р»РёРЅРє С‡Р°С‚Р° Рє РІСЃС‚СЂРµС‡Рµ)
+- Р РѕСѓС‚С‹: `/api/hangouts` (GET Р»РµРЅС‚Р°, POST), `/:id` (GET/DELETE), `/:id/respond`, `/:id/responses/:rid` (PUT accept/decline вЂ” РїСЂРё accept СЃРѕР·РґР°С‘С‚СЃСЏ С‡Р°С‚ + Р·Р°РїРёСЃСЊ РІ hangout_chats + СѓРІРµРґРѕРјР»РµРЅРёСЏ), `/by-chat/:chatId`
+- РљР°С‚РµРіРѕСЂРёРё: cinema/theater/exhibition/cafe/concert/sport/other (`src/lib/hangouts.ts`)
+- РЎС‚СЂР°РЅРёС†С‹: `/hangouts`, `/hangouts/my`, `/hangouts/:id`; С„Р»Р°Рі `hangoutsEnabled`; Р±Р°РЅРЅРµСЂ РЅР° Home
+- РЈРІРµРґРѕРјР»РµРЅРёСЏ: С‚Р°Р±Р»РёС†Р° `notifications` + GET /api/notifications; WS `notification:new`; С‚РёРїС‹ hangout_response/accepted/declined/cancelled, invite, like
 
 ## Translation Keys
 
@@ -303,9 +311,9 @@ UI: Р·РµР»С‘РЅС‹Р№ badge в‰Ґ80, Р¶С‘Р»С‚С‹Р№ в‰Ґ50, РєСЂР°СЃРЅС‹Р№ <50; СЃРїРёСЃ
 - Р’РµСЂРёС„РёС†РёСЂРѕРІР°РЅРѕ: WS reconnect race Р·Р°РєСЂС‹С‚ ([token] deps + backoff), CORS native ok, deploy.yml cd ok
 - РЎС‡С‘С‚С‡РёРєРё: 296/296 (server 191 / front 61 / E2E 44). РљРѕРјРјРёС‚С‹: 4b8703e, 38db106
 
-## Этапы 43-45 (23 августа 2026) - E2E слепые зоны, кросс-браузер, XSS-зонды
+## пїЅпїЅпїЅпїЅпїЅ 43-45 (23 пїЅпїЅпїЅпїЅпїЅпїЅпїЅ 2026) - E2E пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, XSS-пїЅпїЅпїЅпїЅпїЅ
 
-- **Этап 43:** e2e/security-blind-spots.spec.ts - GDPR erasure cascade, refresh race ([200,401], reuse отзывает семью целиком включая токен победителя; relogin ok), cookie edge cases; ratelimit standardHeaders:true + Retry-After в тесте
-- **Этап 44:** firefox/webkit проекты по CROSS_BROWSER=1 (security-blind-spots+login 16/16); nginx 86400s только в /socket.io/ (проверено); RTO verify-backup.ps1=3.6сек (rollback-plan.md N+1); single-instance rate-limit до Redis store (N+2)
-- **Этап 45:** XSS-проба alert(\"xss\") в поле О себе - sanitize.js v2 (script-блоки с содержимым, on*= без тегов, js/vbs/data URI, зонды alert/prompt/confirm; <3 живёт); БД почищена; живой PUT residue=false; sanitize.test.js 7/7
-- Счётчики: 300/300 (server 192 / front 61 / E2E 47). Коммиты: b8efe63, 2c4df66, 23f802d
+- **пїЅпїЅпїЅпїЅ 43:** e2e/security-blind-spots.spec.ts - GDPR erasure cascade, refresh race ([200,401], reuse пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ; relogin ok), cookie edge cases; ratelimit standardHeaders:true + Retry-After пїЅ пїЅпїЅпїЅпїЅпїЅ
+- **пїЅпїЅпїЅпїЅ 44:** firefox/webkit пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ CROSS_BROWSER=1 (security-blind-spots+login 16/16); nginx 86400s пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ /socket.io/ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ); RTO verify-backup.ps1=3.6пїЅпїЅпїЅ (rollback-plan.md N+1); single-instance rate-limit пїЅпїЅ Redis store (N+2)
+- **пїЅпїЅпїЅпїЅ 45:** XSS-пїЅпїЅпїЅпїЅпїЅ alert(\"xss\") пїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ - sanitize.js v2 (script-пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, on*= пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, js/vbs/data URI, пїЅпїЅпїЅпїЅпїЅ alert/prompt/confirm; <3 пїЅпїЅпїЅпїЅ); пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ; пїЅпїЅпїЅпїЅпїЅ PUT residue=false; sanitize.test.js 7/7
+- пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: 300/300 (server 192 / front 61 / E2E 47). пїЅпїЅпїЅпїЅпїЅпїЅпїЅ: b8efe63, 2c4df66, 23f802d

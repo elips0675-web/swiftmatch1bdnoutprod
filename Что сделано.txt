@@ -1,6 +1,17 @@
 # Что сделано
 
-> Актуально на август 2026. Все тесты: **251/251** — E2E 44/44 ✅, фронт 58/58 ✅, сервер 149/149 ✅. Vite build: ✅. Lint: 0 errors. Swagger: ✅.
+> Актуально на август 2026. Все тесты: **345/345** — E2E 51/51 ✅, фронт 65/65 ✅, сервер 229/229 ✅. Vite build: ✅. Lint: 0 errors. Swagger: ✅.
+
+## Этап 35: фича «Встречи» (Hangouts, вариант 1) + живые уведомления (23.08.2026)
+
+- **Фича «Встречи» целиком**: миграция 028 (`hangouts`, `hangout_responses`, `hangout_chats`, флаг `hangouts_enabled`); backend `server/src/routes/hangouts.js` (CRUD + respond/accept/decline/cancel, авто-создание чата при accept) и `server/src/routes/admin/hangouts.js` (модерация); страницы `/hangouts`, `/hangouts/my`, `/hangouts/:id`; пункт в админ-сайдбаре; i18n `hangout.*` RU/EN; категория `walk` НЕ существует — только cinema/theater/exhibition/cafe/concert/sport/other
+- **Живые уведомления**: роут `server/src/routes/notifications.js` — GET /api/notifications (LIMIT 30 + JOIN-обогащение actor_name/hangout_title через JSON_EXTRACT payload), PUT /read-all, PUT /:id/read (404 на чужой). Колокольчик в app-header.tsx теперь на реальных данных (демо — fallback для гостей), WS-событие `notification:new` → бейдж + тост, клик → deep-link по типу, «Прочитать все». Сервер пишет DB-уведомления: hangout_accepted/hangout_declined/hangout_cancelled (+ emit)
+- **Контекст встречи в чате**: GET /api/hangouts/by-chat/:chatId (403 не-участнику) + фиолетовый баннер-ссылка над сообщениями в chats-chatId.tsx (`chats.hangout_context`). Попутно починен pre-existing баг: роут GET /api/chats/:chatId отсутствовал → страница чата падала с HTML-404 (теперь возвращает user_id/name/avatar участника)
+- **WS-рефетч**: hangouts-my.tsx и hangout-detail.tsx подписаны на hangout:new_response/response_accepted/cancelled
+- **Баннер «Куда пойдем» на Home** с гейтингом по флагу hangoutsEnabled (violet gradient, data-testid="home-hangouts")
+- **XSS «О себе»**: миграция 029 (REGEXP_REPLACE чистка легаси bio/display_name/name/city/country) + sanitizeProfileText() на чтении профиля; stripHtml на записи был сделан в этапе 34
+- Тесты: сервер +16 (hangouts 33, notifications 7, by-chat 4, XSS-чтение), фронт +7 (hangouts 5 c моком useWebSocket, home-banner 2), E2E hangouts.spec 4 сценария. Полный прогон: сервер 229, фронт 65, E2E 51 — 0 failures
+- `.gitignore`: паттерн `test/` анкорен к корню (`/test/`) — src/test больше не игнорируется, тесты фронта закоммичены
 
 ## Этап 34: безопасность авторизации по аудиту kimi/qwen/дипсик (22.08.2026)
 
