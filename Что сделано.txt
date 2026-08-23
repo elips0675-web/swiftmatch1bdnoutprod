@@ -391,3 +391,12 @@
 
 ## Этап 37 (23.08.2026): AGENTS.md - правило adminAuth
 - Security Rules: добавлено ПРАВИЛО adminAuth (рекомендация qwen #1): только active-check middleware, запрещены пассивные next(), ручные проверки роли в хендлерах и обход единого гейта app.use('/api/admin').
+
+## Этап 38 (23.08.2026): Admin TOTP 2FA (топ-пункт аудита kimi)
+- Миграция 026 (идемпотентная): users.totp_secret / users.totp_enabled; mysql_schema.sql синхронизирован
+- server/src/totp.js: otplib v13 (generateSecret/generateURI/verifySync, epochTolerance=30s на дрейф часов)
+- POST /api/auth/2fa/setup|enable|disable в routes/totp-2fa.js - только через adminAuth (active-check); index.js больше не дублирует adminAuth
+- Логин: админ с включённой 2FA без totp_code -> 401 TOTP_REQUIRED; неверный код -> 401 TOTP_INVALID (+lockout counter). Обратно совместимо: без включённой 2FA логин прежний
+- UI: src/components/admin/two-fa-settings.tsx в админке (otpauth URL + ключ для ручного ввода в аутентификатор, enable/disable кодом), i18n RU/EN
+- i18n completeness: закрыт pre-existing пробел common.zodiac.* (12 ключей en) - теперь ru=en=74 ключа
+- Живой смоук 8/8: setup -> enable -> login w/o code 401 TOTP_REQUIRED -> bad code 401 -> good code 200 -> disable -> login ok. Тесты: server 166/166 (+10 TOTP), front 58/58, E2E 44/44 = 268/268, lint 0 errors, build OK, migrate x2 exit 0, schema-validate OK

@@ -1,146 +1,150 @@
 Оценка проекта SwiftMatch1BD
-Комплексный аудит по состоянию на 22.08.2026, на основе AGENTS.md, README, «Что доделать.txt», «Для анализа.txt».
-📊 Общий вердикт
-Уровень зрелости: 8/10 для pet/startup-проекта, 6.5/10 для production-ready SaaS.
-Проект прошёл 33 итерации разработки с дисциплинированным подходом: каждый аудит предыдущих моделей (kimi / qwen / deepseek) закрывался конкретными этапами с фиксацией граблей в AGENTS.md. Это редкий случай, когда техдолг не копится, а системно разбирается.
-Главное достижение: 231/231 тестов зелёных + E2E + сборка + Android APK. Это не «работает на моей машине» — это инженерная база.
-Главный риск: проект застрял в «последней миле» — код готов, но нет ни staging, ни реальных ключей, ни выпущенного Android-релиза. Доход от него пока 0 ₽.
-✅ Сильные стороны (что сделано на высоком уровне)
-Область
+📊 Общая оценка: 7.8 / 10 (pet-проект: 9/10, prod-SaaS: 6.5/10)
+Вердикт: Технически зрелый код с образцовым покрытием тестами и продуманной архитектурой, но не готов к открытому продакшену — держат релиз внешние зависимости (ключи, домен, staging, сторы), а не баги в коде. Консенсус с kimi/qwen/дипсик: новый продуктовый код не нужен, нужно разблокировать прод.
+✅ Сильные стороны (то, что реально впечатляет)
+Категория
+Достижение
 Оценка
-Комментарий
-Тестовое покрытие
-🟢 9/10
-129 server + 58 front + 44 E2E. Playwright с storageState, аудит console-errors, screenshot/trace на падение. Это уровень enterprise.
-Безопасность (ядро)
-🟢 8.5/10
-httpOnly cookie (этап 33), Bearer+cookie dual-mode, PII-фильтр в Sentry, prepared statements везде, rate-limit, helmet, CSP.
-Монетизация
-🟢 8/10
-Stripe + idempotency-key + webhook + RevenueCat IAP + mock-fallback. Грабли с дублями подписок закрыты транзакциями.
-Модерация
-🟢 8/10
-banned-words, auto-escalation репортов (3+ → temp ban, severe → instant), AI-модерация scaffold.
-Инфра-скелет
-🟢 8/10
-Redis (кэш + Bull + WS-adapter), Prometheus+Grafana, Docker Compose, CI/CD, Nginx, бэкапы MySQL.
-Документация граблей
-🟢 10/10
-30+ pitfall'ов в AGENTS.md с точными симптомами и фикса́ми. Это золото для онбординга и предотвращения регрессий.
-i18n-дисциплина
-🟢 9/10
-Всё в БД — translation keys, t() обязателен, сортировка по локали. Исключения (админка, Sentry) задокументированы.
-GDPR
-🟢 9/10
-consent при регистрации, data export, erasure, consent_log — покрыто E2E. Редкость для pet-проектов.
+Тесты
+258/258 (156 сервер + 58 фронт + 44 E2E), 0 failures
+🟢 Образцово
+Документация
+AGENTS.md (1180 стр.), context.txt, rollback-plan.md, schema-validate
+🟢 Редкость для pet-проектов
+CI/CD
+GitHub Actions: lint → test → E2E → deploy; миграции на сервере
+🟢 Production-grade
+Безопасность auth
+httpOnly cookie + refresh rotation + reuse detection + family revoke + lockout 5→15min
+🟢 Уровень финтеха
+Graceful degradation
+10+ внешних сервисов без ключей работают на mock/fallback, не падают
+🟢 Продуманно
+Миграции
+Идемпотентны (INSERT IGNORE + information_schema/PREPARE), schema-validation в CI
+🟢 Реальный баг 018 пойман
+EXPLAIN-аудит SQL
+Статическая проверка всех запросов против схемы — пойманы скрытые 500
+🟢 Уникальная практика
+Мониторинг
+Prometheus + Grafana (7 панелей), Winston JSON, Sentry с PII-фильтром
+🟢 Готово к подключению
+Android
+APK собран (27.8 MB), RevenueCat SDK, cleartext guard в CI
+🟢 Toolchain настроен
 ⚠️ Слабые стороны и риски
-🔴 Блокеры для продакшена
-Проблема
-Влияние
-Что нужно
-Нет staging-окружения
-Полный k6 100 VU, реальные webhook'и Stripe/RevenueCat, Docker-up — всё отложено. Нельзя проверить RADAR_PRE_LEAK_64 под нагрузкой.
-VPS + DEPLOY_HOST/USER/SSH_KEY в GitHub secrets.
-Все prod-ключи — плейсхолдеры
-Stripe → 502 в prod, SMTP → письма не уходят, RevenueCat webhook → 503. «Мягкая деградация» работает в dev, но не в prod.
-Закупить/получить ключи, прогнать scripts/check-keys.ps1.
-Android не выпущен
-APK собран (27.8 MB debug), но: LAN-IP вместо домена, debug-подпись, нет App Links, нет assetlinks.json, нет AAB для Google Play.
-Keystore, домен, SHA256 для App Links, AAB-сборка, модерация Google Play (политика 17+).
-Docker Compose не поднимался локально
-YAML валиден, но никто не проверял, что 6 сервисов реально стартуют вместе. Риск «работает на бумаге».
-Прогнать docker compose up локально или на staging.
-🟠 Высокий приоритет
-Проблема
-Комментарий
-mysqld RADAR_PRE_LEAK_64
-Падает под E2E-нагрузкой (3 chromium + node + vite + mysql). Пул mysql2 проверен (connectionLimit 20, finally/release), но реальная причина — память. Нужен k6 100 VU на staging.
-Противоречия в AGENTS.md по adminAuth
-Частично исправлено на этапе 25, но всё ещё есть места, где написано и «ACTIVE», и «passive». Новая модель, читающая AGENTS.md, может запутаться.
-Windows-центричность
-Laragon, Task Scheduler, .bat, PowerShell — основной workflow. Staging/prod — Linux. Docker Compose есть, но не основной путь. Риск «у меня работает».
-154 eslint warnings
-Стилевые + any. Правило «warn, не error» осознанное (этап 17), но создаёт шум. Новые any запрещены — это хорошо.
-CSRF отложен
-SameSite=Lax + строгий CORS — достаточно для current setup. Но если API когда-нибудь вынесут на поддомен — потребуется double-submit token. Задокументировано в ADR.
-🟡 Средний приоритет
-Design System / Storybook — не начато. При росте команды фронт начнёт деградировать визуально.
-План отката — docs/rollback-plan.md написан на этапе 26, но не протестирован в боевых условиях.
-UptimeRobot / внешний мониторинг — есть Prometheus+Grafana, но нет алертов наружу. Если VPS умрёт — никто не узнает.
-SMS-верификация (Twilio) — scaffold есть, реальный запуск ждёт ключей.
+🔴 Критичные блокеры (держат релиз)
+Нет staging-окружения. Все проверки — локально на Windows. Docker Compose «YAML валиден, но не поднимался». k6 100 VU не прогонялся. mysqld падал с RADAR_PRE_LEAK_64 под E2E-нагрузкой — неясно, как поведёт себя в проде.
+Нет реальных API-ключей. Stripe LIVE, SMTP, Sentry DSN, S3, Twilio, OpenAI, FCM, RevenueCat — всё mock/fallback. Без этого нельзя:
+принимать деньги (Stripe webhook → 502 в prod)
+отправлять письма (лог «Would send»)
+ловить ошибки в проде (Sentry молчит)
+пушить на Android (FCM mock)
+Нет домена + SSL + App Links. Android-релиз и Universal Links невозможны.
+CSRF-защита неполная. SameSite=Lax не защищает от same-site атак (поддомены, open redirect). Double-submit token отложен «до выноса API на отдельный домен» — но это и есть стандартная prod-конфигурация.
+🟠 Риски второго эшелона
+Риск
+Последствия
+Вероятность
+Нет TOTP 2FA для админки
+Один фактор (admin@mail.ru/demo123456) — компрометация = полная потеря
+Средняя
+Нет down-миграций
+Откат только через бэкап (30 мин даунтайм)
+Средняя
+Нет внешнего мониторинга (UptimeRobot)
+«Если VPS умрёт, никто не узнает»
+Высокая
+Windows-центричность workflow
+.bat, Task Scheduler, PowerShell — непереносимо на Linux VPS без адаптации
+Высокая при миграции
+AGENTS.md ~1180 строк
+Контекст для AI-ассистентов на грани; при >1500 стр. начнёт деградировать
+Средняя
+Нет circuit breaker для Stripe/OpenAI/S3
+При недоступности — копятся webhook'и, очередь
+Средняя
+any — warn (127 предрасположенных)
+Новые any не добавляются, но старые — техдолг
+Низкая
 🎯 Готовность к продакшену по категориям
 Категория
-Статус
+Готовность
 Комментарий
-Backend API
-🟢 90%
-Код готов, ключи — плейсхолдеры
-Frontend
-🟢 95%
-Сборка проходит, i18n, accessibility
-База данных
-🟢 95%
-23 миграции, EXPLAIN-аудит пройден, бэкапы
+Код и архитектура
+95%
+Чисто, типизировано, SRP, без dangerouslySetInnerHTML
+Тесты и качество
+98%
+258/258, E2E с audit console, schema-validate
 Безопасность
-🟢 85%
-httpOnly cookie, PII-фильтр, rate-limit. CSRF отложен осознанно
-Тесты
-🟢 100%
-231/231 + E2E
-Инфра (Docker/CI)
-🟠 70%
-YAML валиден, но не поднимался; CI есть, deploy не протестирован
+85%
+Auth на уровне финтеха; нет TOTP/CSRF/fingerprint
+Инфраструктура
+70%
+Docker/CI есть, но не прогонялись реально
 Мониторинг
-🟠 75%
-Prometheus+Grafana есть, алертов нет
-Мобильное приложение
-🟠 60%
-APK debug собран, релиза нет
-Платежи
-🟠 50%
-Stripe mock в dev, в prod — 502 без ключа
-Email/SMS/Push
-🟠 40%
-Scaffold есть, реальных отправок нет
-Сторы (Google Play)
-🔴 10%
-Нет AAB, нет подписи, нет App Links, нет политики
-Итого production-readiness: ~70% (код и тесты — отлично, окружение и релиз — не готовы).
-🗺 Приоритизация оставшихся задач
-Рекомендую такой порядок — от разблокировки дохода к инфраструктурным улучшениям:
+60%
+Prometheus/Grafana настроены, но нет алертов и внешнего uptime
+Внешние сервисы
+30%
+Всё на mock/fallback, нет ключей
+Мобильный релиз
+50%
+APK собирается, но нет домена/подписи/App Links/стора
+Юридическая готовность
+90%
+GDPR, 18+, Privacy/ToS — есть
+Итого
+~70%
+До релиза ~2–3 недели плотной работы
+🗺 Приоритизация оставшихся задач (фазы)
 Фаза 1 — «Первый рубль» (1–2 недели)
-Стaging VPS + GitHub secrets (DEPLOY_HOST/USER/SSH_KEY).
-Реальные ключи: Stripe (тестовый режим → live), SMTP (Mailgun/Resend), Sentry DSN.
-Прогон полного E2E на staging с реальными ключами.
-Docker Compose up — проверить, что 6 сервисов стартуют.
+Арендовать VPS + настроить staging
+Завести GitHub secrets (DEPLOY_HOST/USER/SSH_KEY)
+Вписать реальные ключи (Stripe test→live, SMTP, Sentry DSN)
+Прогнать E2E на staging с реальными ключами
+docker compose up — проверить healthcheck/volumes/сеть
+k6 100 VU на staging — проверить RADAR_PRE_LEAK_64
 Фаза 2 — «Мобильный релиз» (2–3 недели)
-Домен + SSL для API (вместо LAN-IP).
-Keystore + AAB-сборка Android.
-App Links (assetlinks.json + SHA256).
-RevenueCat проект + VITE_REVENUECAT_API_KEY.
-Google Play Console — политика 17+, скриншоты, описание.
+Домен + SSL (Let's Encrypt auto-renewal)
+Keystore + AAB сборка
+App Links (assetlinks.json + SHA256)
+RevenueCat проект + VITE_REVENUECAT_API_KEY
+Google Play (политика 17+, скриншоты, TestFlight)
 Фаза 3 — «Надёжность» (параллельно)
-k6 ramp 100 VU на staging — проверить RADAR_PRE_LEAK_64.
-UptimeRobot + алерты в Telegram/Slack.
-Тест плана отката — симулировать инцидент.
-Чистка AGENTS.md — убрать противоречия по adminAuth, разбить на >1500 строк.
+UptimeRobot + Grafana alerts в Telegram/Slack
+Тест плана отката (docs/rollback-plan.md)
+Admin TOTP 2FA (enrollment + QR)
+CSRF double-submit token (при выносе API на отдельный домен)
+Circuit breaker для Stripe/OpenAI/S3
+Разбить AGENTS.md на AGENTS-RULES/PITFALLS/CHECKLISTS
 Фаза 4 — «Масштабирование» (после релиза)
-S3/CDN для фото (AWS keys).
-FCM для push на Android.
-Twilio для SMS-верификации.
-OpenAI / Rekognition для AI-модерации фото.
-Design System / Storybook.
-💡 Неожиданные находки
-AGENTS.md — это актив, а не документация. 30+ зафиксированных граблей с точными симптомами — это то, что отличает «живой» проект от «мёртвого». Продолжайте в том же духе: каждый production-инцидент → новая запись в AGENTS.md.
-Миграция на httpOnly cookie (этап 33) — образцовая. Сохранена обратная совместимость с E2E через чтение legacy-storage, /me probe всегда 200 (иначе audit падает), нативные сборки работают через Bearer. Это решение в ADR — правильное.
-EXPLAIN-аудит (этап 31) — недооценённая практика. Нашли 2 скрытых 500, которые не ловились тестами (iap.js webhook, location.js). Стоит добавить в CI: статический аудит SQL против схемы перед каждым PR.
-k6-лимит — это не баг, а фича. 600/мин глобальный + 30/мин лайки — с одного IP полный ramp невозможен. Это осознанно, но означает, что реальная нагрузочная ёмкость неизвестна. Нужен staging с multi-IP.
-Windows-центричность — стратегический риск. Весь workflow построен на Laragon + PowerShell + Task Scheduler. Это работает для соло-разработки, но делает проект непереносимым. Docker Compose — правильный путь, но он не стал основным.
-🎓 Итоговая рекомендация
-Проект готов к «первому пользователю», но не к «первому миллиону».
-Следующий шаг — не писать новый код, а разблокировать продакшен:
-VPS + ключи → первый реальный платеж через Stripe.
-Домен + keystore → первый реальный Android-пользователь.
-Staging + k6 100 VU → понимание реальной ёмкости.
-Всё остальное (CSRF, Storybook, SMS-верификация, AI-модерация) — это оптимизация, а не блокеры. Текущее состояние — это лучшие 70% готовности, которые я видел у pet-проектов такого масштаба.
-Если нужно — могу детально разобрать любую из областей (например, составить чек-лист релиза Android или план миграции на staging).
+S3/CDN для фото
+FCM для Android-пушей
+Twilio для SMS-верификации
+Rekognition/OpenAI для AI-модерации фото
+Storybook / Design System
+Log aggregation (Loki/ELK)
+🔍 Независимые находки (не упомянутые в других аудитах)
+Слепая зона: Redis fallback под нагрузкой. REDIS_URL=invalid → кэш-промахи не должны DDOS'ить MySQL. В документации заявлен graceful fallback, но E2E-теста на это нет.
+Слепая зона: Refresh race E2E. Два окна одного юзера с быстрым refresh в обоих — не покрыто. Unit-тест есть, E2E — нет.
+Слепая зона: File upload security. 15MB отклоняется, .php.jpg, path traversal ../../etc/passwd — не покрыто тестами.
+Слепая зона: Stripe webhook replay. Invalid signature → 400, idempotency-key без дублей — unit-тестов нет.
+Слепая зона: Cross-browser. Playwright только на chromium. Firefox/WebKit не включены.
+Грабли будущего: migrate.js не запускается из server/ (документировано в AGENTS.md), но CI-шаг на сервере делает cd — надо проверить, что в deploy.yml это явно прописано.
+Дрейф версий: Node 25 в разработке vs Node 22-alpine в Docker — потенциальные расхождения в localStorage (Node 25 имеет глобальный localStorage, ломает jsdom).
+🏁 Итоговый вердикт
+Проект находится в состоянии «технически готов, операционно не разблокирован».
+Это редкий случай, когда код, тесты, документация и архитектура опережают операционную готовность. Обычно бывает наоборот: «работает на коленке, но уже в проде». Здесь — наоборот: всё продумано, протестировано, задокументировано, но нет последнего шага — реального окружения с реальными ключами.
+Главная рекомендация: прекратить писать новый продуктовый код. Все силы — на разблокировку прода:
+staging VPS (1 день)
+ключи в .env (1 день)
+домен + SSL (1 день)
+E2E на staging (2–3 дня)
+Google Play релиз (1 неделя)
+После этого — только reliability, monitoring и масштабирование. Проект имеет все шансы стать работающим SaaS-продуктом, а не очередным pet-project на GitHub.
+Оценка в контексте рынка:
+Как портфолио-проект для senior-позиции: 10/10 (показывает системное мышление)
+Как MVP для закрытой беты: 8.5/10 (после staging + ключей)
+Как открытый prod-SaaS: 6.5/10 (нет ключей, домена, сторов, TOTP)

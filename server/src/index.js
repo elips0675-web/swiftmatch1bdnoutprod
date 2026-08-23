@@ -14,6 +14,9 @@ import { initIO, startMessageCleanup, startCheckinCleanup } from './ws.js'
 import { createLogger, rootLogger } from './logger.js'
 import { idempotency } from './middleware/idempotency.js'
 import { isLocked, recordFailure, recordSuccess } from './lockout.js'
+import twoFaRoutes from './routes/totp-2fa.js'
+import { verifyTotpToken } from './totp.js'
+import { adminAuth } from './middleware/adminAuth.js'
 import { initSentry, registerSentryErrorHandler } from './sentry.js'
 import { getRedis, disconnectRedis } from './redis.js'
 import { initQueues, closeQueues } from './queue.js'
@@ -93,27 +96,7 @@ app.use('/api/', limiter)
 app.use('/api/auth/', authLimiter)
 app.use('/api/premium/create-checkout', idempotency)
 
-async function adminAuth(req, res, next) {
-  const token = extractToken(req)
-  if (!token) {
-    return res.status(401).json({ message: 'ADMIN_REQUIRED' })
-  }
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET())
-
-    const [rows] = await pool.query(
-      'SELECT id, role FROM users WHERE id = ? AND role = ? AND is_active = 1',
-      [decoded.userId, 'admin'],
-    )
-    if (rows.length === 0) {
-      return res.status(403).json({ message: 'ADMIN_REQUIRED' })
-    }
-    req.admin = rows[0]
-    next()
-  } catch {
-    return res.status(401).json({ message: 'ADMIN_REQUIRED' })
-  }
-}
+// adminAuth импортируется из middleware/adminAuth.js (единый гейт, этап 38)
 
 // Dev route: auto-login as demo user (id=2, has chats in demo data)
 app.post('/api/auth/dev-login', async (req, res) => {
@@ -141,7 +124,7 @@ app.post('/api/auth/login', async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      'SELECT id, email, role, password_hash FROM users WHERE email = ? AND is_active = 1',
+      'SELECT id, email, role, password_hash, totp_secret, totp_enabled FROM users WHERE email = ? AND is_active = 1',
       [email],
     )
     if (rows.length === 0) {
@@ -155,6 +138,18 @@ app.post('/api/auth/login', async (req, res) => {
     if (!valid) {
       recordFailure(lockKey)
       return res.status(401).json({ message: 'Invalid credentials' })
+    }
+
+    // TOTP 2FA (этап 38, аудит kimi): для админов с включённой 2FA пароль — только первый фактор
+    if (user.role === 'admin' && user.totp_enabled === 1) {
+      const code = String(req.body.totp_code || '').trim()
+      if (!code) {
+        return res.status(401).json({ message: 'TOTP_REQUIRED' })
+      }
+      if (!verifyTotpToken(user.totp_secret, code)) {
+        recordFailure(lockKey)
+        return res.status(401).json({ message: 'TOTP_INVALID' })
+      }
     }
     recordSuccess(lockKey)
 
@@ -176,6 +171,9 @@ app.post('/api/auth/logout', (req, res) => {
   clearAuthCookies(res)
   res.json({ message: 'Logged out' })
 })
+
+// TOTP 2FA management (этап 38): setup/enable/disable, только админы
+app.use(twoFaRoutes)
 
 // Public content endpoint (no auth)
 app.get('/api/content', async (req, res) => {

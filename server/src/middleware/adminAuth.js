@@ -13,7 +13,7 @@ export async function adminAuth(req, res, next) {
     const decoded = jwt.verify(token, JWT_SECRET())
 
     const [rows] = await pool.query(
-      'SELECT id, role FROM users WHERE id = ? AND role = ? AND is_active = 1',
+      'SELECT id, email, role FROM users WHERE id = ? AND role = ? AND is_active = 1',
       [decoded.userId, 'admin'],
     )
     if (rows.length === 0) {

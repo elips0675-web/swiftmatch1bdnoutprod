@@ -1,89 +1,137 @@
-Провёл аудит по четырём направлениям: безопасность (фокус на cookie-схеме), риски прод-миграции, приоритизация оставшегося и слепые зоны тестов.
-1. Безопасность
-Cookie-схема (этап 33) — что хорошо
-httpOnly sm_token/sm_refresh с корректными флагами (SameSite=Lax, Secure в проде).
-XSS-safe: web-фронт не пишет токен в localStorage/sessionStorage (только память + чтение легаси для совместимости).
-Гибрид Bearer/cookie покрывает и web, и нативные сборки.
-Пробелы и риски
+SwiftMatch — свежий аудит после этапа 37
+Дата: 23.08.2026. Контекст: 258/258 тестов, httpOnly cookie, refresh rotation, schema-validation в CI.
+1. Безопасность: cookie-схема и вокруг неё
+✅ Что держит удар
 Таблица
-Риск	Уровень	Почему
-CSRF без double-submit token	🔴 Высокий	SameSite=Lax не защищает от same-site атак (поддомены, XSS на субдомене, open redirect). При выносе API на отдельный домен это станет критичным.
-Нет rotation refresh-токенов	🔴 Высокий	Если sm_refresh украден (malware, XSS на поддомене), атакующий получает 7-дневное окно. Нет механизма инвалидации всех сессий пользователя.
-Нет привязки сессии к устройству/IP	🟡 Средний	Украденный токен работает с любого устройства. Нет fingerprinting'а.
-Brute-force на auth слабый	🟡 Средний	60 req/min = ~1 запрос/сек. Для логина это много. Нет account lockout после N неудач.
-Race condition на refresh	🟡 Средний	Два параллельных POST /api/auth/refresh с одним sm_refresh создадут два новых access-токена. Один из них «осиротеет» и вызовет цикл 401→refresh.
-WebSocket auth через query-param?	🟡 Средний	Не видел в сниппетах, но если токен передаётся в ?token= при WS handshake — он осядет в логах nginx/proxy.
-Нет 2FA для админки	🔴 Высокий	admin@mail.ru / demo123456 — единственный фактор. При компрометации одного пароля — полный доступ к банам, имперсонации, рассылкам.
-Быстрые фиксы (до продакшена)
-Refresh rotation: при refresh выдавать новую пару access+refresh, старый refresh инвалидировать (хранить token_family в БД).
-Account lockout: после 5 неудачных попыток — блокировать IP/аккаунт на 15 мин (отдельный rate-limit, строже authLimiter).
-Session list / revoke all: endpoint для инвалидации всех refresh-токенов пользователя (при смене пароля, подозрении на взлом).
-Admin TOTP: минимум TOTP для /api/admin/* (Google Authenticator).
+Механизм	Вердикт	Почему
+httpOnly cookie sm_token + sm_refresh	✅ Архитектурно верно	XSS не достаёт токен из JS; нативные сборки изолированы в Bearer
+Refresh rotation + reuse detection	✅ Production-ready	Атомарный claim через affectedRows, family_id, replay → revoke всей семьи. Гонка закрыта
+Account lockout	✅ Работает	5×401 → 429/15 мин, in-memory. Для закрытой беты — достаточно
+stripHtml на входе	✅ Defense in depth	<script> не сохраняется, «<3» не ломается. React сам экранирует вывод
+WS auth только handshake.auth.token	✅ Правильно	Query-param убран, не оседает в nginx-логах
+SameSite=Lax + Secure	✅ Базовый CSRF-щит	Для монолита (фронт и API на одном домене) — ок
+🔴 Пробелы и риски
+1.1. Rate-limit и lockout — in-memory (блокер при горизонтальном масштабировании)
+express-rate-limit и lockout.js используют in-memory хранилище. При запуске через PM2 cluster mode или Docker Compose с несколькими репликами лимиты не shared. Злоумышленник может обойти lockout, чередуя запросы между воркерами.
+Фикс: Подключить rate-limit-redis и переписать lockout.js на Redis (или документировать: «prod — strictly single-instance до миграции на Redis store»).
+1.2. Отсутствие __Host- prefix у cookie
+sm_token без префикса. Если в будущем появятся поддомены (например, admin.swiftmatch.app), cookie может быть перезаписана/считана с поддомена.
+Фикс: __Host-sm_token (требует Secure и Path=/, что уже так).
+1.3. Cleanup revoked refresh-токенов
+Сейчас revoked-токены помечаются revoked=1, но не удаляются (это правильно для детекта reuse). Однако через год таблица refresh_tokens разрастётся. Нет cron-джобы для удаления токенов старше N дней.
+Фикс: Ежедневный cleanup: DELETE FROM refresh_tokens WHERE revoked = 1 AND updated_at < NOW() - INTERVAL 30 DAY.
+1.4. WS reconnection — токен в handshake
+При reconnect WebSocket клиент снова проходит handshake. Но что если refresh произошёл между disconnect и reconnect? Старый handshake.auth.token (access) уже invalid, а новый клиент не знает, потому что httpOnly cookie не читается из JS.
+Проверить: Передаёт ли клиент в WS handshake только access-токен? Если да, то после silent refresh на REST клиент должен явно переподключить WS с новым токеном. Это потенциальная race.
+1.5. Admin TOTP — отложено, но админка уже защищена только паролем
+В «Что доделать.txt» сказано «админка не торчит наружу», но это предположение. Достаточно одной утечки admin@mail.ru/demo123456 (или XSS на фронте, или keylogger) — и злоумышленник в админке.
+Рекомендация: Перед staging добавить хотя бы IP-whitelist для /api/admin/* (nginx allow/deny) или базовую HTTP Basic Auth на nginx-уровне как временную меру.
+1.6. CORS для Capacitor vs строгий CORS_ORIGIN
+В README написано cors({ origin: '*' }) для Capacitor, в «Для анализа.txt» — fail-fast без CORS_ORIGIN. Нужно убедиться, что нативный режим определяется по User-Agent/заголовку, а не просто отключает CORS глобально. Иначе в проде будет * для всех.
 2. Риски миграции на прод
-🔴 Критичные
+🔴 Высокие риски
+2.1. Docker Compose не прогонялся end-to-end
+«Локально не поднимался — нет Docker на машине». Это значит, что на staging могут всплыть проблемы: сеть между app и nginx, volumes для MySQL, healthcheck тайминги, proxy_read_timeout для WS.
+Действие: Первый деплой на staging должен быть только Docker Compose + healthcheck + smoke-тесты. Не пушить код пользователей в первый же деплой.
+2.2. mysqld RADAR_PRE_LEAK_64 — нехватка памяти
+E2E (3 chromium + node + vite + mysql) убивал mysqld. На VPS с 1-2 GB RAM это повторится при k6 100 VU + реальные пользователи.
+Действие: На staging провести k6 100 VU с мониторингом free -m и SHOW STATUS LIKE 'Threads_connected'. Возможно, DB_POOL_MAX=20 слишком много для малого VPS — уменьшить до 10.
+2.3. Graceful degradation — граничные случаи
 Таблица
-Риск	Последствие	Митигация
-Cookie-migration для существующих пользователей	Все текущие Bearer-токены в localStorage станут невалидными при переходе на cookie-only. Массовый logout.	Graceful period: 2 недели принимать и Bearer (из заголовка), и cookie. Фронт пытается сначала cookie, fallback на Bearer из памяти.
-Schema drift на проде	История показывает постоянный дрейф (invites, subscriptions, location, messages). На проде SHOW COLUMNS может отличаться от локальной БД.	Добавить в CI шаг schema:validate — сравнение mysql_schema.sql с information_schema на staging перед деплоем.
-Docker Compose не тестировался	«Локально не поднимался — нет Docker на машине». На проде первый запуск Docker = неизвестные ошибки конфигурации.	Поднять staging в Docker перед продом. Проверить healthcheck'и, volume permissions, сеть между app↔nginx↔Prometheus.
-Redis single point of failure	Redis теперь поднят локально, но на проде (VPS) может упасть. Fallback на in-memory не тестировался под нагрузкой.	Нагрузочный тест с REDIS_URL=invalid — убедиться, что кэш промахи не DDOS'ят MySQL, а queue fallback не теряет email'ы.
-Android: LAN IP + cleartext	VITE_API_URL = LAN IP, cleartext: true в capacitor.config. Если это попадёт в production APK — MITM.	Жёсткий guard в CI: если NODE_ENV=production и cleartext=true — fail build. Для релиза только домен + SSL pinning.
-🟠 Средние
-Stripe/RevenueCat webhooks: без ключей — 502/503 (осознанно). Но с ключами и при недоступности Stripe — нет circuit breaker'а. Можно накопить очередь необработанных webhook'ов.
-Backup retention 7 дней: для GDPR и финансовых транзакций мало. Рекомендую 30-90 дней для БД, 1 год для бухгалтерских данных (платежи).
-No migration rollback: в migrate.js нет down-миграций. Если миграция сломает прод — только restore из backup.
-3. Приоритизация оставшегося списка
-До продакшена (блокеры)
-Staging + real keys + E2E — без этого нельзя проверить реальные платежи, пуши, email.
-CSRF double-submit token — при текущей архитектуре (web ↔ API на одном домене — ок, но при разделении — критично).
-Refresh token rotation + revoke all sessions.
-Account lockout / brute-force protection на auth.
-Admin 2FA (TOTP).
-Schema validation CI step (mysql_schema.sql vs information_schema).
-Redis failover test (убедиться, что fallback не ломает кэш-инвалидацию).
-Первые 2 недели после запуска
-k6 100 VU на staging — проверить RADAR_PRE_LEAK_64 под реальной нагрузкой.
-Circuit breakers для Stripe, OpenAI, S3 (не пытаться бесконечно при недоступности).
-SSL + auto-renewal (Let's Encrypt в docker-compose/nginx).
-Android release: keystore, AAB, Google Play политика 17+ (датинг = строгая модерация).
-Log aggregation (не только Winston на диск, а centralized — Loki/ELK).
-Первый месяц
-Design System / Storybook — не начато, но при команде >1 человека это тормозит.
-Grafana alerts — не только dashboards, а alerting в Telegram/Slack (CPU, 5xx, DB connections).
-SMS верификация (Twilio keys).
-AI модерация фото (Rekognition/OpenAI keys).
-CDN/S3 (AWS keys).
-4. Слепые зоны тестов
-Что покрыто хорошо ✅
-Unit: 231/231 (129 сервер + 58 фронт).
-E2E: 44 теста, 5 spec-файлов, console-error audit, screenshot на падение.
-API smoke: 18 точек.
-Cookie-auth: +3 теста (этап 33).
-Что НЕ покрыто ❌
+Сервис	Без ключа	Риск
+Stripe webhook	502/503	Пользователь не может оплатить, но знает об ошибке
+RevenueCat webhook	503	IAP не работает — критично для монетизации
+Redis	In-memory fallback	Bull Queue без Redis — падает или теряет задачи? Нужно проверить: если REDIS_URL=invalid, очереди email/push/image — они in-memory или reject?
+2.4. PM2 vs Docker — конфликт стратегий
+В README — pm2, в Docker Compose — docker. Если выбрать PM2 cluster mode — сломаются in-memory rate-limit и lockout. Если Docker — нужен orchestrator (docker-compose на одном хосте ок, но при росте — swarm/k8s).
+Рекомендация: Для старта — Docker Compose single-instance + Redis. PM2 оставить как fallback.
+2.5. Откат миграций — только через бэкап
+Это ок, но rollback-plan.md должен содержать точное время RTO (Recovery Time Objective): сколько минут на restore из бэкапа? Проверено ли restore на чистой БД за последнюю неделю?
+🟠 Средние риски
+2.6. Nginx proxy_read_timeout 86400s
+Если это глобальная директива, а не только для /socket.io/, то обычные HTTP-запросы тоже будут ждать 24 часа. При DDOS или медленных клиентах это исчерпает соединения.
+Фикс: proxy_read_timeout 86400s; только в location /socket.io/.
+2.7. SSL auto-renewal
+Let's Encrypt требует обновления каждые 90 дней. Нет упоминания о certbot в Docker Compose или cron.
+Действие: Добавить certbot контейнер или документировать ручное обновление.
+3. Слепые зоны тестов (приоритезация)
+🔴 Критично — добавить до staging
 Таблица
-Зона	Почему важно	Как покрыть
-Redis fallback	Нет тестов на поведение при ECONNREFUSED Redis. Кэш-промахи могут убить MySQL.	Интеграционный тест: REDIS_URL=redis://invalid:6379, проверить что приложение живёт, queue выполняет задачи синхронно (fallback).
-Race condition refresh	Два параллельных refresh создают цикл 401.	Playwright: два окна одного пользователя, быстрый refresh в обоих.
-Cookie edge cases	Expired cookie mid-session, revoked refresh, concurrent tabs.	E2E: выставить sm_token с exp=-1h, проверить silent refresh. Удалить refresh из БД, проверить logout.
-File upload security	Нет тестов на 10MB+ файлы, .php.jpg, path traversal (../../etc/passwd).	E2E: загрузить 15MB PNG (должен отклонить), файл с именем ../../../etc/passwd (должен сохранить как uuid).
-Rate limiting	E2E тестирует при поднятых лимитах (60/мин), но не проверяет 429.	Отдельный spec: 61 запросов к /api/auth/login → ожидать 429 на 61-м.
-WebSocket reconnect	Нет тестов на обрыв соединения и exponential backoff.	Playwright: page.evaluate(() => window.socket.disconnect()), проверить reconnect и доставку сообщения после восстановления.
-GDPR full erasure	Endpoint есть, но нет E2E на каскадное удаление (чаты, фото, matches, analytics).	E2E: создать пользователя → накопить активность → вызвать erase → проверить 404 на профиль и чаты.
-Stripe webhook security	Нет тестов на invalid signature, replay attack, idempotency.	Unit: подписать валидный payload, невалидный payload (должен 400), повторный запрос с тем же idempotency-key (должен 200, но не создавать дубль).
-i18n completeness	Нет теста, что все keys есть в RU и EN.	Unit: сканировать src/ на t("..."), проверять наличие в language-context.tsx для обоих языков.
-Backup/restore	verify-backup.ps1 есть, но не в CI.	CI job: restore backup в swiftmatch_test, прогнать smoke-тесты.
-Migration idempotency	Миграции заявлены как idempotent, но нет теста повторного запуска.	CI: запустить migrate.js дважды подряд, ожидать 0 errors.
-Security headers	Нет тестов на CSP, HSTS, X-Frame-Options.	Unit: supertest на /health, проверить заголовки Helmet.
-Admin impersonation security	Нет тестов на то, что админ не может имперсонировать другого админа или себя.	Unit: POST /api/admin/impersonate/:id с role=admin target → ожидать 403.
-Cross-browser	Playwright по умолчанию Chromium.	Добавить projects: [chromium, firefox, webkit] в playwright.config.ts.
-Итоговая оценка
+#	Что не покрыто	Почему важно	Как покрыть
+1	Redis fallback integration	ECONNREFUSED должен НЕ падать	E2E: запустить с REDIS_URL=redis://invalid:6379, пройти login→like→chat
+2	Refresh race E2E	Два окна одного юзера, быстрый refresh	Playwright: два контекста, одни куки, одновременный POST /refresh
+3	Cookie edge cases	Expired access + valid refresh mid-session	E2E: подменить sm_token на expired, убедиться в silent refresh без 401 в консоли
+4	File upload security	.php.jpg, path traversal, 15MB	E2E: загрузить shell.php.jpg, проверить что сохранён как uuid без .php; 15MB → 413
+5	Rate-limit spec	61-й login → 429	Интеграционный тест: 61 запрос в цикле, проверить 429 и Retry-After
+🟠 Высокий приоритет
 Таблица
-Критерий	Балл (10)	Комментарий
-Функциональность	9	Почти полный цикл датинга + соцфичи + монетизация + админка.
-Кодовое качество	8	TypeScript strict, SRP, тесты, но есть legacy-debt (127 any).
-Безопасность	6	Cookie-схема — шаг вперёд, но CSRF, brute force, rotation, 2FA — нет.
-Инфраструктура	7	Docker, CI/CD, monitoring есть, но не оттестировано «в бою».
-Тестирование	7	Хорошее покрытие happy path, но слепые зоны в security, fallback, load.
-Документация	9	AGENTS.md — образцовый документ для AI-ассистентов.
-Общий балл: 7.5/10
-Вердикт: проект готов к staging и закрытому бета-тесту, но не готов к открытому продакшену без устранения блокеров безопасности (CSRF, rotation, brute-force, admin 2FA) и развёртывания staging'а с реальными ключами.
+#	Что не покрыто	Как покрыть
+6	WS reconnect + exponential backoff	Эмуляция обрыва (devtools Network → Offline → Online)
+7	GDPR full erasure cascade	Создать юзера → активность → POST /data/erase/confirm → проверить 404 на профиль/чаты
+8	Stripe webhook security	Mock-сервер: invalid signature → 400, replay idempotency-key → 409
+9	Backup/restore smoke в CI	Restore в скретч-БД → npm test + E2E smoke
+10	Security headers regression	security.headers.test.js уже есть (7 тестов) — перенести в CI и запускать на каждый PR
+🟡 Средний приоритет
+Таблица
+#	Что не покрыто	Примечание
+11	i18n completeness	Grep всех t("...") против language-context.tsx — можно автоматизировать
+12	Cross-browser	Playwright config: добавить firefox и webkit в projects
+13	RevenueCat webhook E2E	Мок событий RevenueCat → проверка записи в subscriptions
+14	Admin TOTP enrollment	Когда реализуете — нужен E2E: QR-code сканируется, код принимается
+4. Честная оценка и дорожная карта
+Итоговая оценка: 8.5 / 10 (готов к закрытой бете / staging)
+Таблица
+Категория	Балл	Обоснование
+Код и архитектура	9/10	Чистый стек, хорошие абстракции, 258 тестов, idempotent миграции
+Безопасность аутентификации	8.5/10	Cookie-схема solid, rotation + reuse detection на уровне enterprise-паттерна. Минусы: нет TOTP, нет fingerprinting, in-memory lockout
+Инфраструктура	7/10	Docker не протестирован end-to-end, in-memory rate-limit, нет внешнего мониторинга
+Готовность к продакшену	7/10	Код готов, но окружение (ключи, домен, сторы) блокирует релиз
+Консенсус подтверждаю: новый продуктовый код не нужен
+Ваши аудиты (kimi 7.5, qwen 8/6.5, дипсик 95%) сходятся в одном: кодовая база достигла потолка качества для MVP. Дальнейшее «полирование» фич (новые фильтры, UI-фишки) — отложить до стабильного staging.
+Дорожная карта (фактическая, не идеальная)
+Неделя 1: Staging foundation
+VPS (2 CPU / 4 GB RAM минимум)
+Docker Compose up: docker compose up --build → healthcheck /health/ready → 200
+Заполнить test-ключи: Stripe test, SMTP (Mailtrap), Sentry DSN, Redis
+Первый деплой через deploy.yml (проверить secrets)
+Smoke-тест: регистрация → лайк → чат с реальными сервисами (кроме Stripe live)
+Неделя 2: Нагрузка и отказоустойчивость
+k6 100 VU на staging (проверить RADAR_PRE_LEAK_64, memory, pool)
+Добавить Redis-backed rate-limit + lockout (или задокументировать single-instance)
+E2E: Redis fallback, refresh race, cookie edge cases
+UptimeRobot + Grafana alert (CPU > 80%, 5xx > 1%)
+Неделя 3: Android и домен
+Домен + Let's Encrypt SSL
+assetlinks.json + SHA256 fingerprint
+Keystore + AAB debug → Google Play Internal Testing
+RevenueCat проект + ключ в .env
+Неделя 4: Безопасность админки
+Admin TOTP 2FA (или временно IP-whitelist на nginx)
+CSRF double-submit — только если API выносится на поддомен
+Cleanup cron для revoked refresh tokens
+После релиза (месяц 2):
+S3/CDN для фото
+FCM push production
+Twilio SMS live
+Rekognition/OpenAI модерация
+Log aggregation (Loki/ELK)
+5. Быстрые проверки на сегодня
+Запустите сейчас (15 минут), чтобы убедиться в отсутствии регрессий:
+bash
+# 1. Redis fallback
+REDIS_URL=redis://invalid:6379 node server/src/index.js
+# → Проверить: login, like, chat работают? Без 500?
+
+# 2. Cookie race (ручная проверка)
+# Открыть два окна /login, залогиниться, в обоих быстро нажать F5
+# → Оба окна живы? Нет 401 "reuse"?
+
+# 3. File upload boundary
+# Попробовать загрузить 15MB файл, .php.jpg, ../../etc/passwd
+# → 413, uuid без .php, без path traversal?
+
+# 4. Миграции idempotency
+node database/migrations/migrate.js
+node database/migrations/migrate.js  # второй раз
+# → exit 0, нет Duplicate entry?
+Если все 4 проходят — вы готовы к VPS. Если нет — фиксим, потом staging.

@@ -9,6 +9,7 @@ import {
 } from 'recharts';
 import { useLanguage } from '@/context/language-context';
 import { getToken } from '@/lib/token';
+import TwoFaSettings from '@/components/admin/two-fa-settings';
 
 const COLORS = ['#fe3c72','#ff8e53','#3b82f6','#8b5cf6','#10b981','#f59e0b','#ec4899','#6366f1'];
 
@@ -147,6 +148,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
+        <TwoFaSettings />
         <Card className="border-0 shadow-sm lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-black">{t('admin.dash.reg_trend')}</CardTitle>

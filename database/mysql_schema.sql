@@ -16,6 +16,8 @@ CREATE TABLE users (
   verification_token  VARCHAR(64) NULL,
   reset_token         VARCHAR(64) NULL,
   reset_token_expires TIMESTAMP NULL,
+  totp_secret         VARCHAR(255) NULL,
+  totp_enabled        TINYINT(1) NOT NULL DEFAULT 0,
   created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   last_login          TIMESTAMP NULL,
