@@ -302,3 +302,10 @@ UI: Р·РµР»С‘РЅС‹Р№ badge в‰Ґ80, Р¶С‘Р»С‚С‹Р№ в‰Ґ50, РєСЂР°СЃРЅС‹Р№ <50; СЃРїРёСЃ
 - **__Host- cookie РІ prod** (cookies.js ACCESS_COOKIE/REFRESH_COOKIE), **cleanup revoked refresh-С‚РѕРєРµРЅРѕРІ** СЂР°Р· РІ СЃСѓС‚РєРё (cleanup.js), **RevenueCat webhook unit-С‚РµСЃС‚С‹** (iap-webhook.test.js Г—6)
 - Р’РµСЂРёС„РёС†РёСЂРѕРІР°РЅРѕ: WS reconnect race Р·Р°РєСЂС‹С‚ ([token] deps + backoff), CORS native ok, deploy.yml cd ok
 - РЎС‡С‘С‚С‡РёРєРё: 296/296 (server 191 / front 61 / E2E 44). РљРѕРјРјРёС‚С‹: 4b8703e, 38db106
+
+## Этапы 43-45 (23 августа 2026) - E2E слепые зоны, кросс-браузер, XSS-зонды
+
+- **Этап 43:** e2e/security-blind-spots.spec.ts - GDPR erasure cascade, refresh race ([200,401], reuse отзывает семью целиком включая токен победителя; relogin ok), cookie edge cases; ratelimit standardHeaders:true + Retry-After в тесте
+- **Этап 44:** firefox/webkit проекты по CROSS_BROWSER=1 (security-blind-spots+login 16/16); nginx 86400s только в /socket.io/ (проверено); RTO verify-backup.ps1=3.6сек (rollback-plan.md N+1); single-instance rate-limit до Redis store (N+2)
+- **Этап 45:** XSS-проба alert(\"xss\") в поле О себе - sanitize.js v2 (script-блоки с содержимым, on*= без тегов, js/vbs/data URI, зонды alert/prompt/confirm; <3 живёт); БД почищена; живой PUT residue=false; sanitize.test.js 7/7
+- Счётчики: 300/300 (server 192 / front 61 / E2E 47). Коммиты: b8efe63, 2c4df66, 23f802d

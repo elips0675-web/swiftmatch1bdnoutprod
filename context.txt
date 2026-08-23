@@ -509,3 +509,11 @@
 - **Верифицировано без кода:** WS reconnect race (kimi 1.4) закрыт архитектурно — use-websocket.ts пересоздаёт сокет по deps [token], backoff 1s>30s; CORS нативки (kimi 1.6): prod fail-fast требует CORS_ORIGIN, нативка ходит Bearer; deploy.yml содержит cd /app/swiftmatch перед migrate.js (вопрос qwen)
 - **Новые тесты:** cleanup.test.js (3), cookies.test.js (3), iap-webhook.test.js (6)
 - **Счётчики: server 191/191 (21 файл), front 61/61 (13 файлов), E2E 44/44 = 296/296**; lint 0 errors; коммиты 4b8703e (этап 42), 38db106 (docs)
+
+## Этапы 43-45 (23 августа 2026)
+
+- **43:** E2E security-blind-spots.spec.ts - GDPR cascade (erase->confirm->401/404), refresh race (параллельный refresh одним токеном -> 200+401 reuse; reuse отзывает семью целиком - контракт подтверждён), cookie edge cases. Rate-limit standardHeaders:true + тест Retry-After
+- **44:** playwright.config.ts проекты firefox/webkit по CROSS_BROWSER=1 (16/16 passed); nginx верифицирован (86400s только в /socket.io/); RTO-замер verify-backup.ps1 = 3.6 сек -> rollback-plan.md N+1; single-instance rate-limit решение -> N+2. Счётчики 299/299
+- **45 (XSS alert("xss") в поле О себе):** проба юзера id=2 сохранялась в bio как текст (React экранирует - исполнения не было). sanitize.js усилен: <script> с содержимым, on*= обработчики без тегов, javascript:/vbscript:/data:text/html URI, зонды alert/prompt/confirm вызовы - всё вырезается; "<3"/"a<b" не трогаются. БД очищена. Живая проверка PUT профиля -> residue false. sanitize.test.js 7 тестов
+- Коммиты: b8efe63 (43-44), 2c4df66 (docs), 23f802d (45)
+- Счётчики итог: server 192/192 (22 файла) + front 61/61 + E2E 47/47 = 300/300
