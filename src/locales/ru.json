@@ -72,5 +72,10 @@
     "two_fa_disable_hint":  "Введите текущий код из приложения, чтобы отключить 2FA",
     "two_fa_enabled":  "2FA включена. Теперь при входе нужен код.",
     "two_fa_disabled":  "2FA отключена.",
-    "two_fa_invalid_code":  "Неверный код"
+    "two_fa_invalid_code":  "Неверный код",
+    "profile.circadian_rhythm":  "Режим сна",
+    "filter.circadian.lark":  "Жаворонок",
+    "filter.circadian.owl":  "Сова",
+    "filter.circadian.flexible":  "Гибкий",
+    "filter.circadian.any":  "Любой"
 }

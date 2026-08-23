@@ -407,3 +407,10 @@
 - premium-webhook.test.js (5 тестов): mock mode 200 без ключей, missing signature -> 400, битая подпись -> 400, валидное событие создаёт подписку + event_id, replay не дублирует
 - upload.test.js (+5 security-тестов): non-image отклоняется fileFilter'ом, нет файла -> 400, без auth -> 401, path traversal не попадает в url (uuid.ext), shell.php.jpg хранится как .jpg
 - Счётчики: server 176/176 (17 файлов), front 58/58, E2E 44/44 = 278/278; schema-validate 54 таблицы OK
+
+## Этап 40 (23.08.2026): rate-limit spec тесты + i18n completeness unit
+- Лимитеры вынесены из index.js в middleware/limiters.js (apiLimiter 600/min, authLimiter 60/min + фабрики для изолированных тестов)
+- ratelimit.test.js (3 теста, слепая зона kimi): 60 запросов проходят -> 61-й 429 Too many auth attempts; api 600 -> 429; экземпляры независимы
+- i18n.test.ts (3 теста, слепая зона qwen): все ключи RU<->EN синхронны, значения непустые. Тест сразу поймал и закрыл реальный пробел: common.zodiac.* x12 отсутствовали в EN, circadian x5 - в RU. Теперь ru=en=79 ключей
+- e2e/features.spec.ts: диапазон поиска кандидата для нового чата расширен до 199 - после многих прогонов у demo уже есть чаты со всеми "ранними" юзерами (эрозия данных, existing=false недостижим)
+- Счётчики: server 179/179 (18 файлов), front 61/61 (13 файлов), E2E 44/44 = 284/284

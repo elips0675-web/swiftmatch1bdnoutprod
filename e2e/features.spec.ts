@@ -135,7 +135,9 @@ test.describe('14. Icebreakers', () => {
         expect(meId).toBeGreaterThan(0)
 
         let chatId = 0
-        for (let pid = 22; pid <= 60 && !chatId; pid++) {
+        // этап 40: диапазон расширен до 199 — после многих прогонов у demo есть
+        // чаты со всеми "ранними" юзерами, ищем кого угодно без существующего чата
+        for (let pid = 20; pid <= 199 && !chatId; pid++) {
           if (pid === meId) continue
           const created = await apiCall(request, 'POST', '/api/chats', { participant_id: pid }, demoToken)
           if (created.ok && created.body?.existing === false) {

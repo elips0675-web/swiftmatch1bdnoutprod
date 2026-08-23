@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import crypto from 'crypto'
-import rateLimit from 'express-rate-limit'
+import { apiLimiter as limiter, authLimiter } from './middleware/limiters.js'
 import helmet from 'helmet'
 import cookieParser from 'cookie-parser'
 import pool from './db.js'
@@ -56,8 +56,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = process.env.PORT || 3002
 
-const limiter = rateLimit({ windowMs: 60_000, max: 600, message: { message: 'Too many requests' } })
-const authLimiter = rateLimit({ windowMs: 60_000, max: 60, message: { message: 'Too many auth attempts' } })
 
 if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
   throw new Error('CORS_ORIGIN is required in production (fail-fast)')
