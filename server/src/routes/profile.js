@@ -73,6 +73,15 @@ function parseJsonField(val, fallback) {
   return fallback || []
 }
 
+const PROFILE_TEXT_FIELDS = ['display_name', 'name', 'bio', 'city', 'country', 'passport_city']
+
+function sanitizeProfileText(profile) {
+  for (const field of PROFILE_TEXT_FIELDS) {
+    if (typeof profile[field] === 'string') profile[field] = stripHtml(profile[field])
+  }
+  return profile
+}
+
 router.get('/api/profile/me', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -103,7 +112,7 @@ router.get('/api/profile/me', auth, async (req, res) => {
     )
 
     const { location, ...profile } = rows[0]
-    res.json({ ...profile, photos, interests })
+    res.json({ ...sanitizeProfileText(profile), photos, interests })
   } catch (err) {
     logger.error('Profile GET /me error:', err)
     res.status(500).json({ message: 'Failed to fetch profile' })
@@ -179,7 +188,7 @@ router.get('/api/profile/:id', cacheRoute(60), async (req, res) => {
       [req.params.id],
     )
 
-    res.json({ ...rows[0], photos, interests })
+    res.json({ ...sanitizeProfileText(rows[0]), photos, interests })
   } catch (err) {
     logger.error('Profile GET error:', err)
     res.status(500).json({ message: 'Failed to fetch profile' })
