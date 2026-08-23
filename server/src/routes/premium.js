@@ -203,6 +203,16 @@ router.post('/api/premium/webhook', async (req, res) => {
         const conn = await pool.getConnection()
         try {
           await conn.beginTransaction()
+          // Идемпотентность (этап 39, аудит дипсик): повторная доставка события игнорируется
+          const [evt] = await conn.query(
+            'INSERT IGNORE INTO webhook_events (provider, event_id) VALUES (?, ?)',
+            ['stripe', String(event.id || '')],
+          )
+          if (!evt || evt.affectedRows === 0) {
+            await conn.rollback()
+            logger.warn(`Webhook event ${event.id} already processed, skipping`)
+            return res.json({ received: true })
+          }
           await conn.query(
             "UPDATE subscriptions SET is_active = 0 WHERE user_id = ? AND is_active = 1 AND expires_at > NOW()",
             [Number(userId)],

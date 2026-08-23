@@ -20,8 +20,8 @@ vi.mock('../logger.js', () => ({
 vi.mock('multer', () => {
   const mockSingle = vi.fn()
   return {
-    default: () => ({
-      single: () => mockSingle,
+    default: Object.assign(() => ({ single: () => mockSingle }), {
+      diskStorage: vi.fn(() => ({})),
     }),
     __mockSingle: mockSingle,
   }
@@ -29,6 +29,7 @@ vi.mock('multer', () => {
 
 import pool from '../db.js'
 import uploadRoutes from '../routes/upload.js'
+import { __mockSingle as mockSingle } from 'multer'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'test-secret'
 
@@ -94,5 +95,72 @@ describe('DELETE /api/photos/:id', () => {
     pool.query.mockRejectedValue(new Error('DB error'))
     const res = await request(app).delete('/api/photos/1').set('Authorization', authHeader())
     expect(res.status).toBe(500)
+  })
+})
+
+// Этап 39 (слепые зоны, аудит kimi): security-тесты загрузки файлов
+describe('POST /api/upload security', () => {
+  const app2 = createApp()
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('non-image mimetype отклоняется (multer fileFilter)', async () => {
+    mockSingle.mockImplementationOnce((req, res, cb) => cb(new Error('Only image files (jpg, jpeg, png, gif, webp) are allowed')))
+    const res = await request(app2)
+      .post('/api/upload')
+      .set('Authorization', authHeader())
+      .attach('photo', Buffer.from('<?php echo 1; ?>'), { filename: 'shell.php', contentType: 'application/x-php' })
+    expect(res.status).toBe(500)
+    expect(res.body.message).toBe('Upload failed')
+    expect(pool.query).not.toHaveBeenCalled()
+  })
+
+  it('без файла -> 400 No file uploaded', async () => {
+    mockSingle.mockImplementationOnce((req, res, cb) => cb(null))
+    const res = await request(app2).post('/api/upload').set('Authorization', authHeader())
+    expect(res.status).toBe(400)
+    expect(res.body.message).toBe('No file uploaded')
+  })
+
+  it('неавторизованный без user_id -> 401', async () => {
+    mockSingle.mockImplementationOnce((req, res, cb) => {
+      req.file = { filename: '123-456.jpg', originalname: 'ok.jpg', path: '/tmp/x.jpg' }
+      cb(null)
+    })
+    const res = await request(app2).post('/api/upload').attach('photo', Buffer.from('x'), { filename: 'a.jpg' })
+    expect(res.status).toBe(401)
+  })
+
+  it('path traversal в имени не попадает в url: хранится uuid.ext', async () => {
+    mockSingle.mockImplementationOnce((req, res, cb) => {
+      req.file = { filename: '1700000000-123456789.jpg', originalname: '../../etc/passwd.jpg', path: '/tmp/x.jpg' }
+      cb(null)
+    })
+    pool.query.mockResolvedValue([{ insertId: 7 }, []])
+    const res = await request(app2)
+      .post('/api/upload')
+      .set('Authorization', authHeader())
+      .attach('photo', Buffer.from('x'), { filename: '../../etc/passwd.jpg', contentType: 'image/jpeg' })
+    expect(res.status).toBe(200)
+    expect(res.body.url).toBe('/uploads/1700000000-123456789.jpg')
+    expect(res.body.url).not.toContain('..')
+    expect(res.body.url).toMatch(/\.jpg$/i)
+  })
+
+  it('двойное расширение shell.php.jpg хранится как .jpg', async () => {
+    mockSingle.mockImplementationOnce((req, res, cb) => {
+      req.file = { filename: '1700000001-987654321.jpg', originalname: 'shell.php.jpg', path: '/tmp/y.jpg' }
+      cb(null)
+    })
+    pool.query.mockResolvedValue([{ insertId: 8 }, []])
+    const res = await request(app2)
+      .post('/api/upload')
+      .set('Authorization', authHeader())
+      .attach('photo', Buffer.from('x'), { filename: 'shell.php.jpg', contentType: 'image/jpeg' })
+    expect(res.status).toBe(200)
+    expect(res.body.url.endsWith('.jpg')).toBe(true)
+    expect(res.body.url.includes('.php')).toBe(false)
   })
 })

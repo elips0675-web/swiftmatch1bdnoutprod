@@ -400,3 +400,10 @@
 - UI: src/components/admin/two-fa-settings.tsx в админке (otpauth URL + ключ для ручного ввода в аутентификатор, enable/disable кодом), i18n RU/EN
 - i18n completeness: закрыт pre-existing пробел common.zodiac.* (12 ключей en) - теперь ru=en=74 ключа
 - Живой смоук 8/8: setup -> enable -> login w/o code 401 TOTP_REQUIRED -> bad code 401 -> good code 200 -> disable -> login ok. Тесты: server 166/166 (+10 TOTP), front 58/58, E2E 44/44 = 268/268, lint 0 errors, build OK, migrate x2 exit 0, schema-validate OK
+
+## Этап 39 (23.08.2026): слепые зоны тестов - upload security + Stripe webhook идемпотентность
+- Миграция 027: таблица webhook_events (UNIQUE provider+event_id) для дедупликации вебхуков; mysql_schema.sql синхронизирован (54 таблицы)
+- premium.js webhook: INSERT IGNORE в webhook_events внутри транзакции; повторная доставка события -> rollback + received:true БЕЗ дубля подписки (закрыт replay-риск из аудита дипсик)
+- premium-webhook.test.js (5 тестов): mock mode 200 без ключей, missing signature -> 400, битая подпись -> 400, валидное событие создаёт подписку + event_id, replay не дублирует
+- upload.test.js (+5 security-тестов): non-image отклоняется fileFilter'ом, нет файла -> 400, без auth -> 401, path traversal не попадает в url (uuid.ext), shell.php.jpg хранится как .jpg
+- Счётчики: server 176/176 (17 файлов), front 58/58, E2E 44/44 = 278/278; schema-validate 54 таблицы OK
