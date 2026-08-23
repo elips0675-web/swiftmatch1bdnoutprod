@@ -1,12 +1,12 @@
 # Что доделать — сводный статус по аудитам kimi, дипсик, qwen
 
-> Актуально: 22.08.2026, после этапа 33 + свежий консолидированный аудит трёх моделей (внизу). Каждый пункт — из аудитов «Оценка kimi.txt», «Оценка дипсик.txt», «Оценка qwen.txt»; статус сверен с кодом и тестами.
+> Актуально: 23.08.2026, после этапов 35–37 (schema-validation в CI, идемпотентные миграции 018–023, cleartext только debug; RevenueCat SDK подключён; AGENTS.md правило adminAuth). Каждый пункт — из аудитов «Оценка kimi.txt», «Оценка дипсик.txt», «Оценка qwen.txt»; статус сверен с кодом и тестами.
 
 ## ✅ Закрыто (в т.ч. этапами 8–22)
 
 | Пункт аудита | Кто флагил | Чем закрыт |
 |---|---|---|
-| RevenueCat IAP (клиент) | kimi #3 | **Этап 22**: `src/lib/iap.ts` + интеграция в premium.tsx (нативная ветка); осталось только `npm i @revenuecat/purchases-capacitor` + `VITE_REVENUECAT_API_KEY` при сборке APK |
+| RevenueCat IAP (клиент) | kimi #3 | **Этап 22**: `src/lib/iap.ts` + интеграция в premium.tsx (нативная ветка); **Этап 36**: `npm i @revenuecat/purchases-capacitor@13.4.1` + динамический `import()` вместо `require` (работает в ESM-бандле на нативе); осталось только `VITE_REVENUECAT_API_KEY` при сборке APK |
 | Privacy Policy + Terms of Service | kimi, дипсик | Страницы существовали с марта 2024 (`/legal/privacy`, `/legal/terms`, `/legal/data-processing`, RU/EN, ссылки в настройках) — аудиты смотрели старый срез; **этап 19**: добавлена ссылка на ToS в чекбокс регистрации |
 | Age verification 18+ | kimi чеклист | **Этап 20**: обязательный чекбокс «Мне есть 18 лет» при регистрации + тост-блокировка |
 | Backup restore verification | kimi #23 | **Этап 21**: `scripts/verify-backup.ps1` (restore в скретч-БД + sanity-проверки), weekly-задача в `install-backup-task.bat` |
@@ -52,7 +52,7 @@
 - **CSRF** — не критично для JWT API-only (дипсик)
 - **Мониторинг доступности** (UptimeRobot) и SSL в docker-compose (дипсик #5 инфра)
 - **AGENTS.md** — разделить при >1500 строк (сейчас ~1180; qwen в свежем аудите называл >1500 — завышено)
-- **AGENTS.md противоречия по adminAuth** — одновременно написано «ACTIVE (401/403, этап 9)» и «passive (вызывает next() на ошибке)», «NEVER add auth checks» и «проверять req.user.role внутри хендлеров». Переписать секции, чтобы состояние было однозначным (qwen #1, топ-рекомендация)
+- **AGENTS.md противоречия по adminAuth** — ✅ закрыто этапом 25 (переписаны 7 секций) + этапом 37 (в Security Rules добавлено ПРАВИЛО adminAuth: только active-check middleware, запрет пассивных `next()`, ручных проверок роли и обхода единого гейта)
 - **Windows-центричность** — Laragon, Task Scheduler, .bat, PowerShell — основной workflow; staging/prod обычно Linux. Docker Compose есть, но не является основным путём (qwen #3)
 - **mysqld RADAR_PRE_LEAK_64 под E2E-нагрузкой** — mysqld падал при прогоне (3 chromium + node + vite + mysql). Проверить память/утечки пула mysql2, протестировать под k6 100 VU на staging (qwen #4)
 - ~~JWT в localStorage~~ — ✅ закрыто этапом 33: httpOnly cookie на web, Bearer только для нативных сборок
@@ -63,7 +63,7 @@
 
 | Пункт | Кто флагил | Чем закрыт |
 |---|---|---|
-| AGENTS.md противоречия по adminAuth | qwen #1 | **Этап 25**: переписаны все 7 секций AGENTS.md + persona.md — adminAuth ACTIVE (401/403), единый гейт `/api/admin` в index.js, публичен только GET /api/admin/features, dev-login → 404 в production |
+| AGENTS.md противоречия по adminAuth | qwen #1 | **Этап 25**: переписаны все 7 секций AGENTS.md + persona.md — adminAuth ACTIVE (401/403), единый гейт `/api/admin` в index.js, публичен только GET /api/admin/features, dev-login → 404 в production; **Этап 37**: закреплено ПРАВИЛО adminAuth в Security Rules |
 | rules-of-hooks / баг useApi.ts | qwen 🟡 | **Этап 25**: проверено — react-hooks rules-of-hooks включён в eslint.config.js, eslint: 0 errors (153 warnings), баг этапа 17 линтером ловился бы |
 | Секреты в логах | дипсик | **Этап 25**: Winston логирует только msg + err.message/stack (logger.js), req.body/headers не логируются; Sentry beforeSend фильтрует authorization/cookie/email |
 | План отката | дипсик | **Этап 26**: `docs/rollback-plan.md` — категории инцидентов (платежи/БД/полный отказ), диагностика ≤5 мин, откат коммита, бэкап-восстановление, чек-лист после отката |
@@ -104,7 +104,23 @@
 
 Проверки этапа: сервер **149/149** (+14 rotation/lockout, +6 sanitize), фронт 58/58 ✅, E2E 44/44 ✅ (WS-тесты подтверждают отказ от query-token), lint 0 errors ✅. Живая проверка: login → refresh 200 → replay старого refresh 401 «reuse» → новый токен тоже отозван (семья) ✅. **XSS в «О себе»**: `<script>` больше не хранится — `stripHtml` на входе (profile PUT/register/посты/сообщения), см. AGENTS #32; полная верификация 22.08: check:ports ✅, build ✅, 251/251 ✅, смоук API 200 ✅.
 
-### Этап 35 (предложен аудитом): безопасность до прода — остаток
+### ✅ Этапы 35–37 (23.08.2026) — schema-validation в CI, слепые зоны тестов, IAP SDK
+
+| Что | Чем закрыто |
+|---|---|
+| Schema validation в CI (kimi, инфра #1) | **Этап 35**: `scripts/schema-validate.mjs` — mysql_schema.sql ↔ information_schema живой БД (53 таблицы, exit 1 при расхождении); шаг в CI server-test после Init DB и на deploy ДО `migrate.js`; попутно убраны 4 мёртвые колонки схемы (users.email_verified_at, user_photos.moderated_by/at, messages.read_by) |
+| Migration idempotency (слепая зона) | **Этап 35**: найден реальный баг — migrate.js падал на 018 (`Duplicate entry 'romantic'`), т.к. seed/ALTER-миграции 018–023 не идемпотентны; исправлено (INSERT IGNORE, уникальный ключ uq_icebreaker_q, ALTER через information_schema+PREPARE); двойной прогон → 0 errors |
+| Security headers supertest (слепая зона) | **Этап 35**: `server/src/__tests__/security.headers.test.js` — 7 тестов против живого сервера (CSP, XFO/frame-ancestors, nosniff, HSTS, Referrer-Policy, /health без auth, кеш auth-эндпоинтов); skipIf сервер не поднят |
+| Impersonation guard (слепая зона) | N/A — фичи имперсонации в коде нет |
+| CI guard для Android cleartext (инфра #5) | **Этап 35**: `usesCleartextTraffic="true"` убран из main-манифеста (MITM-риск), добавлен debug-only манифест; guard `scripts/check-native-config.mjs` встроен в build:native и CI frontend job |
+| Backup retention 7 дней мало (инфра #7) | **Этап 35**: 7 → 30 дней (backup-mysql.ps1 + .sh) |
+| Down-миграций нет (инфра #8) | **Этап 35**: отмечено в docs/rollback-plan.md («откат только через бэкап») |
+| RevenueCat SDK (kimi #3) | **Этап 36**: `@revenuecat/purchases-capacitor@13.4.1`, `require()` → динамический `import()` (ESM-бандл); graceful no-op сохранён; остался только VITE_REVENUECAT_API_KEY перед APK |
+| AGENTS.md adminAuth (qwen #1) | **Этап 37**: ПРАВИЛО adminAuth в Security Rules — только active-check middleware, запрет пассивных `next()`, ручных проверок роли и обхода единого гейта |
+
+Проверки этапов: сервер **156/156** (+7 headers), фронт 58/58 ✅, E2E 44/44 ✅ = **258/258**; lint 0 errors ✅; build ✅; migrate.js ×2 → exit 0 ✅; schema-validate 53 таблицы OK ✅; cleartext guard OK ✅.
+
+### Остаток безопасности после этапа 35 (без TOTP/CSRF/fingerprint)
 
 | # | Пункт | Кто флагил |
 |---|---|---|
@@ -114,14 +130,14 @@
 
 ### Инфраструктурные находки аудита (этапы 35+)
 
-1. **Schema validation в CI**: сравнение mysql_schema.sql ↔ information_schema на staging перед деплоем — дрейф колонок ловился трижды (invites, iap.js, location.js) и не ловится тестами (kimi)
+1. ~~**Schema validation в CI**~~ ✅ этап 35 (см. таблицу выше)
 2. **EXPLAIN/SQL-аудит статически в CI** перед каждым PR (qwen)
 3. **Redis fallback под нагрузкой**: REDIS_URL=invalid → кэш-промахи не должны DDOS'ить MySQL, queue fallback не теряет письма (kimi)
 4. **Docker Compose up реально не прогонялся** — поднять на staging, проверить healthcheck/volumes/сеть (все три)
-5. **CI guard для Android**: production build + cleartext=true → fail сборки (MITM-риск LAN-IP) (kimi)
+5. ~~**CI guard для Android**~~ ✅ этап 35: cleartext убран из release, guard в build:native и CI
 6. Circuit breaker для Stripe/OpenAI/S3 — не копить очередь webhook'ов при недоступности (после релиза) (kimi)
-7. Backup retention 7 дней мало: 30–90 дней для БД, ~1 год для платежей (GDPR/финансы) (kimi)
-8. Down-миграций нет в migrate.js — при поломке только restore из бэкапа (осознанно, отметить в rollback-plan.md) (kimi)
+7. ~~Backup retention 7 дней мало~~ ✅ этап 35: 30 дней (платежи ~1 год — после Stripe live) (kimi)
+8. ~~Down-миграций нет в migrate.js~~ ✅ этап 35: отмечено в rollback-plan.md
 9. Внешний мониторинг: UptimeRobot + Grafana alerts в Telegram/Slack (CPU, 5xx, DB connections) — «если VPS умрёт, никто не узнает» (qwen, дипсик)
 10. Log aggregation (Loki/ELK) вместо Winston-на-диск + SSL Let's Encrypt auto-renewal (после релиза) (kimi)
 11. Windows-центричность: при переезде на Linux VPS адаптировать .bat→.sh (backup, запуск) (qwen, дипсик)
@@ -141,9 +157,9 @@
 - RevenueCat webhook E2E с моком событий (дипсик)
 - i18n completeness unit: все t("...") есть в RU и EN
 - Backup/restore smoke в CI (restore → smoke-тесты)
-- Migration idempotency: migrate.js дважды подряд → 0 errors
-- Security headers supertest (CSP/HSTS/XFO на /health)
-- Impersonation guard: админ→админ → 403
+- ~~Migration idempotency: migrate.js дважды подряд → 0 errors~~ ✅ этап 35 (и найден реальный баг 018)
+- ~~Security headers supertest (CSP/HSTS/XFO на /health)~~ ✅ этап 35 (7 тестов, skipIf без сервера)
+- ~~Impersonation guard: админ→админ → 403~~ N/A — фичи имперсонации нет
 - Cross-browser: projects [chromium, firefox, webkit] в playwright.config.ts
 - IAP sandbox-тест покупок после публикации в Google Play (дипсик)
 

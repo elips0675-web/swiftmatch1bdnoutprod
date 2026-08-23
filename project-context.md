@@ -284,3 +284,5 @@ UI: зелёный badge ≥80, жёлтый ≥50, красный <50; спис
 - **Этап 34 (безопасность):** refresh rotation + reuse detection (отзыв семьи при replay, миграция 025), `/api/auth/logout-all`, revoke всех сессий при смене пароля, account lockout 5→15 мин, ws.js без query-token
 - **GDPR-консент:** работает и покрыт E2E (регистрация блокируется без согласия, consent_log пишется)
 - Детали: «Что сделано.txt» (этапы 30–34), AGENTS.md (грабли #27–31)
+- **Этап 35 (23.08):** schema-validate.mjs в CI/deploy; идемпотентные миграции 018-023 (баг Duplicate entry починен); cleartext только debug + guard; backup 30 дней; security headers тесты. Итого 258/258
+- **Этапы 36-37:** RevenueCat SDK 13.4.1 + dynamic import; AGENTS.md правило adminAuth (active-check only)
