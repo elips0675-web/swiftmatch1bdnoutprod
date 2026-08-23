@@ -22,6 +22,8 @@ describe('rate limiters', () => {
     const over = await request(app).post('/ping')
     expect(over.status).toBe(429)
     expect(over.body.message).toMatch(/Too many auth attempts/)
+    // этап 43 (аудит kimi #5): клиент должен знать, когда повторять
+    expect(Number(over.headers['retry-after'])).toBeGreaterThan(0)
   })
 
   it('apiLimiter: лимит 600/min, превышение -> 429', async () => {

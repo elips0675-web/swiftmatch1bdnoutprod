@@ -23,6 +23,13 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    // Этап 43 (аудит kimi #12): cross-browser по флагу — CROSS_BROWSER=1 npx playwright test
+    ...(process.env.CROSS_BROWSER
+      ? [
+          { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+          { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+        ]
+      : []),
   ],
   /* webServer: [
     {

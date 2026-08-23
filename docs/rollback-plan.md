@@ -72,3 +72,27 @@
 - РћС‚РєР°С‚ СЃС…РµРјС‹ = РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРµ РёР· Р±СЌРєР°РїР° (scripts/backup-mysql.ps1|sh), Р·Р°С‚РµРј git checkout <prev-tag> + СЂРµСЃС‚Р°СЂС‚.
 - РџРµСЂРµРґ РґРµРїР»РѕРµРј CI РїСЂРѕРіРѕРЅСЏРµС‚ scripts/schema-validate.mjs РїСЂРѕС‚РёРІ Р¶РёРІРѕР№ Р‘Р” вЂ” РґСЂРµР№С„ СЃС…РµРјС‹ Р»РѕРјР°РµС‚ РґРµРїР»РѕР№ Р”Рћ РјРёРіСЂР°С†РёР№, Р° РЅРµ РїРѕСЃР»Рµ.
 - Р’СЃРµ РЅРѕРІС‹Рµ РјРёРіСЂР°С†РёРё РѕР±СЏР·Р°РЅС‹ Р±С‹С‚СЊ РёРґРµРјРїРѕС‚РµРЅС‚РЅС‹РјРё (information_schema + PREPARE), С‡С‚РѕР±С‹ РїРѕРІС‚РѕСЂРЅС‹Р№ РїСЂРѕРіРѕРЅ РїРѕСЃР»Рµ СЃР±РѕСЏ РЅРµ Р»РѕРјР°Р» Р±Р°Р·Сѓ.
+
+## N+1. RTO-замер восстановления из бэкапа (этап 44, аудит kimi 2.5)
+
+Замерено 23.08.2026 через scripts/verify-backup.ps1 (restore в scratch-БД swiftmatch_verify + sanity-проверки):
+
+| Метрика | Значение |
+|---|---|
+| Бэкап | swiftmatch_2026-08-18_075916.sql (0.3 MB, dev) |
+| Полный цикл restore + sanity | **3.6 сек** |
+| Sanity-проверки | user_profiles 130, matches 2, messages 213, subscriptions 1 |
+
+**Экстраполяция на прод:** при росте БД до 1 GB ориентировочно ~10–15 мин (mysql restore ~1.5 MB/s + sanity). Целевой RTO для беты: **< 30 мин**. Пересчитывать раз в месяц перед релизом.
+
+Проверка restore на чистой БД выполняется скриптом автоматически (weekly Task Scheduler через install-backup-task.bat).
+
+## N+2. Rate-limit / lockout: решение по масштабированию (этап 44, аудит kimi 1.1)
+
+**Решение: prod — strictly single-instance до миграции на Redis store.**
+
+- express-rate-limit и lockout.js используют in-memory хранилище — лимиты НЕ шарятся между процессами
+- Запрещено: pm2 cluster mode (pm2 start -i > 1), Docker replicas > 1, любой балансинг между инстансами API
+- deploy.yml использует pm2 restart swiftmatch-api в fork mode (single) — совместимо
+- При необходимости масштабирования ДО этого: перевести оба механизма на rate-limit-redis / Redis-backed lockout (REDIS_URL уже подключён, этап 29)
+- Nginx-уровень (limit_req_zone api 30r/s, auth 5r/s в nginx/swiftmatch.conf) работает независимо от числа инстансов и остаётся первой линией защиты

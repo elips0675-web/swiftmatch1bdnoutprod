@@ -426,3 +426,17 @@
 - КРИТИЧНОЕ: Redis fallback реально валил процесс (kimi 5.1 быстрая проверка поймала краш!): ioredis flushQueue внутри Bull бросал фатальный "Connection is closed" при недостижимом REDIS_URL. Фикс: queue.js redisReachable() probe (одноразовый ioredis lazyConnect клиент, ping с таймаутом) ДО создания Bull-очередей; недостижим -> очереди отключаются, mail.js уходит в "Would send" fallback. Плюс process-гварды unhandledRejection/uncaughtException в index.js. Живой смоук с redis://invalid-host-xyz: health 200, login 200, me 200, chats 200, сервер живёт
 - Верифицировано без изменений кода: WS reconnect race (kimi 1.4) закрыт архитектурно - use-websocket.ts пересоздаёт сокет при смене токена [deps token] + backoff 1s->30s; CORS нативки (kimi 1.6) - прод требует CORS_ORIGIN fail-fast, нативка ходит Bearer; deploy.yml содержит cd /app/swiftmatch перед migrate.js (вопрос qwen закрыт)
 - Счётчики: server 191/191 (21 файл), front 61/61, E2E 44/44 = 296/296
+
+## Этап 43 (23.08.2026): E2E слепые зоны - refresh race, cookie edge cases, GDPR cascade, cross-browser
+- e2e/security-blind-spots.spec.ts (3 теста):
+  * GDPR full erasure cascade (kimi #7): регистрация -> активность -> erase request -> неверный токен 404 -> confirm -> /profile/me 401/404 + повторный логин 401
+  * Refresh race (kimi #2): два параллельных POST /api/auth/refresh одним токеном -> ровно один 200 + один 401 reuse; контракт reuse detection: семья отзывается ЦЕЛИКОМ (свежий токен победителя тоже 401), повторный логин 200
+  * Cookie edge cases (kimi #3): мусорный Bearer -> мягкий контракт authenticated:false; silent refresh по sm_refresh cookie
+- Rate-limit Retry-After (kimi #5): standardHeaders:true в лимитерах, тест проверяет заголовок
+- Cross-browser (kimi #12): playwright projects firefox/webkit по флагу CROSS_BROWSER=1; браузеры установлены, security-blind-spots+login прогнаны: 16/16 passed
+
+## Этап 44 (23.08.2026): инфраструктурные верификации и доки
+- nginx proxy_read_timeout 86400s - ВЕРИФИЦИРОВАНО только в location /socket.io/ (nginx/swiftmatch.conf:55-56), обычные запросы не затронуты (kimi 2.6)
+- RTO замер (kimi 2.5): scripts/verify-backup.ps1 полный цикл restore+sanity = 3.6 сек (dev 0.3MB); экстраполяция прод ~10-15 мин/GB, целевой RTO беты <30 мин; записано в docs/rollback-plan.md секция N+1
+- Single-instance решение (kimi 1.1): prod строго один инстанс API до миграции на Redis store; pm2 fork mode совместим, nginx limit_req остаётся первой линией; зафиксировано в rollback-plan.md секция N+2
+- Счётчики: server 191/191, front 61/61, E2E 47/47 (+cross-browser 16/16 по флагу) = 299/299
