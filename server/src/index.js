@@ -13,6 +13,7 @@ import pool from './db.js'
 import { initIO, startMessageCleanup, startCheckinCleanup } from './ws.js'
 import { createLogger, rootLogger } from './logger.js'
 import { idempotency } from './middleware/idempotency.js'
+import { startRefreshTokenCleanup } from './cleanup.js'
 import { isLocked, recordFailure, recordSuccess } from './lockout.js'
 import twoFaRoutes from './routes/totp-2fa.js'
 import { verifyTotpToken } from './totp.js'
@@ -49,12 +50,23 @@ import icebreakersRoutes from './routes/icebreakers.js'
 import experimentsRoutes from './routes/experiments.js'
 import { metricsMiddleware, metricsRoute } from './metrics.js'
 import { JWT_SECRET } from './middleware.js'
-import { setAuthCookies, clearAuthCookies, extractToken } from './cookies.js'
+import { setAuthCookies, clearAuthCookies, extractToken, REFRESH_COOKIE } from './cookies.js'
 import { setupSwagger } from './swagger.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
 const PORT = process.env.PORT || 3002
+
+// Этап 42 (аудит kimi 2.3): resilience-гварды.
+// unhandledRejection — логируем и живём (beta-приоритет доступности).
+// uncaughtException — логируем; перезапуск обеспечивает pm2 в деплое
+process.on('unhandledRejection', (reason) => {
+  rootLogger.error('Unhandled rejection: ' + (reason?.stack || reason))
+})
+process.on('uncaughtException', (err) => {
+  rootLogger.error('Uncaught exception: ' + (err?.stack || err))
+})
+
 
 
 if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
@@ -162,7 +174,7 @@ app.post('/api/auth/login', async (req, res) => {
 })
 
 app.post('/api/auth/logout', (req, res) => {
-  const refreshToken = req.cookies?.sm_refresh || req.body?.refresh_token
+  const refreshToken = req.cookies?.[REFRESH_COOKIE] || req.body?.refresh_token
   if (refreshToken) {
     pool.query('DELETE FROM refresh_tokens WHERE token = ?', [refreshToken]).catch(() => {})
   }
@@ -276,6 +288,7 @@ const httpServer = createServer(app)
 initIO(httpServer)
 startMessageCleanup()
 startCheckinCleanup()
+startRefreshTokenCleanup()
 initQueues()
 httpServer.listen(PORT, () => {
   rootLogger.info(`SwiftMatch API running on port ${PORT}`)

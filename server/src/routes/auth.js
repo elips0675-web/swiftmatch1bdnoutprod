@@ -6,7 +6,7 @@ import { JWT_SECRET, auth } from '../middleware.js'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../mail.js'
 import logger from '../logger.js'
 import { trackEvent } from './experiments.js'
-import { setAuthCookies, clearAuthCookies } from '../cookies.js'
+import { setAuthCookies, clearAuthCookies, ACCESS_COOKIE, REFRESH_COOKIE } from '../cookies.js'
 import { stripHtml } from '../sanitize.js'
 
 const router = Router()
@@ -289,7 +289,7 @@ router.post('/api/auth/verify-email', async (req, res) => {
 })
 
 router.post('/api/auth/refresh', async (req, res) => {
-  const refresh_token = req.body?.refresh_token || req.cookies?.sm_refresh
+  const refresh_token = req.body?.refresh_token || req.cookies?.[REFRESH_COOKIE]
   if (!refresh_token) return res.status(400).json({ message: 'Refresh token required' })
 
   try {
@@ -338,7 +338,7 @@ router.post('/api/auth/logout-all', auth, async (req, res) => {
 router.get('/api/auth/me', async (req, res) => {
   const token = req.headers.authorization?.startsWith('Bearer ')
     ? req.headers.authorization.split(' ')[1]
-    : req.cookies?.sm_token
+    : req.cookies?.[ACCESS_COOKIE]
   // Прobe-эндпоинт: без валидного токена отдаём 200 (без консольного шума 401 на клиенте)
   const unauthenticated = () => res.json({ authenticated: false })
   if (!token) return unauthenticated()
