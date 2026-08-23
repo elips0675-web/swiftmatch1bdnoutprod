@@ -3,7 +3,7 @@ import { getToken } from '@/lib/token'
 // RevenueCat IAP scaffold (Capacitor / Android + App Store).
 // Web builds use the Stripe/mock flow via /api/premium/create-checkout.
 // Requirements before APK build:
-//   1. npm install @revenuecat/purchases-capacitor
+//   1. npm install @revenuecat/purchases-capacitor (installed, etap 36)
 //   2. VITE_REVENUECAT_API_KEY in .env (RevenueCat dashboard → SDK Keys → Google Play / App Store)
 //   3. Server: REVENUECAT_WEBHOOK_SECRET (subscriptions are created by the server webhook, iap.js)
 // Without the package or the key this module is a graceful no-op (fallback = true).
@@ -22,8 +22,7 @@ function isNative(): boolean {
 async function loadPurchases(): Promise<boolean> {
   if (purchasesLoaded) return !!Purchases
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require('@revenuecat/purchases-capacitor')
+    const mod = await import('@revenuecat/purchases-capacitor')
     Purchases = mod?.Purchases || null
   } catch {
     Purchases = null
