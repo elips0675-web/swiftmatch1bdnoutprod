@@ -189,3 +189,41 @@
 | **Этап 41** | docs/runbook-keys.md: ротация всех ключей (.env vs VITE_*), порядок для каждого провайдера, чеклист полной ротации при утечке |
 
 Счётчики после этапа 41: server 179/179 (18 файлов), front 61/61 (13 файлов), E2E 44/44 = **284/284**
+
+## Разбор обновлённых аудитов kimi/qwen/дипсик от 23.08.2026 (написаны после этапа 37, счётчики в них 258 устарели)
+
+### Закрыто этапами 38-42
+| Находка аудита | Этап |
+|---|---|
+| Admin TOTP 2FA отсутствует (kimi 1.5, дипсик #1, qwen фаза-3) | 38: TOTP + lockout + UI + смоук 8/8 |
+| File upload security тестов нет (#4) | 39: +5 тестов |
+| Stripe webhook replay/idempotency (#8) | 39: webhook_events дедуп + 5 тестов |
+| Rate-limit spec 61->429 (#5) | 40: ratelimit.test.js 3 теста |
+| i18n completeness (#11/#10) | 40: i18n.test.ts + закрытые пробелы zodiac/circadian |
+| Redis fallback: ECONNREFUSED ронял процесс ФАКТИЧЕСКИ (kimi 2.3/5.1 - краш подтверждён живым прогоном!) | 42: probe в queue.js -> очереди отключаются graceful; process-гварды |
+| __Host- префикс cookie (kimi 1.2) | 42 |
+| Cleanup revoked refresh-токенов cron (kimi 1.3) | 42: cleanup.js, раз в сутки, 30 дней |
+| RevenueCat webhook без теста (дипсик #9) | 42: iap-webhook.test.js 6 тестов |
+| WS reconnect race после silent refresh (kimi 1.4) | Верифицировано: use-websocket.ts пересоздаёт сокет по [token] + backoff 1s->30s |
+| CORS для нативки vs CORS_ORIGIN (kimi 1.6) | Верифицировано: prod fail-fast требует CORS_ORIGIN; нативка ходит Bearer, CORS не участвует |
+| deploy.yml cd перед migrate.js (qwen) | Верифицировано: cd /app/swiftmatch есть |
+| Security headers regression (#10 kimi) | 35: security.headers.test.js уже в CI |
+
+### Осталось (внешние блокеры - не код)
+- Staging VPS + docker compose up end-to-end + healthcheck/volumes/сеть (kimi 2.1, все аудиты фаза 0)
+- Реальные ключи: Stripe live/test, SMTP, Sentry DSN, S3, Twilio, OpenAI, FCM, REVENUECAT_WEBHOOK_SECRET, VITE_REVENUECAT_API_KEY
+- Домен + SSL Let's Encrypt auto-renewal (certbot) + App Links assetlinks.json + SHA256 + keystore/AAB + Google Play 17+
+- k6 100 VU на staging с мониторингом free -m / Threads_connected (kimi 2.2); возможно DB_POOL_MAX 20->10
+- UptimeRobot + Grafana alerts в Telegram/Slack; log aggregation Loki/ELK (пост-релиз)
+
+### Осталось (код, низкий приоритет / после релиза)
+- CSRF double-submit - только при выносе API на поддомен (решение зафиксировано во всех аудитаx)
+- Fingerprint привязка refresh-токена к устройству/IP (дипсик #3) - риск сломать мобильный Bearer-flow, делать осторожно после беты
+- Circuit breaker Stripe/OpenAI/S3 (дипсик #4, kimi) - после релиза
+- E2E: refresh race (2 окна), cookie edge cases, GDPR erasure cascade, cross-browser firefox/webkit, TOTP enrollment E2E с QR
+- Backup/restore smoke в CI; RTO-замер в rollback-plan.md (kimi 2.5): прогнать scripts/verify-backup.ps1 и записать минуты restore
+- Rate-limit/lockout на Redis store при горизонтальном масштабировании (kimi 1.1) или задокументировать single-instance в rollback/deploy
+- Nginx proxy_read_timeout 86400s только для location /socket.io/ (kimi 2.6) - проверить конфиг при деплое
+- Разбить AGENTS.md (>1500 строк порог); Node 25 dev vs 22-alpine Docker - сверить поведение jsdom/localStorage
+
+Счётчики после этапа 42: server 191/191 (21 файл), front 61/61 (13 файлов), E2E 44/44 = **296/296**
