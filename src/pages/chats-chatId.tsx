@@ -26,6 +26,8 @@ import { useTrackEvent } from "@/hooks/useExperiment";
 import { formatEventDate } from "@/lib/hangouts";
 import { CalendarHeart } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useFeatureFlags } from "@/context/feature-flags-context";
+import { ChatPartnerActions } from "@/components/chat/chat-partner-actions";
 
 const QUICK_REACTIONS = [
   { id: 'heart', icon: Heart, color: 'text-red-500', label: '❤️' },
@@ -66,6 +68,7 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { socket } = useWebSocket();
+  const { partnerOffersEnabled } = useFeatureFlags();
   const [inputValue, setInputValue] = useState("");
   const [selectedTtl, setSelectedTtl] = useState<number | null>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
@@ -289,6 +292,7 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
         </main>
 
       <div className="p-4 pb-[calc(4rem+env(safe-area-inset-bottom))] bg-white border-t">
+        {partnerOffersEnabled && <div className="mb-2"><ChatPartnerActions placement="chat" /></div>}
          <div className="flex items-center gap-3">
           <div className="flex-1 relative">
             <Input data-testid="message-input" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onFocus={() => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 300)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder={t('chats.placeholder')} className="pr-24 h-11 bg-muted/50 border-0 rounded-xl" />

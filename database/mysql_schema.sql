@@ -481,6 +481,7 @@ CREATE TABLE feature_flags (
   show_ads              BOOLEAN NOT NULL DEFAULT FALSE,
   autosearch_enabled    BOOLEAN NOT NULL DEFAULT TRUE,
   hangouts_enabled      BOOLEAN NOT NULL DEFAULT FALSE,
+partner_offers_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   updated_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -941,4 +942,58 @@ CREATE TABLE IF NOT EXISTS hangout_chats (
   FOREIGN KEY (response_id) REFERENCES hangout_responses(id) ON DELETE CASCADE,
   FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
   INDEX idx_hangout_chats_chat (chat_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Партнёрская экосистема (Wave 1, Mesta.txt) — миграция 030
+CREATE TABLE IF NOT EXISTS partners (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name            VARCHAR(100) NOT NULL,
+  type            ENUM('api','deeplink','saas') NOT NULL DEFAULT 'deeplink',
+  affiliate_token VARCHAR(255),
+  commission_rate DECIMAL(5,2) NOT NULL DEFAULT 10.00,
+  api_base_url    VARCHAR(255),
+  status          ENUM('active','paused') NOT NULL DEFAULT 'active',
+  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_partners_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS partner_offers (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  partner_id   INT UNSIGNED NOT NULL,
+  category     ENUM('cinema','restaurant','flowers','taxi','hotel','spa','photo','gift','event','experience') NOT NULL,
+  title        VARCHAR(255) NOT NULL,
+  description  TEXT,
+  image_url    VARCHAR(500),
+  deeplink     VARCHAR(500) NOT NULL,
+  price        DECIMAL(10,2),
+  city         VARCHAR(100),
+  lat          DECIMAL(10,8),
+  lng          DECIMAL(11,8),
+  valid_from   DATE,
+  valid_to     DATE,
+  placement    SET('hangout','chat','profile','passport','attachment_result') NOT NULL,
+  status       ENUM('active','paused') NOT NULL DEFAULT 'active',
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE CASCADE,
+  INDEX idx_offers_category (category),
+  INDEX idx_offers_status (status),
+  INDEX idx_offers_geo (lat, lng),
+  INDEX idx_offers_partner (partner_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS partner_conversions (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  partner_id      INT UNSIGNED NOT NULL,
+  offer_id        INT UNSIGNED,
+  user_id         INT UNSIGNED NOT NULL,
+  conversion_type ENUM('click','booking','purchase','lead') NOT NULL DEFAULT 'click',
+  amount          DECIMAL(10,2),
+  commission      DECIMAL(10,2),
+  status          ENUM('pending','approved','paid') NOT NULL DEFAULT 'pending',
+  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE CASCADE,
+  FOREIGN KEY (offer_id) REFERENCES partner_offers(id) ON DELETE SET NULL,
+  INDEX idx_conversions_partner (partner_id),
+  INDEX idx_conversions_user (user_id),
+  INDEX idx_conversions_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -167,7 +167,7 @@ build: { target: 'es2020', minify: 'esbuild', chunkSizeWarningLimit: 600 }
 ## Feature Flags
 
 Загружаются из `GET /api/admin/features`:
-`videoCalls`, `aiIcebreakers`, `aiCompatibility`, `groupsPage`, `contest`, `showAds`, `autosearch`, `ttlMessages`, `dateScheduling`, `profileScore`, `hangoutsEnabled`
+`videoCalls`, `aiIcebreakers`, `aiCompatibility`, `groupsPage`, `contest`, `showAds`, `autosearch`, `ttlMessages`, `dateScheduling`, `profileScore`, `hangoutsEnabled`, `partnerOffers`
 
 ## Hangouts (Встречи)
 
@@ -176,6 +176,14 @@ build: { target: 'es2020', minify: 'esbuild', chunkSizeWarningLimit: 600 }
 - Категории: cinema/theater/exhibition/cafe/concert/sport/other (`src/lib/hangouts.ts`)
 - Страницы: `/hangouts`, `/hangouts/my`, `/hangouts/:id`; флаг `hangoutsEnabled`; баннер на Home
 - Уведомления: таблица `notifications` + GET /api/notifications; WS `notification:new`; типы hangout_response/accepted/declined/cancelled, invite, like
+
+## Partners (Партнёрская экосистема, Wave 1)
+
+- Таблицы (миграция 030): `partners` (type api/deeplink/saas, commission_rate, UNIQUE name), `partner_offers` (10 категорий, deeplink VARCHAR(500), placement SET hangout/chat/profile/passport/attachment_result, valid_from/to), `partner_conversions` (click/booking/purchase/lead, amount/commission, status pending/approved/paid)
+- Роуты: GET `/api/partners/offers?category=&city=&placement=&lat=&lng=&radius=` (FIND_IN_SET по SET, ST_Distance_Sphere + HAVING), POST `/api/partners/track` → INSERT conversion + deeplink c `utm_source=swiftmatch&ref={referral_code}`
+- Админ: `server/src/routes/admin/partners.js` — ОТНОСИТЕЛЬНЫЕ пути (`/partners`, `/offers`...), монтируется на `/api/admin`; страница `/admin/partners`
+- Фронт: `chat-partner-actions.tsx` (чипы в чате, http → window.open, схема-ссылки → fallback-диалог), «Выбрать из афиши» в hangout-create.tsx, блок отелей в settings-privacy.tsx при passport_mode
+- Сид Wave 1: Yandex Go, KinoPoisk Afisha, Restoclub, Ostrovok. Хвосты: подстановка {lat}/{city} плейсхолдеров, S2S postback
 
 ## Translation Keys
 

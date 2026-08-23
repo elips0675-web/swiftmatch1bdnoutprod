@@ -11,7 +11,7 @@ router.get('/features', async (req, res) => {
       return res.json({
         videoCalls: true, aiIcebreakers: true, aiCompatibility: true,
         groupsPage: true, contest: true, showAds: false, autosearch: true,
-        hangouts: false,
+        hangouts: false, partnerOffers: false,
       })
     }
     res.json({
@@ -23,6 +23,7 @@ router.get('/features', async (req, res) => {
       showAds: Boolean(row.show_ads),
       autosearch: Boolean(row.autosearch_enabled),
       hangouts: Boolean(row.hangouts_enabled),
+      partnerOffers: Boolean(row.partner_offers_enabled),
     })
   } catch (err) {
     logger.error('Features fetch error:', err)
@@ -33,7 +34,7 @@ router.get('/features', async (req, res) => {
 router.put('/features', async (req, res) => {
   try {
     const flags = req.body
-    const knownKeys = ['videoCalls', 'aiIcebreakers', 'aiCompatibility', 'groupsPage', 'contest', 'showAds', 'autosearch', 'hangouts']
+    const knownKeys = ['videoCalls', 'aiIcebreakers', 'aiCompatibility', 'groupsPage', 'contest', 'showAds', 'autosearch', 'hangouts', 'partnerOffers']
     if (!flags || Object.keys(flags).length === 0 || !knownKeys.some(k => k in flags)) {
       return res.status(400).json({ message: 'At least one known flag key required' })
     }
@@ -42,13 +43,13 @@ router.put('/features', async (req, res) => {
         video_calls_enabled = ?, ai_icebreakers_enabled = ?,
         ai_compatibility_enabled = ?, groups_page_enabled = ?,
         contest_enabled = ?, show_ads = ?, autosearch_enabled = ?,
-        hangouts_enabled = ?
+        hangouts_enabled = ?, partner_offers_enabled = ?
        WHERE id = 1`,
       [
         Boolean(flags.videoCalls), Boolean(flags.aiIcebreakers),
         Boolean(flags.aiCompatibility), Boolean(flags.groupsPage),
         Boolean(flags.contest), Boolean(flags.showAds), Boolean(flags.autosearch),
-        Boolean(flags.hangouts),
+        Boolean(flags.hangouts), Boolean(flags.partnerOffers),
       ],
     )
     res.json({ message: 'Feature flags updated' })

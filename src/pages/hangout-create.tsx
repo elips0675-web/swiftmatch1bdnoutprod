@@ -15,12 +15,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useLanguage } from "@/context/language-context";
+import { useFeatureFlags } from "@/context/feature-flags-context";
 import { getToken } from "@/lib/token";
 import { HANGOUT_CATEGORIES, type HangoutCategory } from "@/lib/hangouts";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Ticket } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 const COMPANION_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+const PARTNER_TO_HANGOUT_CATEGORY: Record<string, HangoutCategory> = {
+  cinema: "cinema",
+  restaurant: "cafe",
+  event: "other",
+};
 
 function defaultDateTime(): string {
   const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -30,6 +44,7 @@ function defaultDateTime(): string {
 
 export default function HangoutCreatePage() {
   const { t } = useLanguage();
+  const { partnerOffersEnabled } = useFeatureFlags();
   const navigate = useNavigate();
   const [category, setCategory] = useState<HangoutCategory>("cinema");
   const [title, setTitle] = useState("");
@@ -40,6 +55,42 @@ export default function HangoutCreatePage() {
   const [eventDate, setEventDate] = useState(defaultDateTime());
   const [maxCompanions, setMaxCompanions] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [listingsOpen, setListingsOpen] = useState(false);
+  const [listings, setListings] = useState<Array<{ id: number; category: string; title: string; description?: string; partner_name: string }>>([]);
+  const [listingsLoading, setListingsLoading] = useState(false);
+
+  const openListings = async () => {
+    setListingsOpen(true);
+    setListingsLoading(true);
+    try {
+      const token = getToken();
+      const res = await fetch("/api/partners/offers?placement=hangout", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      setListings(res.ok ? await res.json() : []);
+    } catch {
+      setListings([]);
+    } finally {
+      setListingsLoading(false);
+    }
+  };
+
+  const applyListing = async (offer: { id: number; category: string; title: string; description?: string; partner_name: string }) => {
+    setCategory(PARTNER_TO_HANGOUT_CATEGORY[offer.category] ?? "other");
+    setTitle(offer.title);
+    if (offer.description) setDescription(offer.description);
+    setPlaceName((prev) => prev || offer.partner_name);
+    setListingsOpen(false);
+    try {
+      const token = getToken();
+      await fetch("/api/partners/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ offer_id: offer.id, conversion_type: "lead" }),
+      });
+    } catch {}
+    toast.success(t("partner.select_offer"));
+  };
 
   const submit = async () => {
     if (!title.trim() || !eventDate) {
@@ -108,7 +159,22 @@ export default function HangoutCreatePage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="hangout-title">{t("hangout.form.title")}</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="hangout-title">{t("hangout.form.title")}</Label>
+              {partnerOffersEnabled && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  data-testid="pick-from-listings"
+                  onClick={openListings}
+                  className="h-7 rounded-full text-xs font-bold text-primary px-3"
+                >
+                  <Ticket size={13} className="mr-1" />
+                  {t("partner.select_offer")}
+                </Button>
+              )}
+            </div>
             <Input
               id="hangout-title"
               data-testid="hangout-title"
@@ -207,6 +273,35 @@ export default function HangoutCreatePage() {
           </Button>
         </Card>
       </main>
+      <Dialog open={listingsOpen} onOpenChange={setListingsOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("partner.select_offer")}</DialogTitle>
+            <DialogDescription>{t("hangout.form.description_placeholder")}</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-80 overflow-y-auto space-y-2">
+            {listingsLoading && <Loader2 size={20} className="mx-auto animate-spin text-muted-foreground" />}
+            {!listingsLoading && listings.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">{t("error.generic_title")}</p>
+            )}
+            {listings.map((offer) => (
+              <button
+                key={offer.id}
+                type="button"
+                data-testid={`listing-offer-${offer.category}`}
+                onClick={() => applyListing(offer)}
+                className="w-full text-left rounded-xl border p-3 transition-colors hover:border-primary/40 hover:bg-muted/30"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-sm">{offer.title}</span>
+                  <span className="shrink-0 text-[10px] uppercase font-bold text-muted-foreground">{t(`partner.category.${offer.category}`)}</span>
+                </div>
+                {offer.description && <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{offer.description}</p>}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
       <BottomNav />
     </div>
   );

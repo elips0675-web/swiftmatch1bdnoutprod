@@ -1,6 +1,17 @@
 # Что сделано
 
-> Актуально на август 2026. Все тесты: **345/345** — E2E 51/51 ✅, фронт 65/65 ✅, сервер 229/229 ✅. Vite build: ✅. Lint: 0 errors. Swagger: ✅.
+> Актуально на август 2026. Все тесты: **369/369** — E2E 55/55 ✅, фронт 68/68 ✅, сервер 246/246 ✅. Vite build: ✅. Lint: 0 errors. Swagger: ✅.
+
+## Этап 47: партнёрская экосистема Wave 1 (Mesta.txt) (23.08.2026)
+
+- **Миграция 030** (`030_partner_ecosystem.sql`): таблицы `partners` (type api/deeplink/saas, commission_rate, уникальный name для идемпотентного сида), `partner_offers` (10 категорий, deeplink, placement SET hangout/chat/profile/passport/attachment_result, valid_from/to), `partner_conversions` (click/booking/purchase/lead + commission) + флаг `partner_offers_enabled`; сид: Yandex Go, KinoPoisk Afisha, Restoclub, Ostrovok с реальными deeplink-схемами
+- **API**: GET /api/partners/offers?category=&city=&placement=&lat=&lng=&radius= (FIND_IN_SET по SET-placement, ST_Distance_Sphere гео-радиус через HAVING, только active+valid даты, LIMIT 20); POST /api/partners/track {offer_id} → INSERT в conversions + deeplink c `utm_source=swiftmatch&ref={referral_code}`
+- **Админ-CRUD** (`server/src/routes/admin/partners.js`, относительные пути — монтируется на /api/admin): GET/POST/PUT /partners (со статистикой clicks/conversions/commission_pending), GET /offers, POST /partners/:id/offers, PUT /offers/:offerId; страница `/admin/partners` (admin-partners.tsx: таблица партнёров + офферов, pause/activate, диалоги создания)
+- **Чат**: компонент chat-partner-actions.tsx (чипы категорий над полем ввода, клик → track → window.open для http / fallback-диалог для схема-ссылок типа yandextaxi:// на десктопе), гейт флагом partnerOffersEnabled
+- **Афиша в создании встречи**: кнопка «Выбрать из афиши» в hangout-create.tsx (placement=hangout, автозаполнение title/description/category/place_name + track lead)
+- **Паспортный режим**: блок «Где остановиться» в settings-privacy.tsx при включённом режиме + городе (placement=passport, отели Ostrovok)
+- **Флаг** partnerOffersEnabled зарегистрирован во всех 3 местах: features.js GET/PUT, feature-flags-context.tsx (mapApiFlags), admin-features.tsx (+ i18n admin.features.partner_offers*)
+- **Тесты**: серверные partners.test.js 13 (offers-фильтры/FIND_IN_SET/гео-HAVING, track→INSERT+utm+ref, paused 404, admin-CRUD валидация), фронтовые chat-partner-actions.test.tsx 3 (чипы, track+window.open, пустой список → null), E2E partners.spec.ts 4 (feed, трекинг-цепочка с проверкой clicks_total в админке, 404, auth). Итог: 246+68+55 = 369/369
 
 ## Этап 35: фича «Встречи» (Hangouts, вариант 1) + живые уведомления (23.08.2026)
 

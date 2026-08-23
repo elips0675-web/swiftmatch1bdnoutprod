@@ -14,7 +14,7 @@ Node.js/Express + MySQL (mysql2) бэкенд, Socket.IO real-time, Capacitor An
 
 ## Статус проверок (всё зелёное)
 
-- Тесты **345/345**: сервер 229/229 (24 файла), фронт 65/65 (14 файлов), E2E 51/51 (8 spec: audit-full, features, hangouts, security-blind-spots, login, profile, register + cross-browser по флагу)
+- Тесты **369/369**: сервер 246/246 (25 файлов), фронт 68/68 (15 файлов), E2E 55/55 (9 spec: audit-full, features, hangouts, partners, security-blind-spots, login, profile, register + cross-browser по флагу)
 - vite build ✅, eslint 0 errors (154 warnings — стилевые), Swagger ✅
 - E2E: Playwright, storageState из global-setup (.auth/*.json), аудит console-errors на каждой странице, screenshot/video/trace на падение
 - Pre-flight: `npm run check:ports` (порты + JWT_SECRET), `scripts/check-keys.ps1` (какие прод-ключи не заполнены)
@@ -87,6 +87,25 @@ Node.js/Express + MySQL (mysql2) бэкенд, Socket.IO real-time, Capacitor An
 миграция 030 (partners/partner_offers/partner_conversions), роутер partners.js (offers c гео/placement + track
 c utm_source=swiftmatch&ref), chat-partner-actions.tsx («Такси/Ресторан/Кино» в чате), выбор «из афиши» в hangout-create,
 admin-partners.tsx, флаг partnerOffersEnabled. Wave 1 = deeplink-партнёры без сложных API. План и DoD — в part.txt («Доделать»).
+
+## Этап 47 — партнёрская экосистема Wave 1 (23.08.2026)
+
+- Миграция 030: `partners` (api/deeplink/saas, commission_rate, UNIQUE name), `partner_offers`
+  (10 категорий, deeplink, placement SET hangout/chat/profile/passport/attachment_result, valid_from/to),
+  `partner_conversions` (click/booking/purchase/lead + commission), флаг `partner_offers_enabled`.
+  Сид: Yandex Go (yandextaxi://), KinoPoisk Afisha, Restoclub, Ostrovok.
+- API: GET /api/partners/offers?category=&city=&placement=&lat=&lng=&radius= — FIND_IN_SET по SET-placement,
+  гео через ST_Distance_Sphere + HAVING distance_m < ?, только active+valid даты; POST /api/partners/track
+  → INSERT conversion + deeplink с utm_source=swiftmatch&ref={referral_code}.
+- Админ-CRUD admin/partners.js: относительные пути (грабля #53 — при монтировании на /api/admin путь
+  '/api/admin/x' даёт двойной префикс и тихий 404). Страница /admin/partners: партнёры со статистикой
+  clicks/conversions/commission_pending, офферы, pause/activate, диалоги создания.
+- Фронт: chat-partner-actions.tsx (чипы над вводом чата, http → window.open, схема-ссылки → fallback-диалог),
+  «Выбрать из афиши» в hangout-create (placement=hangout, автозаполнение формы + lead-конверсия),
+  блок «Где остановиться» в settings-privacy при passport_mode+городе (placement=passport).
+- Тесты этапа: сервер partners.test.js 13, фронт chat-partner-actions.test.tsx 3, E2E partners.spec.ts 4.
+  Итог 369/369. Хвосты: подстановка плейсхолдеров {lat}/{to_lat}/{city} в deeplink'ах, S2S postback для booking/purchase,
+  Wave 2–4 из Mesta.txt.
 
 ## Реализованный функционал (кратко)
 

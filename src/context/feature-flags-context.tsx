@@ -9,6 +9,7 @@ export interface FeatureFlags {
   groupsPageEnabled: boolean;
   showAdsEnabled: boolean;
   hangoutsEnabled: boolean;
+  partnerOffersEnabled: boolean;
 }
 
 const defaultFlags: FeatureFlags = {
@@ -18,6 +19,7 @@ const defaultFlags: FeatureFlags = {
   groupsPageEnabled: true,
   showAdsEnabled: false,
   hangoutsEnabled: false,
+  partnerOffersEnabled: false,
 };
 
 const mapApiFlags = (data: Record<string, boolean>): FeatureFlags => ({
@@ -27,6 +29,7 @@ const mapApiFlags = (data: Record<string, boolean>): FeatureFlags => ({
   groupsPageEnabled: data.groupsPage ?? true,
   showAdsEnabled: data.showAds ?? false,
   hangoutsEnabled: data.hangouts ?? false,
+  partnerOffersEnabled: data.partnerOffers ?? false,
 });
 
 const FeatureFlagsContext = createContext<FeatureFlags>(defaultFlags);

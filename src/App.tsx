@@ -42,6 +42,7 @@ const HangoutDetail = lazy(() => import("./pages/hangout-detail"))
 const HangoutCreate = lazy(() => import("./pages/hangout-create"))
 const HangoutsMy = lazy(() => import("./pages/hangouts-my"))
 const AdminHangouts = lazy(() => import("./pages/admin-hangouts"))
+const AdminPartners = lazy(() => import("./pages/admin-partners"))
 const Matches = lazy(() => import("./pages/matches"))
 const Premium = lazy(() => import("./pages/premium"))
 const SettingsPrivacy = lazy(() => import("./pages/settings-privacy"))
@@ -118,6 +119,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/hangouts/create": "Создать встречу — SwiftMatch",
   "/hangouts/my": "Мои встречи — SwiftMatch",
   "/admin/hangouts": "Модерация встреч — SwiftMatch",
+  "/admin/partners": "Партнёры — SwiftMatch",
 }
 
 function DocumentTitle() {
@@ -170,6 +172,7 @@ const App = () => (
                     <Route path="/admin/reports" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminReports /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/photos" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminPhotos /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/hangouts" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminHangouts /></SuspenseWrapper></AdminLayout></AdminGuard>} />
+                    <Route path="/admin/partners" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminPartners /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/users" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminUsers /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/premium" element={<SuspenseWrapper><Premium /></SuspenseWrapper>} />
                     <Route path="/premium/success" element={<SuspenseWrapper><PremiumSuccess /></SuspenseWrapper>} />

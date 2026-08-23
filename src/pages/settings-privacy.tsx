@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useLanguage } from "@/context/language-context"
+import { useFeatureFlags } from "@/context/feature-flags-context"
 import { useRouter } from "@/shims/next-navigation"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { ChatPartnerActions } from "@/components/chat/chat-partner-actions"
 import { ArrowLeft, EyeOff, Globe, ShieldCheck, Scale, Download, Trash2 } from "lucide-react"
 import { toast } from 'sonner'
 
 export default function SettingsPrivacy() {
   const { t } = useLanguage()
+  const { partnerOffersEnabled } = useFeatureFlags()
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
   const [settings, setSettings] = useState({ incognito: false, passport_mode: false, passport_city: '', dataProcessingConsent: true })
@@ -149,6 +152,12 @@ export default function SettingsPrivacy() {
               onBlur={handlePassportCityBlur}
               data-testid="passport-city"
             />
+            {partnerOffersEnabled && settings.passport_city && (
+              <div className="mt-2 space-y-1.5">
+                <p className="text-xs font-bold text-muted-foreground">{t('partner.hotels_title')}</p>
+                <ChatPartnerActions placement="passport" />
+              </div>
+            )}
           </div>
         )}
 

@@ -50,6 +50,8 @@ import referralRoutes from './routes/referral.js'
 import icebreakersRoutes from './routes/icebreakers.js'
 import experimentsRoutes from './routes/experiments.js'
 import hangoutsRoutes from './routes/hangouts.js'
+import partnersRoutes from './routes/partners.js'
+import adminPartners from './routes/admin/partners.js'
 import notificationsRoutes from './routes/notifications.js'
 import { metricsMiddleware, metricsRoute } from './metrics.js'
 import { JWT_SECRET } from './middleware.js'
@@ -262,6 +264,7 @@ app.use('/api/admin', adminFeatures)
 app.use('/api/admin', adminMessaging)
 app.use('/api/admin', adminMonetization)
 app.use('/api/admin', adminHangouts)
+app.use('/api/admin', adminPartners)
 app.use('/api/admin', adminModerationRoutes)
 app.use(gdprRoutes)
 app.use(referralRoutes)
@@ -269,6 +272,7 @@ app.use('/api/checkin', dateCheckinRoutes)
 app.use(icebreakersRoutes)
 app.use(experimentsRoutes)
 app.use(hangoutsRoutes)
+app.use(partnersRoutes)
 app.use(notificationsRoutes)
 
 app.get('/health', async (req, res) => {
