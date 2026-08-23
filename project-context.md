@@ -286,3 +286,12 @@ UI: зелёный badge ≥80, жёлтый ≥50, красный <50; спис
 - Детали: «Что сделано.txt» (этапы 30–34), AGENTS.md (грабли #27–31)
 - **Этап 35 (23.08):** schema-validate.mjs в CI/deploy; идемпотентные миграции 018-023 (баг Duplicate entry починен); cleartext только debug + guard; backup 30 дней; security headers тесты. Итого 258/258
 - **Этапы 36-37:** RevenueCat SDK 13.4.1 + dynamic import; AGENTS.md правило adminAuth (active-check only)
+
+## Актуальный статус — этапы 38–41 (23 августа 2026)
+
+- **Счётчики: 284/284** — E2E 44/44, фронт 61/61 (13 файлов), сервер 179/179 (18 файлов); build/lint/schema-validate ✓
+- **Этап 38:** Admin TOTP 2FA (миграция 026, server/src/totp.js на otplib v13, routes/totp-2fa.js через adminAuth, login требует totp_code + lockout, UI two-fa-settings.tsx, i18n two_fa_*; смоук 8/8). Закрыт пробел i18n common.zodiac.* x12
+- **Этап 39:** Stripe webhook идемпотентность (миграция 027 webhook_events UNIQUE provider+event_id, INSERT IGNORE дедуп в checkout.session.completed — replay без дублей подписки; premium-webhook.test.js 5/5) + upload security тесты (+5: non-image/no-file/unauth/traversal/double-ext)
+- **Этап 40:** лимитеры в middleware/limiters.js (фабрики для тестов); ratelimit.test.js — 60 ок → 61-й auth 429, api 600 → 429; i18n.test.ts RU↔EN синхронность (закрыт пробел circadian x5 ru); E2E icebreakers починен (эрозия данных → диапазон кандидатов 20..199)
+- **Этап 41:** docs/runbook-keys.md — ротация всех ключей (.env vs VITE_*), порядок для каждого провайдера, чеклист при утечке
+- **Коммиты:** 34320b2 (38), b08971b (39), ff23f1a (40), 2632106/a9d8a3a/b9ab518 (41+docs)
