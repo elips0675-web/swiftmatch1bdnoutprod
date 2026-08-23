@@ -547,8 +547,31 @@ router.get('/api/chats', auth, async (req, res) => {
   }
 })
 
-router.put('/api/chats/:chatId/read', auth, async (req, res) => {
+router.get('/api/chats/:chatId', auth, async (req, res) => {
   try {
+    const [[row]] = await pool.query(
+      `SELECT c.id,
+              up.id AS user_id,
+              up.display_name AS name,
+              up.avatar_url AS avatar,
+              up.online
+       FROM chats c
+       JOIN chat_participants cp ON cp.chat_id = c.id AND cp.user_id = ?
+       JOIN chat_participants other ON other.chat_id = c.id AND other.user_id != ?
+       JOIN user_profiles up ON up.id = other.user_id
+       WHERE c.id = ?
+       LIMIT 1`,
+      [req.userId, req.userId, req.params.chatId],
+    )
+    if (!row) return res.status(404).json({ message: 'Chat not found or not a participant' })
+    res.json(row)
+  } catch (err) {
+    logger.error('Chat detail error:', err)
+    res.status(500).json({ message: 'Failed to fetch chat' })
+  }
+})
+
+router.put('/api/chats/:chatId/read', auth, async (req, res) => {  try {
     await pool.query(
       'UPDATE chat_participants SET last_read_at = NOW() WHERE chat_id = ? AND user_id = ?',
       [req.params.chatId, req.userId],

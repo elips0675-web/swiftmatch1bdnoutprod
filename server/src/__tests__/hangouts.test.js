@@ -453,3 +453,46 @@ describe('Admin moderation', () => {
     expect(Array.isArray(res.body)).toBe(true)
   })
 })
+
+describe('GET /api/hangouts/by-chat/:chatId', () => {
+  it('returns hangout context for chat participant', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ ok: 1 }], []])
+      .mockResolvedValueOnce([[{ id: 5, title: 'Dune 2', category: 'cinema', status: 'active', event_date: new Date() }], []])
+
+    const res = await request(createApp(hangoutsRoutes))
+      .get('/api/hangouts/by-chat/123')
+      .set('Authorization', `Bearer ${authToken(2)}`)
+
+    expect(res.status).toBe(200)
+    expect(res.body.title).toBe('Dune 2')
+  })
+
+  it('returns null when chat has no linked hangout', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ ok: 1 }], []])
+      .mockResolvedValueOnce([[], []])
+
+    const res = await request(createApp(hangoutsRoutes))
+      .get('/api/hangouts/by-chat/123')
+      .set('Authorization', `Bearer ${authToken(2)}`)
+
+    expect(res.status).toBe(200)
+    expect(res.body).toBeNull()
+  })
+
+  it('rejects non-participant with 403', async () => {
+    pool.query.mockResolvedValueOnce([[], []])
+    const res = await request(createApp(hangoutsRoutes))
+      .get('/api/hangouts/by-chat/123')
+      .set('Authorization', `Bearer ${authToken(3)}`)
+    expect(res.status).toBe(403)
+  })
+
+  it('rejects invalid chatId with 400', async () => {
+    const res = await request(createApp(hangoutsRoutes))
+      .get('/api/hangouts/by-chat/abc')
+      .set('Authorization', `Bearer ${authToken(2)}`)
+    expect(res.status).toBe(400)
+  })
+})

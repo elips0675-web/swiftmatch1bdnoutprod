@@ -583,4 +583,31 @@ router.put('/api/hangouts/:id/responses/:responseId', auth, async (req, res) => 
   }
 })
 
+// ─── Hangout context for a chat (deep-link banner) ─────────────
+router.get('/api/hangouts/by-chat/:chatId', auth, async (req, res) => {
+  const { chatId } = req.params
+  if (!/^\d+$/.test(chatId)) return res.status(400).json({ message: 'Invalid id' })
+  try {
+    const [[member]] = await pool.query(
+      'SELECT 1 AS ok FROM chat_participants WHERE chat_id = ? AND user_id = ? LIMIT 1',
+      [chatId, req.userId],
+    )
+    if (!member) return res.status(403).json({ message: 'Not a chat participant' })
+
+    const [[row]] = await pool.query(
+      `SELECT h.id, h.title, h.category, h.status, h.event_date
+       FROM hangout_chats hc
+       JOIN hangouts h ON h.id = hc.hangout_id
+       WHERE hc.chat_id = ?
+       ORDER BY h.created_at DESC
+       LIMIT 1`,
+      [chatId],
+    )
+    res.json(row || null)
+  } catch (err) {
+    logger.error('Hangout by-chat error:', err)
+    res.status(500).json({ message: 'Failed to fetch hangout context' })
+  }
+})
+
 export default router

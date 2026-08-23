@@ -23,6 +23,9 @@ import { useWebRTC } from "@/hooks/use-webrtc";
 import { VideoCallDialog } from "@/components/video-call";
 import { VoiceCallDialog } from "@/components/voice-call";
 import { useTrackEvent } from "@/hooks/useExperiment";
+import { formatEventDate } from "@/lib/hangouts";
+import { CalendarHeart } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const QUICK_REACTIONS = [
   { id: 'heart', icon: Heart, color: 'text-red-500', label: '❤️' },
@@ -100,6 +103,16 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
   const { data: chatPartner, loading: partnerLoading, error: partnerError } = useApi<any>(
     `/api/chats/${params.chatId}`
   );
+  const [hangoutCtx, setHangoutCtx] = useState<{ id: number; title: string; event_date: string; category: string; status: string } | null>(null);
+
+  useEffect(() => {
+    const t = getToken();
+    if (!t) return;
+    fetch(`/api/hangouts/by-chat/${params.chatId}`, { headers: { Authorization: `Bearer ${t}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setHangoutCtx(data && data.id ? data : null))
+      .catch(() => {});
+  }, [params.chatId]);
   const trackEvent = useTrackEvent();
   const { mutate: sendMessage, loading: isSending } = useApiMutation();
 
@@ -220,6 +233,15 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
       </header>
 
       <main data-testid="message-list" ref={msgContainerRef} className="flex-1 overflow-y-auto anti-screenshot">
+        {hangoutCtx && (
+          <Link to={`/hangouts/${hangoutCtx.id}`} className="block px-4 pt-3">
+            <div data-testid="chat-hangout-banner" className="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-900 transition-colors hover:bg-violet-100">
+              <CalendarHeart size={16} className="shrink-0 text-violet-600" />
+              <span className="truncate font-medium">{t('chats.hangout_context', { title: hangoutCtx.title })}</span>
+              <span className="ml-auto shrink-0 text-xs whitespace-nowrap text-violet-600">{formatEventDate(hangoutCtx.event_date)}</span>
+            </div>
+          </Link>
+        )}
         <div className="flex flex-col min-h-full px-4 pt-4 pb-2 space-y-2">
           <div className="flex-1" />
           <div className="text-center my-2"><Badge variant="secondary">{t('chats.today')}</Badge></div>
