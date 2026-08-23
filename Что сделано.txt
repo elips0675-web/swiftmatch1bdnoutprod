@@ -388,3 +388,6 @@
 - src/lib/iap.ts: require() заменён на динамический import() - в ESM-бандле Vite require не разрешается никогда; теперь плагин резолвится и на нативе. Graceful no-op без пакета/ключа сохранён.
 - Осталось перед APK: VITE_REVENUECAT_API_KEY (RevenueCat dashboard) + REVENUECAT_WEBHOOK_SECRET на сервере.
 - Проверки: front 58/58, lint 0 errors, build OK.
+
+## Этап 37 (23.08.2026): AGENTS.md - правило adminAuth
+- Security Rules: добавлено ПРАВИЛО adminAuth (рекомендация qwen #1): только active-check middleware, запрещены пассивные next(), ручные проверки роли в хендлерах и обход единого гейта app.use('/api/admin').
