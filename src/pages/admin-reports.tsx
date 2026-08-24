@@ -68,7 +68,7 @@ export default function AdminReportsPage() {
       setModLog(log);
       setBannedUsers(users.users);
     } catch {
-      toast.error('Failed to load reports');
+      toast.error(t('admin.error.load'));
     } finally {
       setLoading(false);
     }
@@ -88,7 +88,7 @@ export default function AdminReportsPage() {
       toast.success(`Жалоба #${id}: ${REPORT_STATUS_LABELS[status] || status}`);
       fetchData();
     } catch {
-      toast.error('Failed to update report');
+      toast.error(t('admin.error.operation'));
     }
   };
 
@@ -121,7 +121,7 @@ export default function AdminReportsPage() {
                 const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'reports.csv'; link.click();
                 URL.revokeObjectURL(link.href);
-                toast.success('CSV скачан');
+                toast.success(t('admin.content.csv_downloaded'));
               }}><Download size={12} className="mr-1" /> CSV</Button>
             </CardHeader>
             <CardContent className="p-0">
@@ -210,7 +210,7 @@ export default function AdminReportsPage() {
                 const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'moderation_log.csv'; link.click();
                 URL.revokeObjectURL(link.href);
-                toast.success('CSV скачан');
+                toast.success(t('admin.content.csv_downloaded'));
               }}><Download size={12} className="mr-1" /> CSV</Button>
             </CardHeader>
             <CardContent className="p-0">

@@ -140,7 +140,7 @@ export default function ContentManagementPage() {
       setCountriesCities({ ...POPULAR_CITIES });
     }
     setLoading(false);
-  }, [config]);
+  }, [config, t]);
 
   function saveCountriesCities(data: Record<string, string[]>) {
     setCountriesCities(data);
@@ -195,26 +195,26 @@ export default function ContentManagementPage() {
             <TabsContent value="interests">
               <EditableList items={interests} nounKey="interests" section="interests" saving={saving === 'interests'} onAdd={i => setInterests(p => [...p, i].sort((a, b) => sortKey(a, 'interest.', t).localeCompare(sortKey(b, 'interest.', t))))} onDelete={i => setInterests(p => { const next = p.filter(x => x !== i); handleSave('interests', next, setInterests); return next })} />
               <div className="mt-2 flex justify-end">
-                <Button size="sm" onClick={() => handleSave('interests', interests, setInterests)} disabled={saving === 'interests'}>{saving === 'interests' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} Сохранить</Button>
+                <Button size="sm" className="rounded-xl" onClick={() => handleSave('interests', interests, setInterests)} disabled={saving === 'interests'}>{saving === 'interests' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} {t('admin.save')}</Button>
               </div>
             </TabsContent>
             <TabsContent value="goals">
               <EditableList items={goals} nounKey="goals" section="goals" saving={saving === 'dating_goals'} onAdd={i => setGoals(p => [...p, i].sort((a, b) => sortKey(a, 'goal.', t).localeCompare(sortKey(b, 'goal.', t))))} onDelete={i => setGoals(p => { const next = p.filter(x => x !== i); handleSave('dating_goals', next, setGoals); return next })} />
               <div className="mt-2 flex justify-end">
-                <Button size="sm" onClick={() => handleSave('dating_goals', goals, setGoals)} disabled={saving === 'dating_goals'}>{saving === 'dating_goals' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} Сохранить</Button>
+                <Button size="sm" className="rounded-xl" onClick={() => handleSave('dating_goals', goals, setGoals)} disabled={saving === 'dating_goals'}>{saving === 'dating_goals' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} {t('admin.save')}</Button>
               </div>
             </TabsContent>
             <TabsContent value="education">
               <EditableList items={education} nounKey="education" section="education" saving={saving === 'education'} onAdd={i => setEducation(p => [...p, i].sort((a, b) => sortKey(a, 'education.', t).localeCompare(sortKey(b, 'education.', t))))} onDelete={i => setEducation(p => { const next = p.filter(x => x !== i); handleSave('education', next, setEducation); return next })} />
               <div className="mt-2 flex justify-end">
-                <Button size="sm" onClick={() => handleSave('education', education, setEducation)} disabled={saving === 'education'}>{saving === 'education' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} Сохранить</Button>
+                <Button size="sm" className="rounded-xl" onClick={() => handleSave('education', education, setEducation)} disabled={saving === 'education'}>{saving === 'education' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} {t('admin.save')}</Button>
               </div>
             </TabsContent>
             <TabsContent value="cities">
               <div className="space-y-6">
-                <EditableList items={cities} nounKey="cities" section="cities" saving={saving === 'cities'} onAdd={i => setCities(p => [...p, i].sort((a, b) => a.localeCompare(b)))} onDelete={i => setCities(p => p.filter(x => x !== i))} />
+                <EditableList items={cities} nounKey="cities" section="cities" saving={saving === 'cities'} onAdd={i => setCities(p => [...p, i].sort((a, b) => a.localeCompare(b)))} onDelete={i => setCities(p => { const next = p.filter(x => x !== i); handleSave('cities', next, setCities); return next })} />
                 <div className="mt-2 flex justify-end">
-                  <Button size="sm" onClick={() => handleSave('cities', cities, setCities)} disabled={saving === 'cities'}>{saving === 'cities' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} Сохранить</Button>
+                  <Button size="sm" className="rounded-xl" onClick={() => handleSave('cities', cities, setCities)} disabled={saving === 'cities'}>{saving === 'cities' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} {t('admin.save')}</Button>
                 </div>
                 <div className="border-t pt-6">
                   <h4 className="text-sm font-black flex items-center gap-2 mb-4">
@@ -295,7 +295,7 @@ export default function ContentManagementPage() {
             <TabsContent value="banned_words">
               <EditableList items={forbiddenWords} nounKey="words" section="banned_words" saving={saving === 'banned_words'} onAdd={w => setForbiddenWords(p => [...p, w].sort((a, b) => a.localeCompare(b)))} onDelete={w => setForbiddenWords(p => { const next = p.filter(x => x !== w); handleSave('banned_words', next, setForbiddenWords); return next })} />
               <div className="mt-2 flex justify-end">
-                <Button size="sm" onClick={() => handleSave('banned_words', forbiddenWords, setForbiddenWords)} disabled={saving === 'banned_words'}>{saving === 'banned_words' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} Сохранить</Button>
+                <Button size="sm" className="rounded-xl" onClick={() => handleSave('banned_words', forbiddenWords, setForbiddenWords)} disabled={saving === 'banned_words'}>{saving === 'banned_words' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} {t('admin.save')}</Button>
               </div>
             </TabsContent>
           </Tabs>

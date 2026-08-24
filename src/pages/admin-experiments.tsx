@@ -55,7 +55,7 @@ export default function AdminExperimentsPage() {
       setExperiments(prev => prev.map(e => e.id === exp.id ? { ...e, enabled: enabled ? 1 : 0 } : e));
       toast.success(enabled ? t('admin.experiments.enabled') : t('admin.experiments.disabled'));
     } catch {
-      toast.error('Failed to update');
+      toast.error(t('admin.error.operation'));
     }
   };
 
@@ -69,7 +69,7 @@ export default function AdminExperimentsPage() {
       setExperiments(prev => prev.filter(e => e.id !== exp.id));
       toast.success(t('admin.experiments.deleted'));
     } catch {
-      toast.error('Failed to delete');
+      toast.error(t('admin.error.operation'));
     }
   };
 
@@ -88,7 +88,7 @@ export default function AdminExperimentsPage() {
       toast.success(t('admin.experiments.created'));
       await load();
     } catch {
-      toast.error('Failed to create');
+      toast.error(t('admin.error.operation'));
     } finally {
       setCreating(false);
     }

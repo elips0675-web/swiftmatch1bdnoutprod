@@ -38,10 +38,10 @@ export default function MonetizationPage() {
         if (adsData) setAds(adsData);
       })
       .catch(() => {
-        toast.error('Failed to load monetization data');
+        toast.error(t('admin.error.load'));
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const updatePrice = (tierIdx: number, period: string, value: string) => {
     setPricing(prev => prev.map((t, i) => i === tierIdx ? { ...t, prices: { ...t.prices, [period]: Number(value) || 0 } } : t));

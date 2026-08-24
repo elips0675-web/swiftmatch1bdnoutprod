@@ -49,7 +49,7 @@ export default function FeatureFlagsPage() {
         setFlags(mapped);
         setSavedFlags(mapped);
       } catch {
-        toast.error('Failed to load feature flags');
+        toast.error(t('admin.error.load'));
       } finally {
         setLoading(false);
       }
@@ -77,7 +77,7 @@ export default function FeatureFlagsPage() {
       setSavedFlags([...flags]);
       toast.success(t('admin.features.saved'));
     } catch {
-      toast.error('Failed to save');
+      toast.error(t('admin.error.save'));
     } finally {
       setSaving(false);
     }
