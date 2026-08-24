@@ -81,7 +81,7 @@ async function main() {
         if (token) {
           // Navigate first to set origin, then set localStorage
           await page.goto(`${URL}/login`, { waitUntil: 'domcontentloaded', timeout: 10000 });
-          await page.evaluate(t => { localStorage.setItem('token', t); }, token);
+          await page.evaluate(t => { localStorage.setItem('token', t); sessionStorage.setItem('swiftmatch_auth_token', t); document.cookie = `sm_token=${t}; path=/`; }, token);
         }
       }
 

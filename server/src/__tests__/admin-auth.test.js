@@ -57,6 +57,19 @@ describe('adminAuth middleware', () => {
     expect(req.admin.id).toBe(9)
   })
 
+  it('prefers valid admin cookie over valid non-admin Bearer from legacy storage', async () => {
+    const bearerToken = jwt.sign({ userId: 5, role: 'user' }, JWT_SECRET, { expiresIn: '1h' })
+    const cookieToken = jwt.sign({ userId: 7, role: 'admin' }, JWT_SECRET, { expiresIn: '1h' })
+    pool.query.mockResolvedValueOnce([[{ id: 7, email: 'a@b.c', role: 'admin' }], []])
+    const { req, res, next } = mockReqRes()
+    req.headers.authorization = `Bearer ${bearerToken}`
+    req.cookies = { sm_token: cookieToken }
+    await adminAuth(req, res, next)
+    expect(res.status).not.toHaveBeenCalled()
+    expect(next).toHaveBeenCalled()
+    expect(req.admin.id).toBe(7)
+  })
+
   it('returns 401 ADMIN_REQUIRED when all tokens invalid', async () => {
     const { req, res, next } = mockReqRes()
     req.headers.authorization = 'Bearer bad-token'

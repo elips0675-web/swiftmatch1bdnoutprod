@@ -5,7 +5,8 @@ import { JWT_SECRET } from '../middleware.js'
 import { ACCESS_COOKIE } from '../cookies.js'
 
 function decodeAny(...tokens) {
-  // Устаревший Bearer из легаси-storage не должен перекрывать валидную cookie
+  // Cookie — приоритетный источник: легаси-Bearer из storage может принадлежать
+  // не-админу и не должен перекрывать актуальную админскую сессию
   for (const token of tokens) {
     if (!token) continue
     try {
@@ -18,7 +19,7 @@ function decodeAny(...tokens) {
 export async function adminAuth(req, res, next) {
   const header = req.headers?.authorization
   const headerToken = header && header.startsWith('Bearer ') ? header.split(' ')[1] : null
-  const decoded = decodeAny(headerToken, req.cookies?.[ACCESS_COOKIE])
+  const decoded = decodeAny(req.cookies?.[ACCESS_COOKIE], headerToken)
   if (!decoded) {
     return res.status(401).json({ message: 'ADMIN_REQUIRED' })
   }

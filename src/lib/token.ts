@@ -6,18 +6,20 @@ const AUTH_TOKEN_KEY = 'swiftmatch_auth_token'
 
 export function getToken(): string | null {
   if (memoryToken) return memoryToken
-  // Читаем и легаси-storage: storageState в E2E и существующие сессии
   const stored = sessionStorage.getItem(AUTH_TOKEN_KEY)
   if (stored) {
     memoryToken = stored
     return stored
   }
-  const legacy = localStorage.getItem('token')
-  if (legacy) {
-    memoryToken = legacy
-    return legacy
+  // Web: JWT живёт в httpOnly cookie — не читаем легаси localStorage.token,
+  // чтобы устаревший чужой Bearer не перебивал актуальную сессию
+  if (isNative()) {
+    const legacy = localStorage.getItem('token')
+    if (legacy) {
+      memoryToken = legacy
+      return legacy
+    }
   }
-  // Web: новой записи нет — JWT живёт в httpOnly cookie
   return null
 }
 

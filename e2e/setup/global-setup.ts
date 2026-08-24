@@ -26,6 +26,7 @@ async function saveStorageState(email: string, password: string, outputPath: str
   await page.evaluate((t) => {
     localStorage.setItem('token', t)
     sessionStorage.setItem('swiftmatch_auth_token', t)
+    document.cookie = `sm_token=${t}; path=/`
   }, token)
   await page.context().storageState({ path: outputPath })
   await browser.close()

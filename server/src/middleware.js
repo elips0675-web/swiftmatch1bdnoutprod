@@ -10,7 +10,8 @@ function getJwtSecret() {
 }
 
 function decodeAny(...tokens) {
-  // Устаревший Bearer из легаси-storage не должен перекрывать валидную cookie
+  // Cookie — приоритетный источник: легаси-Bearer из storage может принадлежать
+  // другому пользователю и не должен перекрывать актуальную веб-сессию
   for (const token of tokens) {
     if (!token) continue
     try {
@@ -28,7 +29,7 @@ function getTokens(req) {
 
 export function auth(req, res, next) {
   const [headerToken, cookieToken] = getTokens(req)
-  const decoded = decodeAny(headerToken, cookieToken)
+  const decoded = decodeAny(cookieToken, headerToken)
   if (!decoded) {
     const hasAny = Boolean(headerToken || cookieToken)
     return res.status(401).json({ message: hasAny ? 'Invalid or expired token' : 'Authentication required' })
@@ -39,7 +40,7 @@ export function auth(req, res, next) {
 
 export function optionalAuth(req, res, next) {
   const [headerToken, cookieToken] = getTokens(req)
-  const decoded = decodeAny(headerToken, cookieToken)
+  const decoded = decodeAny(cookieToken, headerToken)
   req.userId = decoded ? decoded.userId : null
   next()
 }

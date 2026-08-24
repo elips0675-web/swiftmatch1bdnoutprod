@@ -76,14 +76,14 @@ describe('auth middleware', () => {
     expect(next).not.toHaveBeenCalled()
   })
 
-  it('prefers Authorization header over cookie', () => {
+  it('prefers valid cookie session over legacy Authorization header', () => {
     const headerToken = jwt.sign({ userId: 11, role: 'user' }, JWT_SECRET(), { expiresIn: '1h' })
     const cookieToken = jwt.sign({ userId: 22, role: 'user' }, JWT_SECRET(), { expiresIn: '1h' })
     const { req, res, next } = mockReqRes()
     req.headers.authorization = `Bearer ${headerToken}`
     req.cookies = { sm_token: cookieToken }
     auth(req, res, next)
-    expect(req.userId).toBe(11)
+    expect(req.userId).toBe(22)
   })
 
   it('falls back to valid cookie when Authorization token is stale', () => {

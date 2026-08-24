@@ -133,7 +133,10 @@ test.describe('Hangouts: create -> respond -> accept -> chat', () => {
     }, author.token)
     expect(create.ok).toBe(true)
 
-    await page.addInitScript((token) => window.localStorage.setItem('token', token), author.token)
+    await page.addInitScript((token) => {
+      window.localStorage.setItem('token', token)
+      document.cookie = `sm_token=${token}; path=/`
+    }, author.token)
     await page.goto(`${BASE_URL}/hangouts`)
     await page.waitForLoadState('networkidle')
 
