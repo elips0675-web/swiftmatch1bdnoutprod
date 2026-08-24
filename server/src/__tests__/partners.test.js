@@ -127,6 +127,41 @@ describe('POST /api/partners/track', () => {
     expect(res.status).toBe(200)
     expect(res.body.deeplink).toBe('https://x.ru/?a=b&utm_source=swiftmatch&ref=')
   })
+
+  it('substitutes {lat}/{to_lat}/{lng}/{city} placeholders in deeplink', async () => {
+    pool.query
+      .mockResolvedValueOnce([
+        [{ id: 5, partner_id: 1, deeplink: 'https://taxi.ru/order?from={lat},{lng}&to={to_lat},{to_lng}&city={city}' }],
+        [],
+      ])
+      .mockResolvedValueOnce([{ insertId: 44 }, []])
+      .mockResolvedValueOnce([[{ referral_code: 'REF9' }], []])
+
+    const res = await request(userApp)
+      .post('/api/partners/track')
+      .set('Authorization', `Bearer ${authToken(7)}`)
+      .send({ offer_id: 5, lat: '59.93', lng: '30.33', city: 'Москва' })
+
+    expect(res.status).toBe(200)
+    expect(res.body.deeplink).toBe(
+      `https://taxi.ru/order?from=59.93,30.33&to=59.93,30.33&city=${encodeURIComponent('Москва')}&utm_source=swiftmatch&ref=REF9`,
+    )
+  })
+
+  it('keeps placeholders when geo context is not provided', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ id: 6, partner_id: 1, deeplink: 'https://taxi.ru/order?from={lat},{lng}' }], []])
+      .mockResolvedValueOnce([{ insertId: 45 }, []])
+      .mockResolvedValueOnce([[{ referral_code: null }], []])
+
+    const res = await request(userApp)
+      .post('/api/partners/track')
+      .set('Authorization', `Bearer ${authToken(7)}`)
+      .send({ offer_id: 6 })
+
+    expect(res.status).toBe(200)
+    expect(res.body.deeplink).toBe('https://taxi.ru/order?from={lat},{lng}&utm_source=swiftmatch&ref=')
+  })
 })
 
 describe('Admin partners CRUD', () => {

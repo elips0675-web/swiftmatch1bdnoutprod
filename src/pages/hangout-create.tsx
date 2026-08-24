@@ -88,7 +88,7 @@ export default function HangoutCreatePage() {
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ offer_id: offer.id, conversion_type: "lead" }),
       });
-    } catch {}
+    } catch { /* трекинг не критичен */ }
     toast.success(t("partner.select_offer"));
   };
 
@@ -109,7 +109,7 @@ export default function HangoutCreatePage() {
           lat = Number(pos.coords.latitude.toFixed(8));
           lng = Number(pos.coords.longitude.toFixed(8));
         }
-      } catch {}
+      } catch { /* геолокация недоступна */ }
 
       const token = getToken();
       if (!token) { navigate("/login"); return; }
@@ -129,7 +129,19 @@ export default function HangoutCreatePage() {
           max_companions: maxCompanions,
         }),
       });
-      if (!res.ok) throw new Error("failed");
+      if (!res.ok) {
+        // Достаём код ошибки (например HANGOUT_DAILY_LIMIT), если сервер вернул JSON
+        let errorCode = "";
+        try {
+          const err = await res.json();
+          errorCode = err?.code || "";
+        } catch { /* тело не JSON — игнорируем */ }
+        if (errorCode === "HANGOUT_DAILY_LIMIT") {
+          toast.error(t("hangout.toast.daily_limit"));
+          return;
+        }
+        throw new Error("failed");
+      }
       toast.success(t("hangout.toast.created"));
       navigate("/hangouts/my");
     } catch {

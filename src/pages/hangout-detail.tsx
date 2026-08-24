@@ -19,7 +19,7 @@ import { useWebSocket } from "@/hooks/use-websocket";
 import { getToken } from "@/lib/token";
 import { formatEventDate, type Hangout } from "@/lib/hangouts";
 import { categoryIcon } from "./hangouts";
-import { CalendarDays, MapPin, Users, Check, X, MessageCircle, ArrowLeft, Compass } from "lucide-react";
+import { CalendarDays, MapPin, Users, Check, X, MessageCircle, ArrowLeft, Compass, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 const RESPONSE_STATUS_KEYS: Record<string, string> = {
@@ -234,6 +234,14 @@ export default function HangoutDetailPage() {
             )}
           </div>
         </Card>
+
+        {hangout.is_author && hangout.status === "active" && (
+          <Link to={`/hangouts/${hangout.id}/edit`}>
+            <Button data-testid="edit-hangout" variant="outline" className="w-full rounded-full mt-3">
+              <Pencil size={15} className="mr-2" /> {t("hangout.action.edit")}
+            </Button>
+          </Link>
+        )}
 
         {!hangout.is_author && (
           <Card className="p-4">

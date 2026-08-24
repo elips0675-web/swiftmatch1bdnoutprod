@@ -11,7 +11,7 @@ router.get('/features', async (req, res) => {
       return res.json({
         videoCalls: true, aiIcebreakers: true, aiCompatibility: true,
         groupsPage: true, contest: true, showAds: false, autosearch: true,
-        hangouts: false, partnerOffers: false,
+        hangouts: true, partnerOffers: false,
       })
     }
     res.json({

@@ -40,6 +40,7 @@ const Groups = lazy(() => import("./pages/groups"))
 const Hangouts = lazy(() => import("./pages/hangouts"))
 const HangoutDetail = lazy(() => import("./pages/hangout-detail"))
 const HangoutCreate = lazy(() => import("./pages/hangout-create"))
+const HangoutEdit = lazy(() => import("./pages/hangout-edit"))
 const HangoutsMy = lazy(() => import("./pages/hangouts-my"))
 const AdminHangouts = lazy(() => import("./pages/admin-hangouts"))
 const AdminPartners = lazy(() => import("./pages/admin-partners"))
@@ -193,6 +194,7 @@ const App = () => (
                             <Route path="/hangouts" element={<Hangouts />} />
                             <Route path="/hangouts/create" element={<HangoutCreate />} />
                             <Route path="/hangouts/my" element={<HangoutsMy />} />
+                            <Route path="/hangouts/:id/edit" element={<HangoutEdit />} />
                             <Route path="/hangouts/:id" element={<HangoutDetail />} />
                             <Route path="/legal/data-processing" element={<LegalDataProcessing />} />
                             <Route path="/legal/privacy" element={<LegalPrivacy />} />

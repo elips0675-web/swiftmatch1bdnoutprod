@@ -480,7 +480,7 @@ CREATE TABLE feature_flags (
   contest_enabled       BOOLEAN NOT NULL DEFAULT TRUE,
   show_ads              BOOLEAN NOT NULL DEFAULT FALSE,
   autosearch_enabled    BOOLEAN NOT NULL DEFAULT TRUE,
-  hangouts_enabled      BOOLEAN NOT NULL DEFAULT FALSE,
+  hangouts_enabled      BOOLEAN NOT NULL DEFAULT TRUE,
 partner_offers_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   updated_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

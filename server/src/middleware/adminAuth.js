@@ -2,16 +2,28 @@ import jwt from 'jsonwebtoken'
 import pool from '../db.js'
 import { rootLogger } from '../logger.js'
 import { JWT_SECRET } from '../middleware.js'
-import { extractToken } from '../cookies.js'
+import { ACCESS_COOKIE } from '../cookies.js'
+
+function decodeAny(...tokens) {
+  // Устаревший Bearer из легаси-storage не должен перекрывать валидную cookie
+  for (const token of tokens) {
+    if (!token) continue
+    try {
+      return jwt.verify(token, JWT_SECRET())
+    } catch { /* невалидный токен — проверяем следующий источник */ }
+  }
+  return null
+}
 
 export async function adminAuth(req, res, next) {
-  const token = extractToken(req)
-  if (!token) {
+  const header = req.headers?.authorization
+  const headerToken = header && header.startsWith('Bearer ') ? header.split(' ')[1] : null
+  const decoded = decodeAny(headerToken, req.cookies?.[ACCESS_COOKIE])
+  if (!decoded) {
     return res.status(401).json({ message: 'ADMIN_REQUIRED' })
   }
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET())
 
+  try {
     const [rows] = await pool.query(
       'SELECT id, email, role FROM users WHERE id = ? AND role = ? AND is_active = 1',
       [decoded.userId, 'admin'],
@@ -21,7 +33,8 @@ export async function adminAuth(req, res, next) {
     }
     req.admin = rows[0]
     next()
-  } catch {
-    return res.status(401).json({ message: 'ADMIN_REQUIRED' })
+  } catch (err) {
+    rootLogger.error('adminAuth DB error:', err)
+    return res.status(500).json({ message: 'ADMIN_CHECK_FAILED' })
   }
 }

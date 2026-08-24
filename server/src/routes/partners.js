@@ -111,7 +111,33 @@ router.post('/api/partners/track', auth, async (req, res) => {
     const [[user]] = await pool.query('SELECT referral_code FROM users WHERE id = ? LIMIT 1', [req.userId])
     const ref = user && user.referral_code ? user.referral_code : ''
     const sep = offer.deeplink.includes('?') ? '&' : '?'
-    res.json({ deeplink: `${offer.deeplink}${sep}utm_source=swiftmatch&ref=${encodeURIComponent(ref)}` })
+    let deeplink = `${offer.deeplink}${sep}utm_source=swiftmatch&ref=${encodeURIComponent(ref)}`
+
+    // Подстановка плейсхолдеров {lat}/{to_lat}/{lng}/{city} из контекста запроса
+    const body = req.body || {}
+    const query = req.query || {}
+    const ctxLat = body.lat ?? query.lat
+    const ctxLng = body.lng ?? query.lng
+    const ctxCity = body.city ?? query.city
+    const numOrEmpty = (v) =>
+      v !== undefined && v !== null && String(v).trim() !== '' && !Number.isNaN(Number(v))
+        ? encodeURIComponent(String(v))
+        : null
+    const replacements = {
+      '{lat}': numOrEmpty(ctxLat),
+      '{to_lat}': numOrEmpty(ctxLat),
+      '{lng}': numOrEmpty(ctxLng),
+      '{to_lng}': numOrEmpty(ctxLng),
+      '{city}':
+        ctxCity !== undefined && ctxCity !== null && String(ctxCity).trim() !== ''
+          ? encodeURIComponent(String(ctxCity).trim())
+          : null,
+    }
+    for (const [placeholder, value] of Object.entries(replacements)) {
+      if (value !== null) deeplink = deeplink.split(placeholder).join(value)
+    }
+
+    res.json({ deeplink })
   } catch (err) {
     logger.error('Partner track error:', err)
     res.status(500).json({ message: 'Failed to track partner action' })

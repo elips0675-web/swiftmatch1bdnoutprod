@@ -200,6 +200,9 @@ app.get('/api/content', async (req, res) => {
       if (typeof val === 'string') { try { return JSON.parse(val) } catch { return fallback || [] } }
       return fallback || []
     }
+    let storedCities = null
+    if (Array.isArray(row.cities)) storedCities = row.cities
+    else if (typeof row.cities === 'string') { try { const arr = JSON.parse(row.cities); if (Array.isArray(arr)) storedCities = arr } catch { storedCities = null } }
     const [cities] = await pool.query(
       'SELECT DISTINCT city FROM user_profiles WHERE city IS NOT NULL AND city != "" ORDER BY city',
     )
@@ -208,7 +211,7 @@ app.get('/api/content', async (req, res) => {
       dating_goals: parseJsonField(row.dating_goals, []),
       education: parseJsonField(row.education, []),
       banned_words: parseJsonField(row.banned_words, []),
-      cities: cities.map(c => c.city),
+      cities: storedCities || cities.map(c => c.city),
     })
   } catch (err) {
     rootLogger.error('Public content error: ' + err.message)

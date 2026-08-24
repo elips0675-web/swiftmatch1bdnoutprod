@@ -136,7 +136,10 @@ describe('POST /api/hangouts', () => {
   })
 
   it('creates hangout with valid data', async () => {
-    pool.query.mockResolvedValueOnce([{ insertId: 10 }, []])
+    pool.query
+      .mockResolvedValueOnce([[], []])
+      .mockResolvedValueOnce([[{ cnt: 0 }], []])
+      .mockResolvedValueOnce([{ insertId: 10 }, []])
     const res = await request(createApp(hangoutsRoutes))
       .post('/api/hangouts')
       .set('Authorization', `Bearer ${authToken(2)}`)
@@ -148,6 +151,42 @@ describe('POST /api/hangouts', () => {
       })
     expect(res.status).toBe(201)
     expect(res.body.id).toBe(10)
+  })
+
+  it('rejects second daily hangout for free user', async () => {
+    pool.query
+      .mockResolvedValueOnce([[], []])
+      .mockResolvedValueOnce([[{ cnt: 1 }], []])
+    const res = await request(createApp(hangoutsRoutes))
+      .post('/api/hangouts')
+      .set('Authorization', `Bearer ${authToken(2)}`)
+      .send({
+        category: 'cafe',
+        title: 'Second today',
+        event_date: new Date(Date.now() + 86_400_000).toISOString(),
+        max_companions: 2,
+      })
+    expect(res.status).toBe(403)
+    expect(res.body.code).toBe('HANGOUT_DAILY_LIMIT')
+  })
+
+  it('skips daily limit for premium subscriber', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ id: 5 }], []])
+      .mockResolvedValueOnce([{ insertId: 11 }, []])
+    const res = await request(createApp(hangoutsRoutes))
+      .post('/api/hangouts')
+      .set('Authorization', `Bearer ${authToken(2)}`)
+      .send({
+        category: 'cafe',
+        title: 'Premium plan',
+        event_date: new Date(Date.now() + 86_400_000).toISOString(),
+        max_companions: 2,
+      })
+    expect(res.status).toBe(201)
+    expect(res.body.id).toBe(11)
+    const countCall = pool.query.mock.calls.find(([sql]) => sql.includes('COUNT(*) AS cnt'))
+    expect(countCall).toBeUndefined()
   })
 
   it('rejects past event_date', async () => {

@@ -258,6 +258,24 @@ router.post('/api/hangouts', auth, createLimiter, async (req, res) => {
   }
 
   try {
+    // Лимит: free — 1 объявление в сутки, premium — без лимита
+    const [subRows] = await pool.query(
+      'SELECT id FROM subscriptions WHERE user_id = ? AND is_active = 1 AND expires_at > NOW() LIMIT 1',
+      [req.userId],
+    )
+    if (subRows.length === 0) {
+      const [[{ cnt }]] = await pool.query(
+        'SELECT COUNT(*) AS cnt FROM hangouts WHERE user_id = ? AND created_at >= CURDATE()',
+        [req.userId],
+      )
+      if (cnt >= 1) {
+        return res.status(403).json({
+          message: 'Free users can create up to 1 hangout per day',
+          code: 'HANGOUT_DAILY_LIMIT',
+        })
+      }
+    }
+
     const [result] = await pool.query(
       `INSERT INTO hangouts (user_id, category, title, description, place_name, place_address, city, lat, lng, event_date, max_companions)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,

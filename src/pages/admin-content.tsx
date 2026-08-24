@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,7 @@ import { useLanguage } from '@/context/language-context';
 import { invalidateContentCache, useContentConfig } from '@/lib/useContentConfig';
 import { POPULAR_CITIES } from '@/lib/constants';
 import { exportToCsv } from '@/lib/admin-mock-data';
-import { getToken } from '@/lib/token';
+import { clearToken, getToken } from '@/lib/token';
 
 interface EditableListProps {
   items: string[];
@@ -101,12 +102,17 @@ async function saveSection(section: string, items: string[]) {
     },
     body: JSON.stringify({ items: cleanItems }),
   })
-  if (!res.ok) throw new Error('Failed to save')
+  if (!res.ok) {
+    const err = new Error('Failed to save') as Error & { status?: number }
+    err.status = res.status
+    throw err
+  }
   invalidateContentCache()
 }
 
 export default function ContentManagementPage() {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const config = useContentConfig();
   const [interests, setInterests] = useState<string[]>([]);
   const [goals, setGoals] = useState<string[]>([]);
@@ -146,7 +152,14 @@ export default function ContentManagementPage() {
     try {
       await saveSection(section, items)
       toast.success(t('admin.content.saved'))
-    } catch {
+    } catch (e) {
+      if ((e as { status?: number })?.status === 401) {
+        // Протухшая сессия/легаси-токен — чистим storage и отправляем на релогин
+        clearToken();
+        toast.error(t('admin.session_expired'));
+        navigate('/login');
+        return;
+      }
       toast.error(t('admin.content.save_error'))
     } finally {
       setSaving(null)
@@ -199,7 +212,10 @@ export default function ContentManagementPage() {
             </TabsContent>
             <TabsContent value="cities">
               <div className="space-y-6">
-                <EditableList items={cities} nounKey="cities" section="cities" saving={false} onAdd={i => setCities(p => [...p, i].sort((a, b) => a.localeCompare(b)))} onDelete={i => setCities(p => p.filter(x => x !== i))} />
+                <EditableList items={cities} nounKey="cities" section="cities" saving={saving === 'cities'} onAdd={i => setCities(p => [...p, i].sort((a, b) => a.localeCompare(b)))} onDelete={i => setCities(p => p.filter(x => x !== i))} />
+                <div className="mt-2 flex justify-end">
+                  <Button size="sm" onClick={() => handleSave('cities', cities, setCities)} disabled={saving === 'cities'}>{saving === 'cities' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} Сохранить</Button>
+                </div>
                 <div className="border-t pt-6">
                   <h4 className="text-sm font-black flex items-center gap-2 mb-4">
                     <Globe size={16} className="text-primary" />
