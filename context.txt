@@ -550,3 +550,21 @@
 - **Тесты**: partners.test.js 13 (FIND_IN_SET, гео-HAVING, track→INSERT+utm+ref, paused 404, CRUD-валидация), chat-partner-actions.test.tsx 3 (чипы, track+window.open, пусто→null), e2e/partners.spec.ts 4 (feed, трекинг-цепочка с clicks_total в админке, 404, auth)
 - **Хвосты**: подстановка плейсхолдеров {lat}/{to_lat}/{city} в deeplink'ах, S2S postback booking/purchase, partner_offer_id в hangouts; Волны 2–4 по Mesta.txt
 - Коммит: 46e9e6d (feat, пуш на part)
+
+## Этап 48 (24 августа 2026): хвосты Hangouts + deeplink-плейсхолдеры
+
+- **Edit встречи**: src/pages/hangout-edit.tsx — загрузка GET /api/hangouts/:id, префилл (title/description/place/address/city/date/max_companions; категория НЕ редактируется — PUT её не принимает), гейт is_author && status=active иначе testid="edit-forbidden"; PUT → тост hangout.toast.updated → navigate на detail. Роут /hangouts/:id/edit ДО /hangouts/:id в App.tsx; кнопка «Редактировать» (testid="edit-hangout") в hangout-detail.tsx у автора активной встречи
+- **Лента**: hangouts.tsx — чипсы дат (testid="hangout-date-chips", ключи all/today/tomorrow/weekend → date_from/date_to ISO; weekend = ближайшие сб+вс включая текущие), пагинация page/limit=20, hasMore когда страница полная, кнопка "hangouts-load-more" аппендит страницу; смена фильтра сбрасывает page=1
+- **Free-лимит**: POST /api/hangouts — сначала подписка (subscriptions is_active+expires_at>NOW), если нет → COUNT(created_at>=CURDATE())>=1 → 403 {code:'HANGOUT_DAILY_LIMIT'}; premium пропускает COUNT полностью; фронт в hangout-create.tsx парсит код ошибки → тост hangout.toast.daily_limit
+- **Deeplink**: partners.js track принимает lat/lng/city из body||query → заменяет {lat},{to_lat},{lng} (числа, URL-encoded) и {city}; плейсхолдеры без контекста не трогает; utm/ref как раньше
+- **i18n**: новые ключи hangout.action.edit / filter.all_dates / filter.load_more / toast.updated / toast.daily_limit / edit.only_author — добавлены в ОБА блока RU+EN (паритет i18n.test.ts)
+- **Тесты**: server 250/250 (+4: free второй за день → 403, premium без COUNT, create-моки получили 2 запроса до INSERT), front 74/74 (+6: prefills/PUT+навигация/not-author/cancelled; дата-чипсы шлют date_from/to; load-more → page=2). В renderPage для useParams нужен <Routes> с реальным path — без него id=undefined
+- **Грабли**: textContent — строка, оборачивать String() для toContain; у DocumentTitle PAGE_TITLES матч по точному pathname — динамические роуты дают дефолт "SwiftMatch"
+- **Живой прогон**: verify-stage48.mjs через localhost:3002 (login admin@mail.ru → create/create → track) — все PASS, тестовые записи удалены из БД
+## Хотфикс (24 августа 2026): /admin/content — «ошибка сохранения» при валидной сессии
+
+- **Корень**: extractToken (cookies.js) отдаёт Authorization-заголовок ПРИОРИТЕТНЕЕ cookie, а getToken() (token.ts:15) на вебе до сих пор подхватывает легаси localStorage.getItem('token') («существующие сессии»). В браузере оставался старый JWT (подписан случайным секретом до появления server/.env) → каждый запрос админки нёс невалидный Bearer → 401, хотя свежая httpOnly cookie sm_token была валидна. Релогин НЕ помогал: setToken на вебе пишет только memoryToken, localStorage не очищается
+- **Фикс сервера**: middleware.js auth/optionalAuth и middleware/adminAuth.js теперь пробуют ОБА источника (Bearer → cookie), первый валидный выигрывает; мусорный Bearer больше не перекрывает живую cookie. adminAuth при ошибке БД отдаёт 500 ADMIN_CHECK_FAILED вместо маскировки под 401
+- **Фикс фронта**: admin-content.tsx handleSave при 401 — clearToken() (чистит легаси-storage) + тост admin.session_expired + navigate('/login'); saveSection бросает err.status. i18n ключи admin.session_expired RU+EN
+- **Тесты**: server 256/256 (+4: admin-auth.test.js фолбэк cookie/stale+valid/all-invalid/non-admin 403; middleware fallback-тесты), front 74/74
+- **Живая проверка** verify-stale-bearer-fix.mjs через 8081: stale Bearer + валидная cookie → PUT 200; только stale Bearer без cookie → 401; чистая cookie → 200. Все PASS
