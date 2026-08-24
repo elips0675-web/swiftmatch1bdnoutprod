@@ -310,3 +310,12 @@
 - [ ] Wave 2: рестораны/цветы — Stripe + webhook партнёра, первая реальная комиссия
 - [ ] Wave 3: отели в passport-mode (Redis-кэш офферов TTL 1ч), спа/фитнес
 - [ ] Wave 4: B2B-маркетплейс услуг (роль partner, ЛК, подписка через Stripe)
+
+ХОТФИКС 24.08 (сессия «пропали интересы / 403 в админке») — ВЫПОЛНЕНО
+- Причина 403 на PUT /api/admin/content/* и «пропавших» данных: легаси JWT из localStorage (обычный юзер) был ВАЛИДЕН и перебивал админскую httpOnly cookie (decodeAny предпочитал Bearer).
+- middleware.js + middleware/adminAuth.js: cookie теперь ПРИОРИТЕТНЫЙ источник (cookie -> Bearer). Регресс-тест: валидный Bearer не-админа + админская cookie => 200.
+- src/lib/token.ts: на вебе getToken больше НЕ читает localStorage.token (только sessionStorage/httpOnly-cookie); натив — как раньше.
+- E2E-сиды (global-setup, hangouts.spec, test_pages.mjs) дополнительно ставят cookie sm_token.
+- Данные content_config целы (интересы 25, цели 10, образование 8, слова 5, города — выводятся из профилей); восстановление не требовалось.
+- /admin/content: кнопки всех секций приведены к паттерну «Цели» — удаление чипа сразу сохраняет (включая города), кнопка Сохранить через t('admin.save'), стиль rounded-xl единый.
+- CSP-ошибка zorybit.com в консоли — от браузерного расширения пользователя, к коду отношения не имеет.
