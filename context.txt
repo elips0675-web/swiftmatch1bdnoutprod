@@ -63,7 +63,7 @@
 - **Video Date Scheduling:** миграция `012_add_date_schedules.sql`, роуты `/api/schedule` (GET/POST/PUT), WS `schedule:updated`, `src/pages/schedule.tsx` (список + фильтр + accept/decline/cancel), Calendar button в заголовках чатов, диалог предложения даты с выбором времени/длительности/сообщения
 - **Profile Score:** миграция `014_add_profile_score.sql`, колонка `profile_score` в `user_profiles`, `calculateProfileScore()` (полнота анкеты: аватар, био, рост, образование, знак зодиака, стиль привязанности, цель, город, пол, кого ищет, 3+ фото), `GET /api/profile/:id/score` возвращает score + рекомендации, UI-бейдж в профиле (зелёный ≥80, жёлтый ≥50, красный <50) + список рекомендаций с потенциальными баллами
 - **Background GPS + Geofence:** миграция `011_add_background_gps.sql`, `PUT/GET /api/location`, `use-background-geolocation.ts` (Capacitor geolocation + fallback watchPosition, 5min polling), geofence-события
-- **CI/CD:** `.github/workflows/deploy.yml` — lint → frontend test (55) → server test (MySQL контейнер, 124) → E2E (Playwright, 30) → deploy (SCP + pm2, только main)
+- **CI/CD:** `.github/workflows/deploy.yml` — lint → frontend test (81) → server test (MySQL контейнер, 299) → E2E (Playwright, 55) → deploy (SCP + pm2, только main)
 - **Docker Compose:** `docker-compose.yml` — app (node:22-alpine, healthcheck `/health`) + nginx + Prometheus (`:9090`) + Grafana (`:3001`), named volumes
 - **Monitoring:** `server/src/metrics.js` (prom-client: http_requests_total/duration, db_queries_total/duration, ws_events_total, cache_hits/misses), `monitoring/prometheus.yml` (scrape `/metrics` every 15s), `monitoring/grafana-dashboard.json` (7 panels: HTTP rps, p50/p95/p99, DB queries, WS events, cache, memory, CPU)
 - **Load Testing:** `k6/load-test.js` — ramp-up 10→100 users over 60s, checks 6 endpoints (health, login, search, premium, matches, chats)
@@ -82,7 +82,7 @@
 - **Deep Links:** ✅ Scaffold (assetlinks.json, capacitor.config.ts, use-deep-links.ts); ждёт домена
 - **Nginx:** rate limit, client_max_body_size, proxy_read_timeout 86400s, SSL
 - **Логи:** 0 console.log/error в server/src/ — везде Winston
-- **Тесты:** 209/209, 0 failures — 55 фронт + 124 сервер + 30 E2E
+- **Тесты:** 380/380, 0 failures — 81 фронт + 299 сервер
 
 ### Функциональный аудит (июль 2026)
 Проверены все 8 разделов через работающий API (сервер localhost:3002):
