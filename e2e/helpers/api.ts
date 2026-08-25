@@ -44,6 +44,6 @@ export function getTokenFromStorage(storageFile: string): string {
         if (item.name === 'token') return item.value
       }
     }
-  } catch {}
+  } catch { /* storage may be empty */ }
   return ''
 }

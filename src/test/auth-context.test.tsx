@@ -26,8 +26,14 @@ beforeEach(() => {
 })
 
 describe("AuthContext", () => {
+  function mockNoCookieSession() {
+    // 1-й вызов — /api/auth/me (нет куки), 2-й — dev-login
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 401, json: () => Promise.resolve({}) })
+    return mockFetch
+  }
+
   it("starts in loading state", () => {
-    mockFetch.mockResolvedValueOnce({
+    mockNoCookieSession().mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ token: "demo-token" }),
     })
@@ -37,7 +43,7 @@ describe("AuthContext", () => {
   })
 
   it("performs dev-login when supabase is absent", async () => {
-    mockFetch.mockResolvedValueOnce({
+    mockNoCookieSession().mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ token: "demo-token" }),
     })
@@ -53,8 +59,24 @@ describe("AuthContext", () => {
     expect(result.current.user?.name).toBe("Анна")
   })
 
+  it("restores session from cookie via /api/auth/me", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ id: 7, email: "user7@mail.ru", name: "Ольга", avatar: "" }),
+    })
+
+    const { result } = renderHook(() => useAuth(), { wrapper: Wrapper })
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false)
+    })
+
+    expect(result.current.user?.id).toBe(7)
+    expect(result.current.user?.email).toBe("user7@mail.ru")
+  })
+
   it("handles dev-login failure gracefully", async () => {
-    mockFetch.mockRejectedValueOnce(new Error("Network error"))
+    mockNoCookieSession().mockRejectedValueOnce(new Error("Network error"))
 
     const { result } = renderHook(() => useAuth(), { wrapper: Wrapper })
 
@@ -67,7 +89,7 @@ describe("AuthContext", () => {
   })
 
   it("provides logout function", async () => {
-    mockFetch.mockResolvedValueOnce({
+    mockNoCookieSession().mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ token: "demo-token" }),
     })
@@ -87,7 +109,7 @@ describe("AuthContext", () => {
   })
 
   it("provides clearError function", () => {
-    mockFetch.mockResolvedValueOnce({
+    mockNoCookieSession().mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ token: "demo-token" }),
     })

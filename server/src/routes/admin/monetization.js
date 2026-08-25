@@ -77,7 +77,7 @@ router.get('/monetization/ads', async (req, res) => {
     if (!row) {
       return res.json({ google: true, yandex: false, googleId: 'ca-app-pub-3940256099942544/5224354917', yandexId: 'R-M-DEMO-rewarded' })
     }
-    const config = JSON.parse(row.config_value)
+    const config = typeof row.config_value === 'string' ? JSON.parse(row.config_value) : row.config_value
     res.json(config)
   } catch (err) {
     logger.error('Get ads error:', err)

@@ -12,6 +12,7 @@ import { PageLoading } from "@/components/shared/loading-screen"
 import { AppContainer } from "@/components/layout/app-container"
 import { AdminLayout } from "@/components/layout/admin-layout"
 import { AdminGuard } from "@/components/shared/admin-guard"
+import { PartnerGuard } from "@/components/shared/partner-guard"
 import { ClientOnly } from "@/components/shared/client-only"
 import { CookieConsent } from "@/components/shared/cookie-consent"
 import { PwaInstallBanner } from "@/components/shared/pwa-install-banner"
@@ -31,11 +32,19 @@ const AdminMonetization = lazy(() => import("./pages/admin-monetization"))
 const AdminReports = lazy(() => import("./pages/admin-reports"))
 const AdminPhotos = lazy(() => import("./pages/admin-photos"))
 const AdminUsers = lazy(() => import("./pages/admin-users"))
+const AdminExperiments = lazy(() => import("./pages/admin-experiments"))
 const Chats = lazy(() => import("./pages/chats"))
 const ChatId = lazy(() => import("./pages/_chats-chatId-adapter"))
 const Contest = lazy(() => import("./pages/contest"))
 const Faq = lazy(() => import("./pages/faq"))
 const Groups = lazy(() => import("./pages/groups"))
+const Hangouts = lazy(() => import("./pages/hangouts"))
+const HangoutDetail = lazy(() => import("./pages/hangout-detail"))
+const HangoutCreate = lazy(() => import("./pages/hangout-create"))
+const HangoutEdit = lazy(() => import("./pages/hangout-edit"))
+const HangoutsMy = lazy(() => import("./pages/hangouts-my"))
+const AdminHangouts = lazy(() => import("./pages/admin-hangouts"))
+const AdminPartners = lazy(() => import("./pages/admin-partners"))
 const Matches = lazy(() => import("./pages/matches"))
 const Premium = lazy(() => import("./pages/premium"))
 const SettingsPrivacy = lazy(() => import("./pages/settings-privacy"))
@@ -60,6 +69,10 @@ const SupportChat = lazy(() => import("./pages/support-chat"))
 const User = lazy(() => import("./pages/user"))
 const PremiumSuccess = lazy(() => import("./pages/premium-success"))
 const PremiumCancel = lazy(() => import("./pages/premium-cancel"))
+const PartnerOrderSuccess = lazy(() => import("./pages/partner-order-success"))
+const PartnerOrderCancel = lazy(() => import("./pages/partner-order-cancel"))
+const PartnerRegister = lazy(() => import("./pages/partner-register"))
+const PartnerDashboard = lazy(() => import("./pages/partner-dashboard"))
 const Schedule = lazy(() => import("./pages/schedule"))
 const Safety = lazy(() => import("./pages/safety"))
 
@@ -104,10 +117,19 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/reports": "Жалобы — SwiftMatch",
   "/premium/success": "Оплата успешна — SwiftMatch",
   "/premium/cancel": "Оплата отменена — SwiftMatch",
+  "/partner-order/success": "Заказ оформлен — SwiftMatch",
+  "/partner-order/cancel": "Заказ отменён — SwiftMatch",
+  "/partner/register": "Регистрация партнёра — SwiftMatch",
+  "/partner/dashboard": "Панель партнёра — SwiftMatch",
   "/matches": "Мои совпадения — SwiftMatch",
   "/premium": "Премиум — SwiftMatch",
   "/settings/privacy": "Конфиденциальность — SwiftMatch",
   "/schedule": "Видеосвидания — SwiftMatch",
+  "/hangouts": "Куда пойдем — SwiftMatch",
+  "/hangouts/create": "Создать встречу — SwiftMatch",
+  "/hangouts/my": "Мои встречи — SwiftMatch",
+  "/admin/hangouts": "Модерация встреч — SwiftMatch",
+  "/admin/partners": "Партнёры — SwiftMatch",
 }
 
 function DocumentTitle() {
@@ -152,16 +174,23 @@ const App = () => (
                   <Routes>
                     <Route path="/admin" element={<AdminGuard><AdminLayout><SuspenseWrapper><Admin /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/analytics" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminAnalytics /></SuspenseWrapper></AdminLayout></AdminGuard>} />
+                    <Route path="/admin/experiments" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminExperiments /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/content" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminContent /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/features" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminFeatures /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/messaging" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminMessaging /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/monetization" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminMonetization /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/reports" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminReports /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/photos" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminPhotos /></SuspenseWrapper></AdminLayout></AdminGuard>} />
+                    <Route path="/admin/hangouts" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminHangouts /></SuspenseWrapper></AdminLayout></AdminGuard>} />
+                    <Route path="/admin/partners" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminPartners /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/admin/users" element={<AdminGuard><AdminLayout><SuspenseWrapper><AdminUsers /></SuspenseWrapper></AdminLayout></AdminGuard>} />
                     <Route path="/premium" element={<SuspenseWrapper><Premium /></SuspenseWrapper>} />
                     <Route path="/premium/success" element={<SuspenseWrapper><PremiumSuccess /></SuspenseWrapper>} />
                     <Route path="/premium/cancel" element={<SuspenseWrapper><PremiumCancel /></SuspenseWrapper>} />
+                    <Route path="/partner-order/success" element={<SuspenseWrapper><PartnerOrderSuccess /></SuspenseWrapper>} />
+                    <Route path="/partner-order/cancel" element={<SuspenseWrapper><PartnerOrderCancel /></SuspenseWrapper>} />
+                    <Route path="/partner/register" element={<SuspenseWrapper><PartnerRegister /></SuspenseWrapper>} />
+                    <Route path="/partner/dashboard" element={<PartnerGuard><SuspenseWrapper><PartnerDashboard /></SuspenseWrapper></PartnerGuard>} />
                     <Route path="*" element={
                       <SuspenseWrapper>
                         <AppContainer>
@@ -175,6 +204,11 @@ const App = () => (
                             <Route path="/faq" element={<Faq />} />
                             <Route path="/groups" element={<Groups />} />
                             <Route path="/groups/:category" element={<GroupCategory />} />
+                            <Route path="/hangouts" element={<Hangouts />} />
+                            <Route path="/hangouts/create" element={<HangoutCreate />} />
+                            <Route path="/hangouts/my" element={<HangoutsMy />} />
+                            <Route path="/hangouts/:id/edit" element={<HangoutEdit />} />
+                            <Route path="/hangouts/:id" element={<HangoutDetail />} />
                             <Route path="/legal/data-processing" element={<LegalDataProcessing />} />
                             <Route path="/legal/privacy" element={<LegalPrivacy />} />
                             <Route path="/legal/terms" element={<LegalTerms />} />

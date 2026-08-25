@@ -1,49 +1,137 @@
-На основе анализа вашего проекта SwiftMatch и текущих трендов рынка дейтинг-приложений 2026 года, вот структурированный план доработок до полноценного продукта.
-🔴 Критично — блокирует запуск (Недели 1–2)
+SwiftMatch — свежий аудит после этапа 37
+Дата: 23.08.2026. Контекст: 258/258 тестов, httpOnly cookie, refresh rotation, schema-validation в CI.
+1. Безопасность: cookie-схема и вокруг неё
+✅ Что держит удар
 Таблица
-#	Задача	Почему срочно	Что нужно сделать
-1	Push-уведомления для Android (FCM)	Без пушей мобильное приложение мёртвое — пользователи не узнают о мэтчах и сообщениях	Интегрировать @capacitor/push-notifications + Firebase Cloud Messaging. Заменить/дополнить текущие VAPID Web Push на FCM для нативного Android. Сейчас у вас только VAPID (веб-пуши), но в APK они не работают без Google Services.
-2	Deep Links	Пуши открывают главную страницу вместо конкретного чата/профиля	Настроить Android App Links (assetlinks.json) + iOS Universal Links. В capacitor.config.ts добавить server.url для deep link handling.
-3	Apple/Google IAP через RevenueCat	App Store и Google Play отклонят приложение без нативных встроенных покупок	Интегрировать purchases-capacitor (RevenueCat). Stripe оставить для веб-версии, но для мобильных сторов обязательны IAP. Это требование обоих магазинов для приложений с подписками.
-4	SMS-верификация (Twilio/Vonage)	Дейтинг без верификации = 80% ботов и фейков	Докрутить существующий scaffold server/src/sms.js — добавить реальные API-ключи Twilio, rate-limit 3 SMS/час, интегрировать в флоу регистрации.
-5	AI-модерация фото (AWS Rekognition)	NSFW-контент не отсекается автоматически = бан в сторах	Докрутить scaffold server/src/ai-moderation.js — подключить реальные ключи AWS Rekognition для nudity/violence detection при загрузке фото. Сейчас fallback на эвристику (regex) — недостаточно.
-🟠 Высокий приоритет — влияет на retention (Недели 3–4)
+Механизм	Вердикт	Почему
+httpOnly cookie sm_token + sm_refresh	✅ Архитектурно верно	XSS не достаёт токен из JS; нативные сборки изолированы в Bearer
+Refresh rotation + reuse detection	✅ Production-ready	Атомарный claim через affectedRows, family_id, replay → revoke всей семьи. Гонка закрыта
+Account lockout	✅ Работает	5×401 → 429/15 мин, in-memory. Для закрытой беты — достаточно
+stripHtml на входе	✅ Defense in depth	<script> не сохраняется, «<3» не ломается. React сам экранирует вывод
+WS auth только handshake.auth.token	✅ Правильно	Query-param убран, не оседает в nginx-логах
+SameSite=Lax + Secure	✅ Базовый CSRF-щит	Для монолита (фронт и API на одном домене) — ок
+🔴 Пробелы и риски
+1.1. Rate-limit и lockout — in-memory (блокер при горизонтальном масштабировании)
+express-rate-limit и lockout.js используют in-memory хранилище. При запуске через PM2 cluster mode или Docker Compose с несколькими репликами лимиты не shared. Злоумышленник может обойти lockout, чередуя запросы между воркерами.
+Фикс: Подключить rate-limit-redis и переписать lockout.js на Redis (или документировать: «prod — strictly single-instance до миграции на Redis store»).
+1.2. Отсутствие __Host- prefix у cookie
+sm_token без префикса. Если в будущем появятся поддомены (например, admin.swiftmatch.app), cookie может быть перезаписана/считана с поддомена.
+Фикс: __Host-sm_token (требует Secure и Path=/, что уже так).
+1.3. Cleanup revoked refresh-токенов
+Сейчас revoked-токены помечаются revoked=1, но не удаляются (это правильно для детекта reuse). Однако через год таблица refresh_tokens разрастётся. Нет cron-джобы для удаления токенов старше N дней.
+Фикс: Ежедневный cleanup: DELETE FROM refresh_tokens WHERE revoked = 1 AND updated_at < NOW() - INTERVAL 30 DAY.
+1.4. WS reconnection — токен в handshake
+При reconnect WebSocket клиент снова проходит handshake. Но что если refresh произошёл между disconnect и reconnect? Старый handshake.auth.token (access) уже invalid, а новый клиент не знает, потому что httpOnly cookie не читается из JS.
+Проверить: Передаёт ли клиент в WS handshake только access-токен? Если да, то после silent refresh на REST клиент должен явно переподключить WS с новым токеном. Это потенциальная race.
+1.5. Admin TOTP — отложено, но админка уже защищена только паролем
+В «Что доделать.txt» сказано «админка не торчит наружу», но это предположение. Достаточно одной утечки admin@mail.ru/demo123456 (или XSS на фронте, или keylogger) — и злоумышленник в админке.
+Рекомендация: Перед staging добавить хотя бы IP-whitelist для /api/admin/* (nginx allow/deny) или базовую HTTP Basic Auth на nginx-уровне как временную меру.
+1.6. CORS для Capacitor vs строгий CORS_ORIGIN
+В README написано cors({ origin: '*' }) для Capacitor, в «Для анализа.txt» — fail-fast без CORS_ORIGIN. Нужно убедиться, что нативный режим определяется по User-Agent/заголовку, а не просто отключает CORS глобально. Иначе в проде будет * для всех.
+2. Риски миграции на прод
+🔴 Высокие риски
+2.1. Docker Compose не прогонялся end-to-end
+«Локально не поднимался — нет Docker на машине». Это значит, что на staging могут всплыть проблемы: сеть между app и nginx, volumes для MySQL, healthcheck тайминги, proxy_read_timeout для WS.
+Действие: Первый деплой на staging должен быть только Docker Compose + healthcheck + smoke-тесты. Не пушить код пользователей в первый же деплой.
+2.2. mysqld RADAR_PRE_LEAK_64 — нехватка памяти
+E2E (3 chromium + node + vite + mysql) убивал mysqld. На VPS с 1-2 GB RAM это повторится при k6 100 VU + реальные пользователи.
+Действие: На staging провести k6 100 VU с мониторингом free -m и SHOW STATUS LIKE 'Threads_connected'. Возможно, DB_POOL_MAX=20 слишком много для малого VPS — уменьшить до 10.
+2.3. Graceful degradation — граничные случаи
 Таблица
-#	Задача	Почему важно	Что нужно сделать
-6	CDN для фото + Image Optimization	Трафик фото через сервер убьёт CPU в первый же день	Подключить S3 (Yandex Cloud/Selectel) + CloudFront/CDN. Сейчас scaffold готов (server/src/image-pipeline.js с Sharp/WebP/AVIF), но загрузка идёт на локальный диск.
-7	GDPR / Data Privacy Compliance	Штраф до 4% оборота за утечку данных дейтинг-приложения	Добавить: consent flow при регистрации, data export (GDPR Article 20), right to erasure, privacy policy страницу. Данные дейтинга — особо чувствительные.
-8	Background GPS + Geofence	Текущий геопоиск работает только при открытом приложении	Добавить @capacitor/geolocation с background mode. Adaptive polling: частый при открытом, раз в 5 минут в фоне. Геофенс для обновления пула мэтчей при смещении 100м+.
-9	Ghost Mode / Incognito (Premium)	Базовая фича premium-дейтинга — скрытое присутствие в ленте	Добавить флаг incognito в user_profiles. При включении — профиль не появляется в чужой ленте, но сам пользователь видит других.
-10	Passport Mode (Premium)	Возможность менять локацию на другой город перед поездкой	Добавить passport_location в профиль. При passport_mode = true — использовать эту локацию вместо GPS для поиска.
-🟡 Средний приоритет — конкурентное преимущество (Недели 5–8)
+Сервис	Без ключа	Риск
+Stripe webhook	502/503	Пользователь не может оплатить, но знает об ошибке
+RevenueCat webhook	503	IAP не работает — критично для монетизации
+Redis	In-memory fallback	Bull Queue без Redis — падает или теряет задачи? Нужно проверить: если REDIS_URL=invalid, очереди email/push/image — они in-memory или reject?
+2.4. PM2 vs Docker — конфликт стратегий
+В README — pm2, в Docker Compose — docker. Если выбрать PM2 cluster mode — сломаются in-memory rate-limit и lockout. Если Docker — нужен orchestrator (docker-compose на одном хосте ок, но при росте — swarm/k8s).
+Рекомендация: Для старта — Docker Compose single-instance + Redis. PM2 оставить как fallback.
+2.5. Откат миграций — только через бэкап
+Это ок, но rollback-plan.md должен содержать точное время RTO (Recovery Time Objective): сколько минут на restore из бэкапа? Проверено ли restore на чистой БД за последнюю неделю?
+🟠 Средние риски
+2.6. Nginx proxy_read_timeout 86400s
+Если это глобальная директива, а не только для /socket.io/, то обычные HTTP-запросы тоже будут ждать 24 часа. При DDOS или медленных клиентах это исчерпает соединения.
+Фикс: proxy_read_timeout 86400s; только в location /socket.io/.
+2.7. SSL auto-renewal
+Let's Encrypt требует обновления каждые 90 дней. Нет упоминания о certbot в Docker Compose или cron.
+Действие: Добавить certbot контейнер или документировать ручное обновление.
+3. Слепые зоны тестов (приоритезация)
+🔴 Критично — добавить до staging
 Таблица
-#	Задача	Что нужно сделать
-11	AI Icebreakers	Интеграция OpenAI API для генерации персонализированных первых сообщений на основе общих интересов. Сейчас у вас scaffold готов, но не подключён к чатам.
-12	Video Date Scheduling	WebRTC уже есть (Stage 1), но нет планирования: календарь, dual reminders, blur background.
-13	Disappearing Messages	Таймер 24ч/7д/90д для сообщений, enforced server-side с TTL.
-14	Profile Score + AI Recommendations	Анализ профиля и рекомендации по улучшению («добавьте фото с улыбкой», «опишите хобби подробнее»).
-15	Date Check-in (Safety)	Поделиться локацией с доверенным контактом, авто-алерт если нет чек-ина.
-16	A/B Testing Framework	Feature flags (LaunchDarkly/Flagsmith) для контролируемого rollout фич по когортам и гео.
-17	Analytics (PostHog/Amplitude)	Retention curves (D1/D7/D30), funnel analysis, match rate, message conversion. Сейчас у вас базовые endpoint'ы в admin/analytics.js, но нет product analytics.
-🟢 Инфраструктура и масштабирование (Месяц 2–3)
+#	Что не покрыто	Почему важно	Как покрыть
+1	Redis fallback integration	ECONNREFUSED должен НЕ падать	E2E: запустить с REDIS_URL=redis://invalid:6379, пройти login→like→chat
+2	Refresh race E2E	Два окна одного юзера, быстрый refresh	Playwright: два контекста, одни куки, одновременный POST /refresh
+3	Cookie edge cases	Expired access + valid refresh mid-session	E2E: подменить sm_token на expired, убедиться в silent refresh без 401 в консоли
+4	File upload security	.php.jpg, path traversal, 15MB	E2E: загрузить shell.php.jpg, проверить что сохранён как uuid без .php; 15MB → 413
+5	Rate-limit spec	61-й login → 429	Интеграционный тест: 61 запрос в цикле, проверить 429 и Retry-After
+🟠 Высокий приоритет
 Таблица
-#	Задача	Статус в проекте	Действие
-18	CI/CD Pipeline (GitHub Actions)	❌ Нет	.github/workflows/deploy.yml есть scaffold, но нужно настроить runner'ы, секреты, staging environment
-19	Docker Compose (app + mysql + redis + nginx)	❌ Нет	Создать docker-compose.yml для production stack
-20	Redis Adapter для Socket.IO	❌ Нет	Горизонтальное масштабирование WS через socket.io-redis-adapter
-21	Load Testing (k6/Artillery)	❌ Нет	Нагрузочные тесты на геопоиск и чаты
-22	Monitoring (Grafana + Prometheus)	❌ Нет	Метрики: DAU, latency, error rate, match rate
-23	Backup Verification	⚠️ Есть скрипт	Добавить автоматическую проверку восстановления из бэкапа раз в неделю
-📋 Чеклист перед подачей в App Store / Google Play
+#	Что не покрыто	Как покрыть
+6	WS reconnect + exponential backoff	Эмуляция обрыва (devtools Network → Offline → Online)
+7	GDPR full erasure cascade	Создать юзера → активность → POST /data/erase/confirm → проверить 404 на профиль/чаты
+8	Stripe webhook security	Mock-сервер: invalid signature → 400, replay idempotency-key → 409
+9	Backup/restore smoke в CI	Restore в скретч-БД → npm test + E2E smoke
+10	Security headers regression	security.headers.test.js уже есть (7 тестов) — перенести в CI и запускать на каждый PR
+🟡 Средний приоритет
 Таблица
-Проверка	Статус	Действие
-Реальные API-ключи (7 штук) в server/.env	⚠️ Ждут	Заполнить: Stripe, SMTP, Sentry, S3, Redis, Twilio, AWS Rekognition
-IAP интегрирован (RevenueCat)	❌ Нет	Обязательно для сторов
-Privacy Policy + Terms of Service	❌ Нет	Юридические страницы
-Content Rating (17+)	❌ Нет	Настроить в консолях
-Screenshots для сторов	❌ Нет	5+ скриншотов с реальными данными
-TestFlight / Internal Testing	❌ Нет	Загрузить билд
-Age Verification (18+)	⚠️ Scaffold	Докрутить проверку при регистрации
-💡 Ключевой инсайт из рынка 2026
-Согласно анализу рынка, 60–70% оттока пользователей из дейтинг-приложений происходит на этапе онбординга. Ваше текущее приложение уже имеет solid foundation (177 тестов, WebRTC, WebSocket, админка), но главный риск сейчас — не технический долг, а отсутствие мобильных пушей и нативных платежей. Без этих двух компонентов приложение в APK-билде фактически нежизнеспособно.
-Приоритет: FCM → RevenueCat → Deep Links → SMS verify → CDN. Это 4–6 недель работы и разделит ваш продукт от «тестовой копии» до «приложения, которое можно выкладывать в сторы».
+#	Что не покрыто	Примечание
+11	i18n completeness	Grep всех t("...") против language-context.tsx — можно автоматизировать
+12	Cross-browser	Playwright config: добавить firefox и webkit в projects
+13	RevenueCat webhook E2E	Мок событий RevenueCat → проверка записи в subscriptions
+14	Admin TOTP enrollment	Когда реализуете — нужен E2E: QR-code сканируется, код принимается
+4. Честная оценка и дорожная карта
+Итоговая оценка: 8.5 / 10 (готов к закрытой бете / staging)
+Таблица
+Категория	Балл	Обоснование
+Код и архитектура	9/10	Чистый стек, хорошие абстракции, 258 тестов, idempotent миграции
+Безопасность аутентификации	8.5/10	Cookie-схема solid, rotation + reuse detection на уровне enterprise-паттерна. Минусы: нет TOTP, нет fingerprinting, in-memory lockout
+Инфраструктура	7/10	Docker не протестирован end-to-end, in-memory rate-limit, нет внешнего мониторинга
+Готовность к продакшену	7/10	Код готов, но окружение (ключи, домен, сторы) блокирует релиз
+Консенсус подтверждаю: новый продуктовый код не нужен
+Ваши аудиты (kimi 7.5, qwen 8/6.5, дипсик 95%) сходятся в одном: кодовая база достигла потолка качества для MVP. Дальнейшее «полирование» фич (новые фильтры, UI-фишки) — отложить до стабильного staging.
+Дорожная карта (фактическая, не идеальная)
+Неделя 1: Staging foundation
+VPS (2 CPU / 4 GB RAM минимум)
+Docker Compose up: docker compose up --build → healthcheck /health/ready → 200
+Заполнить test-ключи: Stripe test, SMTP (Mailtrap), Sentry DSN, Redis
+Первый деплой через deploy.yml (проверить secrets)
+Smoke-тест: регистрация → лайк → чат с реальными сервисами (кроме Stripe live)
+Неделя 2: Нагрузка и отказоустойчивость
+k6 100 VU на staging (проверить RADAR_PRE_LEAK_64, memory, pool)
+Добавить Redis-backed rate-limit + lockout (или задокументировать single-instance)
+E2E: Redis fallback, refresh race, cookie edge cases
+UptimeRobot + Grafana alert (CPU > 80%, 5xx > 1%)
+Неделя 3: Android и домен
+Домен + Let's Encrypt SSL
+assetlinks.json + SHA256 fingerprint
+Keystore + AAB debug → Google Play Internal Testing
+RevenueCat проект + ключ в .env
+Неделя 4: Безопасность админки
+Admin TOTP 2FA (или временно IP-whitelist на nginx)
+CSRF double-submit — только если API выносится на поддомен
+Cleanup cron для revoked refresh tokens
+После релиза (месяц 2):
+S3/CDN для фото
+FCM push production
+Twilio SMS live
+Rekognition/OpenAI модерация
+Log aggregation (Loki/ELK)
+5. Быстрые проверки на сегодня
+Запустите сейчас (15 минут), чтобы убедиться в отсутствии регрессий:
+bash
+# 1. Redis fallback
+REDIS_URL=redis://invalid:6379 node server/src/index.js
+# → Проверить: login, like, chat работают? Без 500?
+
+# 2. Cookie race (ручная проверка)
+# Открыть два окна /login, залогиниться, в обоих быстро нажать F5
+# → Оба окна живы? Нет 401 "reuse"?
+
+# 3. File upload boundary
+# Попробовать загрузить 15MB файл, .php.jpg, ../../etc/passwd
+# → 413, uuid без .php, без path traversal?
+
+# 4. Миграции idempotency
+node database/migrations/migrate.js
+node database/migrations/migrate.js  # второй раз
+# → exit 0, нет Duplicate entry?
+Если все 4 проходят — вы готовы к VPS. Если нет — фиксим, потом staging.

@@ -46,7 +46,7 @@ export default function SafetyPage() {
       ])
       if (cRes.ok) setContacts(await cRes.json())
       if (chRes.ok) setCheckins(await chRes.json())
-    } catch { }
+    } catch { /* ignored */ }
   }, [])
 
   useEffect(() => { loadData() }, [loadData])

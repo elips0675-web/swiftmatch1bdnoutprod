@@ -43,6 +43,8 @@ test.describe('2. Registration flow', () => {
     await page.fill('[data-testid="name"]', 'E2E Test User')
     await page.fill('[data-testid="email"]', uniqueEmail)
     await page.fill('[data-testid="password"]', 'TestPass123')
+    await page.click('[data-testid="age-checkbox"]')
+    await page.click('[data-testid="consent-checkbox"]')
     await page.click('[data-testid="submit-register"]')
 
     await page.waitForURL(/^((?!\/register).)*$/, { timeout: 10000 }).catch(() => {})
@@ -265,7 +267,7 @@ test.describe('9. Groups page', () => {
 test.describe('10. Negative & security tests', () => {
   test.use({ storageState: 'e2e/.auth/demo.json' })
 
-  test('XSS in profile bio is escaped', async ({ page, request }) => {
+  test('XSS in profile bio is sanitized', async ({ page, request }) => {
     const audit = createAudit(page)
 
     // Use API to save XSS content in bio
@@ -280,13 +282,13 @@ test.describe('10. Negative & security tests', () => {
       })
     }
 
-    // Navigate to profile page and check bio is escaped
+    // Navigate to profile page and check tags were stripped server-side (этап 34+)
     await page.goto(`${BASE_URL}/profile`)
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(1000)
 
     const bodyText = await page.locator('body').innerText()
-    expect(bodyText).toContain('<script>')
+    expect(bodyText).not.toContain('<script>')
     expect(bodyText).not.toContain('Script executed')
 
     audit.expectClean()

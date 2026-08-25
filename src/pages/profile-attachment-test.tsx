@@ -50,7 +50,7 @@ export default function AttachmentStyleTestPage() {
             const profile = JSON.parse(savedProfile);
             const updatedProfile = { ...profile, attachmentStyle: result };
             localStorage.setItem('userProfile', JSON.stringify(updatedProfile));
-        } catch(e) {}
+        } catch (e) { /* ignored */ }
     }
 
     if (!supabase) {

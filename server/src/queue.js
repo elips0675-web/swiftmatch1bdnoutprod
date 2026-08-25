@@ -46,32 +46,71 @@ function createQueue(name) {
 }
 
 export function initQueues() {
-  emailQueue = createQueue('email')
-  pushQueue = createQueue('push')
-  imageQueue = createQueue('image')
+  // Этап 42 (аудит kimi 2.3): если REDIS_URL задан, но Redis недостижим,
+  // ioredis внутри Bull падает фатальным "Connection is closed" и роняет процесс.
+  // Контракт graceful degradation: очередь отключается, mail.js уходит в fallback.
+  redisReachable().then((ok) => {
+    try {
+      if (!ok) {
+        rootLogger.warn('[queue] Redis unreachable — all queues disabled, jobs will use direct fallback')
+        return
+      }
 
-  if (emailQueue) {
-    emailQueue.process(async (job) => {
-      const { default: processEmail } = await import('./jobs/email.job.js')
-      await processEmail(job)
-    })
+      emailQueue = createQueue('email')
+      pushQueue = createQueue('push')
+      imageQueue = createQueue('image')
+
+      if (emailQueue) {
+        emailQueue.process(async (job) => {
+          const { default: processEmail } = await import('./jobs/email.job.js')
+          await processEmail(job)
+        })
+      }
+
+      if (pushQueue) {
+        pushQueue.process(async (job) => {
+          const { default: processPush } = await import('./jobs/push.job.js')
+          await processPush(job)
+        })
+      }
+
+      if (imageQueue) {
+        imageQueue.process(async (job) => {
+          const { default: processImage } = await import('./jobs/image.job.js')
+          await processImage(job)
+        })
+      }
+
+      rootLogger.info('[queue] Queues initialized')
+    } catch (err) {
+      rootLogger.error(`[queue] init failed — queues disabled: ${err.message}`)
+      emailQueue = null
+      pushQueue = null
+      imageQueue = null
+    }
+  })
+}
+
+// Одноразовый probe-клиент: проверяем достижимость Redis до создания Bull-очередей
+async function redisReachable() {
+  if (!REDIS_URL) return false
+  const { default: Redis } = await import('ioredis')
+  const probe = new Redis(REDIS_URL, {
+    lazyConnect: true,
+    connectTimeout: 4000,
+    retryStrategy: () => null,
+    maxRetriesPerRequest: 1,
+  })
+  probe.on('error', () => {})
+  try {
+    await probe.connect()
+    return (await probe.ping()) === 'PONG'
+  } catch (err) {
+    rootLogger.warn(`[queue] Redis probe failed: ${err.message}`)
+    return false
+  } finally {
+    probe.disconnect()
   }
-
-  if (pushQueue) {
-    pushQueue.process(async (job) => {
-      const { default: processPush } = await import('./jobs/push.job.js')
-      await processPush(job)
-    })
-  }
-
-  if (imageQueue) {
-    imageQueue.process(async (job) => {
-      const { default: processImage } = await import('./jobs/image.job.js')
-      await processImage(job)
-    })
-  }
-
-  rootLogger.info('[queue] Queues initialized')
 }
 
 export async function closeQueues() {

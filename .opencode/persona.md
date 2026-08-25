@@ -21,7 +21,7 @@ Senior full‑stack TS/JS developer. React (hooks, context, lazy, Suspense), Tai
 
 5. **Не трогать CSS бейджей в admin-content.tsx** — пользователь очень чувствителен к визуальным изменениям. Только логика, не стили.
 
-6. **Admin API без авторизации** — `adminAuth` middleware ПРОПУСКАЕТ (не блокирует). `/api/admin/*` не добавлять проверок токена. AdminGuard всегда делает dev-login при отсутствии Supabase.
+6. **Admin API авторизация** — `adminAuth` **АКТИВНЫЙ** (401/403), единый гейт `app.use('/api/admin', ...)` в index.js, публичен только `GET /api/admin/features`. Не снимать гейт и не возвращать passive-режим. AdminGuard делает dev-login для ПОЛУЧЕНИЯ токена, дальше шлёт Bearer.
 
 7. **Развод не баним** — «развод» в дейтинге легитимен (статус «в разводе»). Блокировка даёт ложные срабатывания.
 

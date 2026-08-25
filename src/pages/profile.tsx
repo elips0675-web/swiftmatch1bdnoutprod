@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "@/shims/next-navigation";
-import { Settings, CircleCheck as CheckCircle2, Camera, Coffee, Music, Globe, Dumbbell, Edit2, Palette, Film, Flower2, Briefcase, Gamepad2, Dog, Ruler, Target, User, Info, Trophy, Heart, VenetianMask, Search, Maximize2, Trash2, X, Star, Check, CircleHelp as HelpCircle, Rocket, CreditCard, Video, BrainCircuit, Users, ChevronRight } from "lucide-react";
+import { Settings, CircleCheck as CheckCircle2, Camera, Coffee, Music, Globe, Dumbbell, Edit2, Palette, Film, Flower2, Briefcase, Gamepad2, Dog, Ruler, Target, User, Info, Trophy, Heart, VenetianMask, Search, Maximize2, Trash2, X, Star, Check, CircleHelp as HelpCircle, Rocket, CreditCard, Video, BrainCircuit, Users, ChevronRight, AtSign } from "lucide-react";
+import { VerificationBadge } from "@/components/shared/verification";
 import Image from "@/shims/next-image";
 import Link from "@/shims/next-link";
 import { BottomNav } from "@/components/navigation/bottom-nav";
@@ -14,10 +15,10 @@ import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/context/language-context";
 import { cn, getUserTitles } from "@/lib/utils";
 import { BANNED_WORDS } from "@/lib/constants";
-import { getToken } from "@/lib/token";
 import { ZodiacIcon } from "@/components/shared/zodiac-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
+import { getToken } from "@/lib/token";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +67,8 @@ export default function ProfilePage() {
   // Stories states
   const [stories, setStories] = useState<any[]>([]);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [aliases, setAliases] = useState<{ id: number; alias: string; is_primary: boolean }[]>([]);
+  const [photoVerified, setPhotoVerified] = useState(false);
 
   // Contest states
   const [isSelectionOpen, setIsSelectionOpen] = useState(false);
@@ -176,12 +179,14 @@ function normalizeInterests(interests: InterestInput[]): string[] {
           })
           return
         }
-      } catch {}
+      } catch { /* ignored */ }
     })();
     
     (async () => {
       try {
-        const res = await fetch('/api/photos/2', { headers: { Authorization: `Bearer ${getToken()}` } })
+        const res = await fetch('/api/photos/2', {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        })
         if (res.ok) {
           const data = await res.json()
           if (data.length > 0) {
@@ -189,7 +194,7 @@ function normalizeInterests(interests: InterestInput[]): string[] {
             return
           }
         }
-      } catch {}
+      } catch { /* ignored */ }
       const savedPhotos = localStorage.getItem('userProfileGallery');
       if (savedPhotos) {
         setPhotos(JSON.parse(savedPhotos));
@@ -223,6 +228,24 @@ function normalizeInterests(interests: InterestInput[]): string[] {
       });
     };
   }, [t]);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    fetch("/api/profile/aliases", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => { if (Array.isArray(data)) setAliases(data); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    fetch("/api/profile/verification", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.verified) setPhotoVerified(true); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (profile?.boost?.boostedUntil) {
@@ -454,7 +477,16 @@ function normalizeInterests(interests: InterestInput[]): string[] {
                 <Image src={photos[0] || PlaceHolderImages[0].imageUrl} alt="Profile" fill className="object-cover" />
               </div>
             </div>
-            <h3 className="text-2xl font-black font-headline tracking-tight flex items-center justify-center gap-2">{profile.displayName}, {profile.age} <CheckCircle2 size={20} className="text-primary" fill="currentColor" /></h3>
+            <h3 className="text-2xl font-black font-headline tracking-tight flex items-center justify-center gap-2">{profile.displayName}, {profile.age} <CheckCircle2 size={20} className="text-primary" fill="currentColor" />{photoVerified && <VerificationBadge verified className="ml-1" />}</h3>
+            {aliases.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-1.5 mt-1.5">
+                {aliases.map((a) => (
+                  <span key={a.id} className="inline-flex items-center gap-1 text-[10px] font-bold text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
+                    <AtSign size={9} />{a.alias}{a.is_primary && <Star size={9} className="text-amber-500" fill="currentColor" />}
+                  </span>
+                ))}
+              </div>
+            )}
             <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest opacity-80 mt-1">{profile.city}</p>
             <div className="mt-4 flex justify-center">
                 <Button 

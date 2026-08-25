@@ -24,7 +24,7 @@ router.put('/api/location', auth, async (req, res) => {
       `UPDATE user_profiles SET lat = ?, lng = ?,
        location = ST_SRID(POINT(?, ?), 4326),
        last_location_update = NOW()
-       WHERE user_id = ?`,
+       WHERE id = ?`,
       [latNum, lngNum, lngNum, latNum, req.userId],
     )
     res.json({ message: 'Location updated' })
@@ -37,7 +37,7 @@ router.put('/api/location', auth, async (req, res) => {
 router.get('/api/location', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT lat, lng, last_location_update FROM user_profiles WHERE user_id = ?',
+      'SELECT lat, lng, last_location_update FROM user_profiles WHERE id = ?',
       [req.userId],
     )
     if (!rows.length) {

@@ -8,7 +8,10 @@ import express from 'express'
 import jwt from 'jsonwebtoken'
 
 vi.mock('../db.js', () => ({
-  default: { query: vi.fn() },
+  default: {
+    query: vi.fn(),
+    getConnection: vi.fn(),
+  },
 }))
 
 import pool from '../db.js'
@@ -21,6 +24,12 @@ app.use(premiumRoutes)
 
 function authToken(userId = 1) {
   return jwt.sign({ userId, role: 'user' }, JWT_SECRET, { expiresIn: '1h' })
+}
+
+function mockTransaction() {
+  const conn = { query: vi.fn(), beginTransaction: vi.fn(), commit: vi.fn(), rollback: vi.fn(), release: vi.fn() }
+  pool.getConnection.mockResolvedValue(conn)
+  return conn
 }
 
 beforeEach(() => {
@@ -89,12 +98,14 @@ describe('POST /api/premium/create-checkout', () => {
 
   it('creates mock subscription without Stripe', async () => {
     pool.query.mockResolvedValue([[], []])
+    mockTransaction()
     const res = await request(app)
       .post('/api/premium/create-checkout')
       .set('Authorization', `Bearer ${authToken()}`)
       .send({ tier: 'plus', duration_months: 1 })
     expect(res.status).toBe(201)
     expect(res.body.message).toMatch(/mock/i)
+    expect(pool.getConnection).toHaveBeenCalled()
   })
 })
 

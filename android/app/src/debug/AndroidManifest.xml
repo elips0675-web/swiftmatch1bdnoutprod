@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only: разрешаем cleartext для локального dev-сервера (http://10.0.2.2 / LAN).
+     В release-сборке этого файла нет — трафик только HTTPS (этап 35, аудит qwen). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:usesCleartextTraffic="true">
+    </application>
+</manifest>

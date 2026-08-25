@@ -1,0 +1,62 @@
+-- Migration 018: seed icebreaker themes and questions (fallback AI content)
+-- Идемпотентно (этап 35): INSERT IGNORE + уникальный ключ на слоты вопросов
+
+SET @ddl := (
+  SELECT IF(COUNT(*) = 0,
+    'ALTER TABLE icebreaker_questions ADD UNIQUE KEY uq_icebreaker_q (theme_id, sort_order)',
+    'SELECT ''uq_icebreaker_q exists''')
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'icebreaker_questions' AND INDEX_NAME = 'uq_icebreaker_q'
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+INSERT IGNORE INTO icebreaker_themes (key_id, icon, color_class, sort_order) VALUES
+  ('romantic', 'Heart', 'text-rose-500', 1),
+  ('funny', 'Laugh', 'text-amber-500', 2),
+  ('hobbies', 'Palette', 'text-violet-500', 3),
+  ('travel', 'Plane', 'text-sky-500', 4),
+  ('food', 'UtensilsCrossed', 'text-orange-500', 5),
+  ('music', 'Music', 'text-emerald-500', 6),
+  ('movies', 'Clapperboard', 'text-indigo-500', 7),
+  ('deep', 'MessageCircle', 'text-teal-500', 8);
+
+INSERT IGNORE INTO icebreaker_questions (theme_id, text_ru, text_en, sort_order) VALUES
+  (1, 'Что для тебя идеальное первое свидание?', 'What does your perfect first date look like?', 1),
+  (1, 'Какое самое романтичное, что с тобой делали?', 'What is the most romantic thing someone has done for you?', 2),
+  (1, 'Где бы ты хотела, чтобы я увел тебя в будущем?', 'Where would you want me to take you in the future?', 3),
+  (1, 'Ты веришь в любовь с первого взгляда или нужно время?', 'Do you believe in love at first sight or does it take time?', 4),
+  (1, 'Какие комплименты тебе приятнее всего слышать?', 'What compliments do you like hearing the most?', 5),
+  (2, 'Расскажи смешную историю из своей жизни!', 'Tell me a funny story from your life!', 1),
+  (2, 'Какая была самая неловкая ситуация на свидании?', 'What was your most awkward date moment?', 2),
+  (2, 'Если бы ты была супергероем, какая была бы твоя сила?', 'If you were a superhero, what would your power be?', 3),
+  (2, 'Что из твоего детства до сих пор тебя смешит?', 'What from your childhood still makes you laugh?', 4),
+  (2, 'Какое самое странное увлечение у твоих друзей?', 'What is the weirdest hobby your friends have?', 5),
+  (3, 'Чем ты занимаешься в свободное время?', 'What do you do in your free time?', 1),
+  (3, 'Есть ли у тебя хобби, о котором мало кто знает?', 'Do you have a hobby few people know about?', 2),
+  (3, 'Какой навык ты хочешь освоить в этом году?', 'What skill do you want to learn this year?', 3),
+  (3, 'Что помогает тебе расслабиться после тяжелого дня?', 'What helps you unwind after a long day?', 4),
+  (3, 'Какое занятие ты можешь назвать своим guilty pleasure?', 'What activity is your guilty pleasure?', 5),
+  (4, 'Какое место мечты ты хочешь посетить?', 'What dream destination do you want to visit?', 1),
+  (4, 'Ты больше любишь море или горы?', 'Do you prefer the sea or the mountains?', 2),
+  (4, 'Расскажи о лучшем путешествии в твоей жизни', 'Tell me about the best trip of your life', 3),
+  (4, 'Ты собираешься с чемоданами заранее или в последний момент?', 'Do you pack early or at the last minute?', 4),
+  (4, 'Какая страна тебе интересна по культуре и почему?', 'Which country fascinates you culturally and why?', 5),
+  (5, 'Какое твое любимое блюдо?', 'What is your favorite dish?', 1),
+  (5, 'Ты сладкоежка или предпочитаешь соленое?', 'Are you into sweets or savory?', 2),
+  (5, 'Какое кафе или ресторан ты можешь порекомендовать?', 'What cafe or restaurant would you recommend?', 3),
+  (5, 'Ты умеешь готовить? Что у тебя лучше всего получается?', 'Can you cook? What is your best dish?', 4),
+  (5, 'Что бы ты заказала на идеальном свидании?', 'What would you order on a perfect date?', 5),
+  (6, 'Какая музыка у тебя в плейлисте последнее время?', 'What music has been on your playlist lately?', 1),
+  (6, 'Ты ходишь на концерты? Какой был лучший?', 'Do you go to concerts? Which was the best?', 2),
+  (6, 'Какая песня у тебя ассоциируется с приятными воспоминаниями?', 'What song reminds you of happy memories?', 3),
+  (6, 'Ты больше любишь живой звук или наушники?', 'Do you prefer live sound or headphones?', 4),
+  (6, 'Какой музыкальный жанр ты бы никогда не стала слушать?', 'What music genre would you never listen to?', 5),
+  (7, 'Какой фильм или сериал посоветуешь?', 'What movie or series would you recommend?', 1),
+  (7, 'Ты смотришь фильмы в кинотеатре или дома?', 'Do you watch movies at the cinema or at home?', 2),
+  (7, 'Какая кинокартина заставила тебя плакать?', 'What movie made you cry?', 3),
+  (7, 'Кто твой любимый герой из киновселенной?', 'Who is your favorite character from any movie universe?', 4),
+  (7, 'Какой сериал ты пересматриваешь по несколько раз?', 'What series do you rewatch again and again?', 5),
+  (8, 'Что для тебя важнее: стабильность или приключения?', 'What matters more to you: stability or adventure?', 1),
+  (8, 'Какая черта характера тебе нравится в людях больше всего?', 'What personality trait do you value most in people?', 2),
+  (8, 'О чем ты мечтаешь, когда смотришь в небо?', 'What do you dream about when you look at the sky?', 3),
+  (8, 'Что бы ты сказала себе десятилетней давности?', 'What would you tell yourself ten years ago?', 4),
+  (8, 'Какое достижение в жизни тебя больше всего гордит?', 'What achievement in life are you most proud of?', 5);

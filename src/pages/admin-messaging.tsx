@@ -74,7 +74,7 @@ export default function AdminMessagingPage() {
       setTitle(''); setBody('');
       fetchCampaigns();
     } catch {
-      toast.error('Failed to send');
+      toast.error(t('admin.error.operation'));
     } finally {
       setIsSending(false);
     }

@@ -1,5 +1,3 @@
--- Migration 015: Date Check-in (Safety) — emergency contacts + check-in timer
-
 CREATE TABLE IF NOT EXISTS emergency_contacts (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id INT UNSIGNED NOT NULL,

@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
+import { ACCESS_COOKIE } from './cookies.js'
 
 function getJwtSecret() {
   if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
@@ -8,32 +9,39 @@ function getJwtSecret() {
   return process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex')
 }
 
+function decodeAny(...tokens) {
+  // Cookie — приоритетный источник: легаси-Bearer из storage может принадлежать
+  // другому пользователю и не должен перекрывать актуальную веб-сессию
+  for (const token of tokens) {
+    if (!token) continue
+    try {
+      return jwt.verify(token, getJwtSecret())
+    } catch { /* невалидный токен — проверяем следующий источник */ }
+  }
+  return null
+}
+
+function getTokens(req) {
+  const header = req.headers?.authorization
+  const headerToken = header && header.startsWith('Bearer ') ? header.split(' ')[1] : null
+  return [headerToken, req.cookies?.[ACCESS_COOKIE]]
+}
+
 export function auth(req, res, next) {
-  const authHeader = req.headers.authorization
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Authentication required' })
+  const [headerToken, cookieToken] = getTokens(req)
+  const decoded = decodeAny(cookieToken, headerToken)
+  if (!decoded) {
+    const hasAny = Boolean(headerToken || cookieToken)
+    return res.status(401).json({ message: hasAny ? 'Invalid or expired token' : 'Authentication required' })
   }
-  try {
-    const decoded = jwt.verify(authHeader.split(' ')[1], getJwtSecret())
-    req.userId = decoded.userId
-    next()
-  } catch {
-    return res.status(401).json({ message: 'Invalid or expired token' })
-  }
+  req.userId = decoded.userId
+  next()
 }
 
 export function optionalAuth(req, res, next) {
-  const authHeader = req.headers.authorization
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    req.userId = null
-    return next()
-  }
-  try {
-    const decoded = jwt.verify(authHeader.split(' ')[1], getJwtSecret())
-    req.userId = decoded.userId
-  } catch {
-    req.userId = null
-  }
+  const [headerToken, cookieToken] = getTokens(req)
+  const decoded = decodeAny(cookieToken, headerToken)
+  req.userId = decoded ? decoded.userId : null
   next()
 }
 

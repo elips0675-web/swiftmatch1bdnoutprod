@@ -8,8 +8,11 @@ const REVENUECAT_WEBHOOK_SECRET = process.env.REVENUECAT_WEBHOOK_SECRET
 
 // POST /api/iap/webhook — RevenueCat webhook
 router.post('/api/iap/webhook', async (req, res) => {
+  if (!REVENUECAT_WEBHOOK_SECRET) {
+    return res.status(503).json({ message: 'RevenueCat webhook not configured' })
+  }
   const authHeader = req.headers.authorization
-  if (REVENUECAT_WEBHOOK_SECRET && authHeader !== `Bearer ${REVENUECAT_WEBHOOK_SECRET}`) {
+  if (authHeader !== `Bearer ${REVENUECAT_WEBHOOK_SECRET}`) {
     return res.status(401).json({ message: 'Invalid signature' })
   }
 
@@ -25,19 +28,19 @@ router.post('/api/iap/webhook', async (req, res) => {
         await pool.query(
           `INSERT INTO subscriptions (user_id, tier, provider, provider_subscription_id, status, current_period_end)
            VALUES (?, ?, 'revenuecat', ?, 'active', ?)
-           ON DUPLICATE KEY UPDATE status = 'active', current_period_end = ?, updated_at = NOW()`,
+           ON DUPLICATE KEY UPDATE status = 'active', current_period_end = ?`,
           [app_user_id, product_id, product_id, new Date(expiration_at_ms), new Date(expiration_at_ms)],
         )
         break
       case 'CANCELLATION':
         await pool.query(
-          "UPDATE subscriptions SET status = 'canceled', updated_at = NOW() WHERE user_id = ? AND provider_subscription_id = ?",
+          "UPDATE subscriptions SET status = 'canceled' WHERE user_id = ? AND provider_subscription_id = ?",
           [app_user_id, product_id],
         )
         break
       case 'EXPIRATION':
         await pool.query(
-          "UPDATE subscriptions SET status = 'expired', updated_at = NOW() WHERE user_id = ? AND provider_subscription_id = ?",
+          "UPDATE subscriptions SET status = 'expired' WHERE user_id = ? AND provider_subscription_id = ?",
           [app_user_id, product_id],
         )
         break

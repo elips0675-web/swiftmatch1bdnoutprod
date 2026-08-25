@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, Loader2, Image, Clock, CheckCheck } from 'lucide-react';
+import { Check, X, Loader2, Image, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/context/language-context';
 import { getToken } from '@/lib/token';
@@ -24,7 +24,8 @@ export default function AdminPhotosPage() {
   const [saving, setSaving] = useState<Record<number, boolean>>({});
   const [filter, setFilter] = useState<'all' | 'pending'>('all');
 
-  const fetchPhotos = async () => {
+  const fetchPhotos = useCallback(async () => {
+    setLoading(true);
     try {
       const token = getToken();
       const endpoint = filter === 'pending' ? '/api/admin/photos/pending' : '/api/admin/photos';
@@ -32,10 +33,10 @@ export default function AdminPhotosPage() {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) setPhotos(await res.json());
-    } catch {} finally { setLoading(false) }
-  };
+    } catch { /* ignore network errors */ } finally { setLoading(false) }
+  }, [filter]);
 
-  useEffect(() => { fetchPhotos() }, [filter]);
+  useEffect(() => { fetchPhotos() }, [fetchPhotos]);
 
   const handleAction = async (id: number, action: 'approve' | 'reject') => {
     setSaving(prev => ({ ...prev, [id]: true }));
@@ -48,33 +49,40 @@ export default function AdminPhotosPage() {
       });
       if (res.ok) {
         setPhotos(prev => prev.filter(p => p.id !== id));
-        toast.success(action === 'approve' ? 'Photo approved' : 'Photo rejected');
+        toast.success(action === 'approve' ? t('admin.photos.approved') : t('admin.photos.rejected'));
       }
-    } catch {} finally { setSaving(prev => ({ ...prev, [id]: false })) }
+    } catch { /* ignore network errors */ } finally { setSaving(prev => ({ ...prev, [id]: false })) }
   };
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-black text-white">{t('admin.photos.title')}</h2>
-          <p className="text-sm text-slate-400">{photos.length} photos</p>
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant={filter === 'all' ? 'default' : 'secondary'} onClick={() => setFilter('all')} className="rounded-full">
-            <Image size={14} className="mr-1" /> All
-          </Button>
-          <Button size="sm" variant={filter === 'pending' ? 'default' : 'secondary'} onClick={() => setFilter('pending')} className="rounded-full">
-            <Clock size={14} className="mr-1" /> Pending
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <Card className="border-0 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
+                <Image size={18} className="text-primary" />
+                {t('admin.photos.title')}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">{t('admin.photos.count', { count: photos.length })}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant={filter === 'all' ? 'default' : 'secondary'} onClick={() => setFilter('all')} className="rounded-full">
+                <Image size={14} className="mr-1" /> {t('admin.photos.all')}
+              </Button>
+              <Button size="sm" variant={filter === 'pending' ? 'default' : 'secondary'} onClick={() => setFilter('pending')} className="rounded-full">
+                <Clock size={14} className="mr-1" /> {t('admin.photos.pending')}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-slate-400" size={32} /></div>
+        <div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-primary" size={32} /></div>
       ) : photos.length === 0 ? (
-        <Card className="bg-slate-800/50 border-slate-700">
-          <CardContent className="py-20 text-center text-slate-500">
+        <Card className="border-0 shadow-sm">
+          <CardContent className="py-20 text-center text-muted-foreground">
             <Image size={48} className="mx-auto mb-4 opacity-30" />
             <p className="font-bold">{t('admin.photos.empty')}</p>
           </CardContent>
@@ -82,25 +90,25 @@ export default function AdminPhotosPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {photos.map(photo => (
-            <Card key={photo.id} className="bg-slate-800/50 border-slate-700 overflow-hidden">
-              <div className="aspect-[4/3] bg-slate-700 relative">
+            <Card key={photo.id} className="border-0 shadow-sm overflow-hidden">
+              <div className="aspect-[4/3] bg-muted relative">
                 <img src={photo.url} alt="" className="w-full h-full object-cover" />
-                <Badge className="absolute top-2 right-2 bg-black/60 text-white border-0 text-[10px]">
+                <Badge className="absolute top-2 right-2 bg-black/60 text-white border-0 text-[10px] uppercase">
                   {photo.moderation_status}
                 </Badge>
               </div>
               <CardContent className="p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="bg-slate-700 text-slate-300">{photo.display_name}</Badge>
-                  <Badge variant="outline" className="text-slate-400 border-slate-600">#{photo.user_id}</Badge>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Badge variant="secondary" className="truncate max-w-[160px]">{photo.display_name}</Badge>
+                  <Badge variant="outline" className="text-muted-foreground shrink-0">#{photo.user_id}</Badge>
                 </div>
                 {filter !== 'all' && (
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={() => handleAction(photo.id, 'approve')} disabled={saving[photo.id]} className="flex-1 bg-green-600 hover:bg-green-700 text-white">
+                    <Button size="sm" onClick={() => handleAction(photo.id, 'approve')} disabled={saving[photo.id]} className="flex-1 rounded-full">
                       {saving[photo.id] ? <Loader2 className="animate-spin" size={14} /> : <Check size={14} />}
                       {' '}{t('admin.photos.approve')}
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={() => handleAction(photo.id, 'reject')} disabled={saving[photo.id]} className="flex-1">
+                    <Button size="sm" variant="destructive" onClick={() => handleAction(photo.id, 'reject')} disabled={saving[photo.id]} className="flex-1 rounded-full">
                       {saving[photo.id] ? <Loader2 className="animate-spin" size={14} /> : <X size={14} />}
                       {' '}{t('admin.photos.reject')}
                     </Button>

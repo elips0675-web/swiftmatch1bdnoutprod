@@ -2,9 +2,12 @@ import { Router } from 'express'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import pool from '../db.js'
-import { JWT_SECRET } from '../middleware.js'
+import { JWT_SECRET, auth } from '../middleware.js'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../mail.js'
 import logger from '../logger.js'
+import { trackEvent } from './experiments.js'
+import { setAuthCookies, clearAuthCookies, ACCESS_COOKIE, REFRESH_COOKIE } from '../cookies.js'
+import { stripHtml } from '../sanitize.js'
 
 const router = Router()
 
@@ -118,17 +121,20 @@ const router = Router()
  */
 const REFRESH_EXPIRY_DAYS = 30
 
-async function createRefreshToken(userId) {
+// familyId: одна «семья» на логин-сессию; refresh ротирует токен внутри семьи,
+// переиспользование ротированного токена отзывает всю семью (этап 34)
+async function createRefreshToken(userId, familyId) {
   const token = crypto.randomBytes(40).toString('hex')
+  const family = familyId || crypto.randomUUID()
   await pool.query(
-    'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))',
-    [userId, token, REFRESH_EXPIRY_DAYS],
+    'INSERT INTO refresh_tokens (user_id, token, family_id, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))',
+    [userId, token, family, REFRESH_EXPIRY_DAYS],
   )
   return token
 }
 
 router.post('/api/auth/register', async (req, res) => {
-  const { email, password, displayName, referralCode, phone } = req.body
+  const { email, password, displayName, referralCode, phone, consent } = req.body
   if (!email || !password) return res.status(400).json({ message: 'Email and password required' })
   if (password.length < 6) return res.status(400).json({ message: 'Password must be at least 6 characters' })
   if (phone && !/^\+?[1-9]\d{6,14}$/.test(phone)) {
@@ -157,12 +163,20 @@ router.post('/api/auth/register', async (req, res) => {
 
     await pool.query(
       'INSERT INTO user_profiles (id, display_name, name, age, location) VALUES (?, ?, ?, 18, ST_SRID(POINT(0, 0), 4326))',
-      [userId, displayName || email.split('@')[0], displayName || email.split('@')[0]],
+      [userId, stripHtml(displayName || email.split('@')[0]), stripHtml(displayName || email.split('@')[0])],
     )
 
     const token = jwt.sign({ userId, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
     const refresh_token = await createRefreshToken(userId)
+    setAuthCookies(res, token, refresh_token)
+    if (consent === true) {
+      await pool.query(
+        'INSERT INTO consent_log (user_id, consent_type, granted, ip_address) VALUES (?, ?, 1, ?)',
+        [userId, 'data_processing', req.ip],
+      )
+    }
     sendVerificationEmail(email, verification_token)
+    trackEvent('registration', userId, { referral: !!referredBy, has_phone: !!phone })
 
     res.status(201).json({
       token, refresh_token, userId,
@@ -216,6 +230,8 @@ router.post('/api/auth/reset-password', async (req, res) => {
       'UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?',
       [password_hash, rows[0].id],
     )
+    // Смена пароля инвалидирует все refresh-сессии пользователя (этап 34, аудит kimi)
+    await pool.query('UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ? AND revoked = 0', [rows[0].id])
 
     res.json({ message: 'Password reset successful' })
   } catch (err) {
@@ -273,25 +289,79 @@ router.post('/api/auth/verify-email', async (req, res) => {
 })
 
 router.post('/api/auth/refresh', async (req, res) => {
-  const { refresh_token } = req.body
+  const refresh_token = req.body?.refresh_token || req.cookies?.[REFRESH_COOKIE]
   if (!refresh_token) return res.status(400).json({ message: 'Refresh token required' })
 
   try {
     const [rows] = await pool.query(
-      'SELECT user_id FROM refresh_tokens WHERE token = ? AND expires_at > NOW()',
+      'SELECT id, user_id, family_id, revoked FROM refresh_tokens WHERE token = ? AND expires_at > NOW()',
       [refresh_token],
     )
     if (rows.length === 0) return res.status(401).json({ message: 'Invalid or expired refresh token' })
+    const current = rows[0]
 
-    const { userId } = rows[0]
-    await pool.query('DELETE FROM refresh_tokens WHERE token = ?', [refresh_token])
+    // Атомарный claim: параллельный второй запрос с тем же токеном получит affectedRows=0
+    const [upd] = await pool.query('UPDATE refresh_tokens SET revoked = 1 WHERE id = ? AND revoked = 0', [current.id])
+    if (upd.affectedRows === 0) {
+      // Токен уже ротирован и используется повторно — компрометация семьи
+      await pool.query('UPDATE refresh_tokens SET revoked = 1 WHERE family_id = ? AND revoked = 0', [current.family_id])
+      logger.warn(`Refresh token reuse detected for user ${current.user_id} — family revoked`)
+      return res.status(401).json({ message: 'Token reuse detected' })
+    }
 
-    const token = jwt.sign({ userId, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
-    const new_refresh_token = await createRefreshToken(userId)
+    const token = jwt.sign({ userId: current.user_id, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
+    const new_refresh_token = crypto.randomBytes(40).toString('hex')
+    await pool.query(
+      'INSERT INTO refresh_tokens (user_id, token, family_id, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))',
+      [current.user_id, new_refresh_token, current.family_id, REFRESH_EXPIRY_DAYS],
+    )
+    setAuthCookies(res, token, new_refresh_token)
     res.json({ token, refresh_token: new_refresh_token })
   } catch (err) {
     logger.error('Refresh error:', err)
     res.status(500).json({ message: 'Failed to refresh token' })
+  }
+})
+
+// Инвалидировать все сессии пользователя (смена пароля вручную, подозрение на взлом)
+router.post('/api/auth/logout-all', auth, async (req, res) => {
+  try {
+    await pool.query('UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ? AND revoked = 0', [req.userId])
+    clearAuthCookies(res)
+    res.json({ message: 'All sessions revoked' })
+  } catch (err) {
+    logger.error('Logout-all error:', err)
+    res.status(500).json({ message: 'Failed to revoke sessions' })
+  }
+})
+
+router.get('/api/auth/me', async (req, res) => {
+  const token = req.headers.authorization?.startsWith('Bearer ')
+    ? req.headers.authorization.split(' ')[1]
+    : req.cookies?.[ACCESS_COOKIE]
+  // Прobe-эндпоинт: без валидного токена отдаём 200 (без консольного шума 401 на клиенте)
+  const unauthenticated = () => res.json({ authenticated: false })
+  if (!token) return unauthenticated()
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET())
+    const [rows] = await pool.query(
+      `SELECT u.id, u.email, u.role, up.display_name, up.avatar_url
+       FROM users u LEFT JOIN user_profiles up ON u.id = up.id WHERE u.id = ?`,
+      [decoded.userId],
+    )
+    if (rows.length === 0) return unauthenticated()
+    const u = rows[0]
+    res.json({
+      authenticated: true,
+      id: u.id,
+      email: u.email,
+      role: u.role,
+      name: u.display_name,
+      avatar: u.avatar_url,
+    })
+  } catch {
+    unauthenticated()
   }
 })
 

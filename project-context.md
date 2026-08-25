@@ -167,7 +167,31 @@ build: { target: 'es2020', minify: 'esbuild', chunkSizeWarningLimit: 600 }
 ## Feature Flags
 
 Загружаются из `GET /api/admin/features`:
-`videoCalls`, `aiIcebreakers`, `aiCompatibility`, `groupsPage`, `contest`, `showAds`, `autosearch`, `ttlMessages`, `dateScheduling`, `profileScore`
+`videoCalls`, `aiIcebreakers`, `aiCompatibility`, `groupsPage`, `contest`, `showAds`, `autosearch`, `ttlMessages`, `dateScheduling`, `profileScore`, `hangoutsEnabled`, `partnerOffers`
+
+## Hangouts (Встречи) — v2 (Этап 54)
+
+- Таблицы: `hangouts` (author_id, category, title, event_date, location_text, max_companions, status, **hangout_type ENUM('date','company')**), `hangout_responses`, `hangout_chats`, **`hangout_likes`** (liker_id→liked_id, UNIQUE), **`hangout_participants`** (hangout_id, user_id, role), **`hangout_checkins`** (hangout_id, user_id, lat/lng, geofence_verified), **`hangout_reviews`** (hangout_id, reviewer_id, rating 1–5, comment, tags JSON)
+- Роуты: `/api/hangouts` (GET лента с фильтром type, POST с hangout_type), `/:id` (GET v2 — likes/participants/checkins + my_like/my_participant), `/:id/respond`, `/:id/responses/:rid` (PUT accept/decline), `/by-chat/:chatId`, **`/:id/like`**, **`/:id/skip`**, **`/:id/join`**, **`/:id/leave`**, **`/:id/checkin`**, **`/:id/review`**
+- **Mutual like**: при взаимном лайке → автоматический chat + уведомление `hangout_mutual_like`
+- **Company mode**: join/leave/create group chat; лимит participants
+- **Check-in**: haversine ≤ 500м от hangout lat/lng, rate-limiter 5/min
+- Rate limiters: like 30/min, join 20/min, checkin 5/min, review 10/5min
+- Категории: cinema/theater/exhibition/cafe/concert/sport/other (`src/lib/hangouts.ts`)
+- Страницы: `/hangouts` (тоглл All/Date/Company), `/hangouts/my`, `/hangouts/:id` (date → like/skip, company → join/leave/checkin/participants); флаг `hangoutsEnabled`; баннер на Home
+- Уведомления: таблица `notifications` + GET /api/notifications; WS `notification:new`; типы hangout_response/accepted/declined/cancelled, **hangout_mutual_like**, invite, like
+- **i18n**: 26 ключей RU/EN (`hangout.type.*`, `hangout.action.*`, `hangout.toast.*`, `hangout.label.*`, `hangout.form.type*`)
+
+## Partners (Партнёрская экосистема, Wave 1 + 2)
+
+- Таблицы (миграции 030–036): `partners` (type api/deeplink/saas, commission_rate, hmac_secret, UNIQUE name), `partner_offers` (10 категорий, deeplink VARCHAR(500), placement SET hangout/chat/profile/passport/attachment_result, valid_from/to, lat/lng), `partner_conversions` (click/booking/purchase/lead, amount/commission, status pending/approved/paid, external_order_id, partner_offer_id), `partner_orders` (stripe_session_id, offer_id, user_id, recipient_name/phone/message, amount, status), `partner_payouts` (partner_id, amount, status pending/approved/rejected, details, processed_by/at)
+- **Wave 1 API** (сервер): GET `/api/partners/offers?category=&city=&placement=&lat=&lng=&radius=` (FIND_IN_SET, ST_Distance_Sphere + HAVING), POST `/api/partners/track` → INSERT conversion + deeplink c `utm_source=swiftmatch&ref={referral_code}`
+- **Wave 2 API**: POST `/api/partners/postback/:id` (HMAC-подпись через hmac_seeds, идемпотентность через uq_conversions_external), GET `/api/partners/offers/:id` (детали оффера), POST `/api/partners/order` (Stripe Checkout для цветов), POST `/api/partners/order/webhook` (Stripe webhook, express.raw), GET `/api/partners/orders/my` (история заказов), POST `/api/partners/booking` (бронирование ресторанов), POST `/api/partners/booking/share` (WS partner:restaurant_shared)
+- **Wave 3 API**: GET `/api/partners/offers/hotel?city=` (Redis-кэш), POST `/api/partners/hotel/book`, POST `/api/partners/spa/book` (spa/experience бронирование, валидация date+time)
+- **Админ**: `server/src/routes/admin/partners.js` — ОТНОСИТЕЛЬНЫЕ пути (/partners, /offers, /conversions, /payouts, /stats/daily), монтируется на `/api/admin`; страница `/admin/partners` (5 вкладок: Partners/Offers/Conversions/Payouts/Stats)
+- **Фронт**: chat-partner-actions.tsx (чипы в чате + FlowerOrderDialog + RestaurantBookingDialog), «Выбрать из афиши» в hangout-create.tsx, блок отелей в settings-privacy.tsx при passport_mode, partner-order-success/cancel pages
+- **Сид**: 9 партнёров + 15 офферов (Яндекс Go, Кинопоиск, Рестоклуб, Островок, 1Сwipe, LoveLocal, FitBro, PlantGift, LoveSpa, EcoTrip, TaskMood, Flowwow, Bouquet.ru, Yandex Lavka), hmac_secret для каждого
+- **Грабля #53 (AGENTS.md)**: admin-роутеры монтируются на `/api/admin` → пути ОТНОСИТЕЛЬНЫЕ; пользовательские роутеры (`partners.js`) — ПОЛНЫЕ пути без префикса
 
 ## Translation Keys
 
@@ -258,9 +282,9 @@ UI: зелёный badge ≥80, жёлтый ≥50, красный <50; спис
 
 `.github/workflows/deploy.yml`:
 1. **lint** — eslint + prettier check
-2. **frontend test** — `npx vitest run` (55 tests)
-3. **server test** — `cd server && npm test` с MySQL-сервисом (124 tests)
-4. **E2E** — `npx playwright test` с webServer (30 tests)
+2. **frontend test** — `npx vitest run` (81 tests)
+3. **server test** — `cd server && npm test` с MySQL-сервисом (299 tests)
+4. **E2E** — `npx playwright test` с webServer (55 tests)
 5. **deploy** — SCP + pm2 на продакшен (только main)
 
 ## Monitoring
@@ -272,3 +296,37 @@ UI: зелёный badge ≥80, жёлтый ≥50, красный <50; спис
 | k6 | CLI | `k6/load-test.js` — ramp-up 10→100 users, 6 endpoints |
 
 `server/src/metrics.js` использует prom-client: counters (http_requests_total, db_queries_total, ws_events_total) + histograms (http_request_duration_ms, db_query_duration_ms).
+
+## Актуальный статус (август 2026, этапы 27–52)
+
+> Детали: «Что сделано.txt» (этапы 30–53), «Что доделать.txt», AGENTS.md (грабли #27–53).
+
+- **Тесты: 388/388** — сервер 307/307, фронт 81/81; vite build ✅, lint 0 errors, schema-validate 54 таблиц
+- **CI/CD:** миграции БД выполняются на сервере перед pm2 restart (секреты DB_* не нужны)
+- **Redis:** подключен локально (127.0.0.1:6379), graceful fallback
+- **Этапы 30–31:** починены скрытые 500 (invites-дрейф колонок, iap.js updated_at, location.js user_id→id); все SQL сверены EXPLAIN'ом со схемой
+- **Этап 32 (Android):** toolchain готов (SDK 35/36 + JDK 21, AGP 8.13.2), debug APK собран; RevenueCat IAP-клиент подключён
+- **Этап 33 (auth):** JWT в httpOnly cookie sm_token/sm_refresh (SameSite=Lax, Secure в prod), мидлвари читают Bearer ?? cookie, /api/auth/me probe + /api/auth/logout; web-фронт не хранит токен в JS-storage (XSS-safe), нативные — Bearer
+- **Этап 34 (безопасность):** refresh rotation + reuse detection (отзыв семьи при replay, миграция 025), `/api/auth/logout-all`, revoke всех сессий при смене пароля, account lockout 5→15 мин, ws.js без query-token
+- **GDPR-консент:** работает и покрыт E2E (регистрация блокируется без согласия, consent_log пишется)
+- **Этап 35:** schema-validate.mjs в CI/deploy; идемпотентные миграции 018-023; cleartext только debug + guard; backup 30 дней; security headers тесты. 258/258
+- **Этапы 36-37:** RevenueCat SDK 13.4.1 + dynamic import; AGENTS.md правило adminAuth (active-check only)
+- **Этап 38:** Admin TOTP 2FA (миграция 026, otplib v13, totp-2fa.js через adminAuth, login требует totp_code + lockout, UI two-fa-settings.tsx, i18n two_fa_*; смоук 8/8). Закрыт пробел i18n common.zodiac.* x12
+- **Этап 39:** Stripe webhook идемпотентность (миграция 027 webhook_events UNIQUE provider+event_id, INSERT IGNORE дедуп) + upload security тесты (+5)
+- **Этап 40:** лимитеры в middleware/limiters.js (фабрики для тестов); ratelimit.test.js — 60 ок → 61-й auth 429, api 600 → 429; i18n.test.ts RU↔EN; E2E icebreakers починен (диапазон кандидатов 20..199)
+- **Этап 41:** docs/runbook-keys.md — ротация всех ключей, порядок для каждого провайдера, чеклист при утечке
+- **Этап 42:** Redis fallback crash fix (queue.js probe); __Host- cookie в prod; cleanup revoked refresh-токенов; RevenueCat webhook unit-тесты (×6). 296/296
+- **Этапы 43-45:** E2E security-blind-spots (GDPR cascade, refresh race, cookie edge cases); кросс-браузер firefox/webkit; XSS-фильтр sanitize.js v2. 300/300
+- **Этап 46:** фича «Встречи» (Hangouts) — миграция 028, CRUD + respond/accept/decline/cancel, авто-чат при accept, уведомления WS, контекст встречи в чате, баннер Home, XSS-чистка legacy bio (миграция 029). 345/345
+- **Этап 47:** партнёрская экосистема Wave 1 (Mesta.txt) — миграция 030 (partners, partner_offers, partner_conversions), API offers+track, админ-CRUD, чат-экшены, афиша, passport-mode, флаг partnerOffersEnabled. 369/369
+- **Этап 48:** хвосты Hangouts (edit, дат-фильтры, free-лимит 1/день), deeplink-плейсхолдеры ({lat}/{lng}/{city}), S2S postback (миграция 033), admin conversions, координаты Geolocation. 380/380
+- **Этап 49:** HMAC-подпись postback (миграция 034 hmac_seeds), сиды 7 партнёров + 11 офферов, hmac_secret в админке, 4 HMAC-теста
+- **Этап 50:** Stripe Checkout для цветов (миграция 035 partner_orders), webhook, offers/:id, orders/my, flower-order-dialog.tsx, success/cancel pages
+- **Этап 51:** POST /api/partners/booking + booking/share, restaurant-booking-dialog.tsx, WS partner:restaurant_shared, 6 новых тестов
+- **Этап 52:** админка выплат партнёрам (миграция 036 partner_payouts), GET/POST payouts, PUT approve/reject, GET stats/daily (30-дневная агрегация), UI с 5 вкладками, i18n (11 ключей RU/EN), 7 новых тестов
+- **Этап 53:** отели в passport-mode + Redis-кэш — GET /api/partners/offers/hotel?city= (Redis TTL 1ч), POST /api/partners/hotel/book, HotelBookingDialog, chat-partner-actions hotel→dialog, settings-privacy карусель отелей, 10 ключей i18n partner.hotel.*, 8 новых тестов (mock cache.js). Route ordering fix (hotel routes выше offers/:id). 388/388
+- **Этап 54:** Hangouts 2.0 — миграция 037 (hangout_type ENUM, hangout_likes/hangout_participants/hangout_checkins/hangout_reviews), 6 новых эндпоинтов (like/skip/join/leave/checkin/review) с rate-limiter'ами, mutual like → auto-chat, чек-ин haversine ≤ 500м, фронт toggle All/Date/Company + context-aware detail, 26 ключей i18n, 388/388
+- **Этап 56:** Wave 3 часть 2 — миграция 038 (сид LoveSpa + FitBro, 4 оффера spa/experience), POST /api/partners/spa/book, SpaBookingDialog, интеграция в chat-partner-actions, 10 ключей i18n partner.spa.*, 388/388
+- **Этап 57:** Псевдонимы — миграция 039 (user_aliases), CRUD (GET/POST/PUT primary/DELETE), UI в profile-edit (бейджи + ввод + выбор primary), отображение в profile под именем, 7 ключей i18n, 388/388
+- **Этап 58:** B2B-маркетплейс — миграция 040 (partners user_id, partner_subscriptions, b2b flag), 8 эндпоинтов (register, dashboard, offers CRUD, conversions, subscribe), PartnerGuard, PartnerRegister, PartnerDashboard (4 вкладки), 80 ключей i18n, 388/388
+- **Этап 59:** Анти-кот верификация — миграция 041 (user_verifications + photo_verified), 4 эндпоинта (submit/status/admin approve), VerificationBadge + VerificationDialog, интеграция в profile, 17 ключей i18n, 388/388

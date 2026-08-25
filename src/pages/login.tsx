@@ -20,6 +20,7 @@ import Link from "@/shims/next-link";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/language-context";
 import { setToken } from "@/lib/token";
+import { useTrackEvent } from "@/hooks/useExperiment";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
   const { t } = useLanguage();
+  const trackEvent = useTrackEvent();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,9 +58,12 @@ export default function LoginPage() {
 
       if (response.ok) {
         setToken(data.token);
-        if (data.refresh_token) sessionStorage.setItem('swiftmatch_refresh_token', data.refresh_token);
+        // Web: refresh_token в httpOnly cookie; храним в sessionStorage только на native
+        const { isNative } = await import('@/lib/native');
+        if (isNative() && data.refresh_token) sessionStorage.setItem('swiftmatch_refresh_token', data.refresh_token);
         localStorage.setItem('email_verified', data.email_verified ? '1' : '0');
         localStorage.setItem('email', email);
+        trackEvent('login_completed', { method: 'email' });
         router.push('/');
         toast({
           title: t('auth.welcome_back'),

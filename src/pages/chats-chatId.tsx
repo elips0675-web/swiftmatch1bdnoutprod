@@ -22,6 +22,12 @@ import { useWebSocket } from "@/hooks/use-websocket";
 import { useWebRTC } from "@/hooks/use-webrtc";
 import { VideoCallDialog } from "@/components/video-call";
 import { VoiceCallDialog } from "@/components/voice-call";
+import { useTrackEvent } from "@/hooks/useExperiment";
+import { formatEventDate } from "@/lib/hangouts";
+import { CalendarHeart } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useFeatureFlags } from "@/context/feature-flags-context";
+import { ChatPartnerActions } from "@/components/chat/chat-partner-actions";
 
 const QUICK_REACTIONS = [
   { id: 'heart', icon: Heart, color: 'text-red-500', label: '❤️' },
@@ -62,6 +68,7 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { socket } = useWebSocket();
+  const { partnerOffersEnabled } = useFeatureFlags();
   const [inputValue, setInputValue] = useState("");
   const [selectedTtl, setSelectedTtl] = useState<number | null>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
@@ -99,6 +106,17 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
   const { data: chatPartner, loading: partnerLoading, error: partnerError } = useApi<any>(
     `/api/chats/${params.chatId}`
   );
+  const [hangoutCtx, setHangoutCtx] = useState<{ id: number; title: string; event_date: string; category: string; status: string } | null>(null);
+
+  useEffect(() => {
+    const t = getToken();
+    if (!t) return;
+    fetch(`/api/hangouts/by-chat/${params.chatId}`, { headers: { Authorization: `Bearer ${t}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setHangoutCtx(data && data.id ? data : null))
+      .catch(() => {});
+  }, [params.chatId]);
+  const trackEvent = useTrackEvent();
   const { mutate: sendMessage, loading: isSending } = useApiMutation();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -140,6 +158,7 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
       const body: Record<string, unknown> = { text: content }
       if (selectedTtl) body.ttl_seconds = selectedTtl
       await sendMessage(`/api/chats/${params.chatId}/messages`, 'POST', body);
+      trackEvent('message_sent', { chat_id: Number(params.chatId), ttl: selectedTtl ?? null });
     } catch (error) {
       toast({ title: t('error.generic_title'), description: t('error.send_message'), variant: "destructive" });
       setOptimisticMessages(prev => prev.filter(m => m.id !== tempId));
@@ -159,7 +178,7 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
         body: JSON.stringify({ emoji }),
       })
       if (res.ok) refetchMessages()
-    } catch {}
+    } catch { /* ignored */ }
     setReactionMsgId(null)
   }
 
@@ -217,6 +236,15 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
       </header>
 
       <main data-testid="message-list" ref={msgContainerRef} className="flex-1 overflow-y-auto anti-screenshot">
+        {hangoutCtx && (
+          <Link to={`/hangouts/${hangoutCtx.id}`} className="block px-4 pt-3">
+            <div data-testid="chat-hangout-banner" className="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-900 transition-colors hover:bg-violet-100">
+              <CalendarHeart size={16} className="shrink-0 text-violet-600" />
+              <span className="truncate font-medium">{t('chats.hangout_context', { title: hangoutCtx.title })}</span>
+              <span className="ml-auto shrink-0 text-xs whitespace-nowrap text-violet-600">{formatEventDate(hangoutCtx.event_date)}</span>
+            </div>
+          </Link>
+        )}
         <div className="flex flex-col min-h-full px-4 pt-4 pb-2 space-y-2">
           <div className="flex-1" />
           <div className="text-center my-2"><Badge variant="secondary">{t('chats.today')}</Badge></div>
@@ -264,6 +292,7 @@ export default function ChatPage({ params }: { params: { chatId: string } }) {
         </main>
 
       <div className="p-4 pb-[calc(4rem+env(safe-area-inset-bottom))] bg-white border-t">
+        {partnerOffersEnabled && <div className="mb-2"><ChatPartnerActions placement="chat" /></div>}
          <div className="flex items-center gap-3">
           <div className="flex-1 relative">
             <Input data-testid="message-input" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onFocus={() => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 300)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder={t('chats.placeholder')} className="pr-24 h-11 bg-muted/50 border-0 rounded-xl" />

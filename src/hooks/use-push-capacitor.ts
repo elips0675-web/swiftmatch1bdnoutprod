@@ -11,12 +11,13 @@ export function usePushCapacitor() {
     let isNative = false
     try {
       isNative = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform()
-    } catch {}
+    } catch { /* ignored */ }
 
     if (!isNative) return
 
     let PushNotifications: any
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       PushNotifications = require('@capacitor/push-notifications').PushNotifications
     } catch {
       return

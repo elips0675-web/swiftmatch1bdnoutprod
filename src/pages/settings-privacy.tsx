@@ -1,22 +1,29 @@
 import { useState, useEffect } from 'react'
 import { useLanguage } from "@/context/language-context"
+import { useFeatureFlags } from "@/context/feature-flags-context"
 import { useRouter } from "@/shims/next-navigation"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft, EyeOff, Globe, ShieldCheck, Scale, Download, Trash2 } from "lucide-react"
+import { HotelBookingDialog } from "@/components/chat/hotel-booking-dialog"
+import type { PartnerOffer } from "@/components/chat/chat-partner-actions"
+import { ArrowLeft, EyeOff, Globe, ShieldCheck, Scale, Download, Trash2, Hotel } from "lucide-react"
 import { toast } from 'sonner'
-import { getToken } from '@/lib/token'
+import { getToken } from "@/lib/token"
 
 export default function SettingsPrivacy() {
   const { t } = useLanguage()
+  const { partnerOffersEnabled } = useFeatureFlags()
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
   const [settings, setSettings] = useState({ incognito: false, passport_mode: false, passport_city: '', dataProcessingConsent: true })
+  const [hotelOffers, setHotelOffers] = useState<PartnerOffer[]>([])
+  const [hotelLoading, setHotelLoading] = useState(false)
+  const [selectedHotel, setSelectedHotel] = useState<PartnerOffer | null>(null)
 
   useEffect(() => {
     setIsClient(true)
-    fetch('/api/settings/privacy', { headers: { Authorization: `Bearer ${getToken()}` } })
+    fetch('/api/settings/privacy')
       .then(r => r.json())
       .then(data => {
         setSettings(prev => ({
@@ -41,10 +48,26 @@ export default function SettingsPrivacy() {
     }))
   }, [])
 
+  useEffect(() => {
+    if (!partnerOffersEnabled || !settings.passport_mode || !settings.passport_city) {
+      setHotelOffers([])
+      return
+    }
+    setHotelLoading(true)
+    const token = getToken()
+    fetch(`/api/partners/offers/hotel?city=${encodeURIComponent(settings.passport_city)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then(r => r.json())
+      .then(data => setHotelOffers(Array.isArray(data) ? data : []))
+      .catch(() => setHotelOffers([]))
+      .finally(() => setHotelLoading(false))
+  }, [partnerOffersEnabled, settings.passport_mode, settings.passport_city])
+
   const savePrivacy = (body: Record<string, unknown>) => {
     fetch('/api/settings/privacy', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }).catch(() => {})
   }
@@ -100,6 +123,11 @@ export default function SettingsPrivacy() {
   const handleConsentChange = (val: boolean) => {
     setSettings(prev => ({ ...prev, dataProcessingConsent: val }))
     localStorage.setItem('data-processing-consent', JSON.stringify(val))
+    fetch('/api/consent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ consent_type: 'data_processing', granted: val }),
+    }).catch(() => {})
     toast.success(val ? t('settings.consent_enabled') : t('settings.consent_withdrawn'))
   }
 
@@ -145,6 +173,41 @@ export default function SettingsPrivacy() {
               onBlur={handlePassportCityBlur}
               data-testid="passport-city"
             />
+            {partnerOffersEnabled && settings.passport_city && (
+              <div className="mt-2 space-y-1.5">
+                <p className="text-xs font-bold text-muted-foreground">{t('partner.hotels_title')}</p>
+                {hotelLoading ? (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="h-24 w-40 shrink-0 rounded-xl bg-muted animate-pulse" />
+                    ))}
+                  </div>
+                ) : hotelOffers.length > 0 ? (
+                  <div className="flex gap-2 overflow-x-auto pb-1" data-testid="hotel-carousel">
+                    {hotelOffers.map(offer => (
+                      <button
+                        key={offer.id}
+                        type="button"
+                        data-testid={`hotel-offer-${offer.id}`}
+                        onClick={() => setSelectedHotel(offer)}
+                        className="shrink-0 w-40 rounded-xl border bg-white p-2.5 text-left transition-colors hover:border-primary/40"
+                      >
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Hotel size={12} className="text-blue-500" />
+                          <span className="text-xs font-bold truncate">{offer.title}</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground line-clamp-2">{offer.description || offer.partner_name}</p>
+                        {offer.price && (
+                          <p className="text-[10px] font-semibold text-primary mt-1">{'\u20BD'}{offer.price}</p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">{t('partner.hotel.no_offers')}</p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -207,6 +270,14 @@ export default function SettingsPrivacy() {
           </div>
         </div>
       </div>
+
+      {selectedHotel && (
+        <HotelBookingDialog
+          offer={selectedHotel}
+          open={!!selectedHotel}
+          onOpenChange={(open) => { if (!open) setSelectedHotel(null); }}
+        />
+      )}
     </div>
   )
 }

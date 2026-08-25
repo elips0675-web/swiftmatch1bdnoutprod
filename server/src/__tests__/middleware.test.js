@@ -58,6 +58,44 @@ describe('auth middleware', () => {
     auth(req, res, next)
     expect(req.userId).toBe(42)
   })
+
+  it('accepts token from httpOnly cookie (no Authorization header)', () => {
+    const token = jwt.sign({ userId: 5, role: 'user' }, JWT_SECRET(), { expiresIn: '1h' })
+    const { req, res, next } = mockReqRes()
+    req.cookies = { sm_token: token }
+    auth(req, res, next)
+    expect(next).toHaveBeenCalled()
+    expect(req.userId).toBe(5)
+  })
+
+  it('returns 401 with invalid cookie token', () => {
+    const { req, res, next } = mockReqRes()
+    req.cookies = { sm_token: 'bad-token' }
+    auth(req, res, next)
+    expect(res.status).toHaveBeenCalledWith(401)
+    expect(next).not.toHaveBeenCalled()
+  })
+
+  it('prefers valid cookie session over legacy Authorization header', () => {
+    const headerToken = jwt.sign({ userId: 11, role: 'user' }, JWT_SECRET(), { expiresIn: '1h' })
+    const cookieToken = jwt.sign({ userId: 22, role: 'user' }, JWT_SECRET(), { expiresIn: '1h' })
+    const { req, res, next } = mockReqRes()
+    req.headers.authorization = `Bearer ${headerToken}`
+    req.cookies = { sm_token: cookieToken }
+    auth(req, res, next)
+    expect(req.userId).toBe(22)
+  })
+
+  it('falls back to valid cookie when Authorization token is stale', () => {
+    const cookieToken = jwt.sign({ userId: 22, role: 'user' }, JWT_SECRET(), { expiresIn: '1h' })
+    const { req, res, next } = mockReqRes()
+    req.headers.authorization = 'Bearer stale-token-from-legacy-storage'
+    req.cookies = { sm_token: cookieToken }
+    auth(req, res, next)
+    expect(res.status).not.toHaveBeenCalledWith(401)
+    expect(next).toHaveBeenCalled()
+    expect(req.userId).toBe(22)
+  })
 })
 
 describe('optionalAuth middleware', () => {
@@ -82,6 +120,16 @@ describe('optionalAuth middleware', () => {
     req.headers.authorization = 'Bearer bad-token'
     optionalAuth(req, res, next)
     expect(req.userId).toBeNull()
+    expect(next).toHaveBeenCalled()
+  })
+
+  it('falls back to valid cookie when header token is invalid', () => {
+    const cookieToken = jwt.sign({ userId: 33, role: 'user' }, JWT_SECRET(), { expiresIn: '1h' })
+    const { req, res, next } = mockReqRes()
+    req.headers.authorization = 'Bearer bad-token'
+    req.cookies = { sm_token: cookieToken }
+    optionalAuth(req, res, next)
+    expect(req.userId).toBe(33)
     expect(next).toHaveBeenCalled()
   })
 })

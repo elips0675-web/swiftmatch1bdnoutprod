@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useReducer, useCallback, useRef, type ReactNode } from 'react'
 import { getSupabase } from '@/lib/supabase'
-import { setToken } from '@/lib/token'
+import { setToken, getToken, clearToken } from '@/lib/token'
 import type { AuthState } from '@/types'
 import type { User, SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/supabase'
@@ -57,19 +57,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!supabase) {
-      fetch('/api/auth/dev-login', { method: 'POST' })
+      const existing = getToken()
+      if (existing) {
+        try {
+          const payload = JSON.parse(atob(existing.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+          dispatch({
+            type: 'AUTH_SUCCESS',
+            payload: { id: payload.userId, name: '', email: '', avatar: '' },
+            token: existing,
+          })
+        } catch {
+          dispatch({ type: 'AUTH_LOGOUT' })
+        }
+        return
+      }
+      // Web: JWT в httpOnly cookie — восстанавливаем сессию через /api/auth/me
+      fetch('/api/auth/me')
         .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data?.token) {
-            setToken(data.token)
-              dispatch({
-                type: 'AUTH_SUCCESS',
-                payload: { id: 2, name: 'Анна', email: 'demo@mail.ru', avatar: '/demo/people/anna.png' },
-                token: data.token,
-              })
-          } else {
-            dispatch({ type: 'AUTH_LOGOUT' })
+        .then(me => {
+          if (me?.id && me?.email) {
+            dispatch({
+              type: 'AUTH_SUCCESS',
+              payload: { id: me.id, name: me.name || '', email: me.email, avatar: me.avatar || '' },
+              token: 'cookie',
+            })
+            return
           }
+          return fetch('/api/auth/dev-login', { method: 'POST' })
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+              if (data?.token) {
+                setToken(data.token)
+                dispatch({
+                  type: 'AUTH_SUCCESS',
+                  payload: { id: 2, name: 'Анна', email: 'demo@mail.ru', avatar: '/demo/people/anna.png' },
+                  token: data.token,
+                })
+              } else {
+                dispatch({ type: 'AUTH_LOGOUT' })
+              }
+            })
         })
         .catch(() => dispatch({ type: 'AUTH_LOGOUT' }))
       return
@@ -171,6 +198,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const sb = supabaseRef.current
       if (sb) await sb.auth.signOut()
     } catch { /* ignore */ }
+    Promise.resolve(fetch('/api/auth/logout', { method: 'POST' })).catch(() => {})
+    clearToken()
     dispatch({ type: 'AUTH_LOGOUT' })
   }, [])
 

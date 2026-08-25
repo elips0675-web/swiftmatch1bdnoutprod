@@ -6,7 +6,9 @@ import { getBannedWords, containsBannedWord } from '../banned-words.js'
 import { sendPushToUser } from './push.js'
 import { auth } from '../middleware.js'
 import logger from '../logger.js'
+import { stripHtml } from '../sanitize.js'
 import { cacheRoutePerUser, invalidate } from '../cache.js'
+import { trackEvent } from './experiments.js'
 
 const likeLimiter = rateLimit({ windowMs: 60_000, max: 30, message: { message: 'Too many likes' } })
 
@@ -127,7 +129,7 @@ router.get('/api/users/search', auth, async (req, res) => {
       if (!isNaN(userLat) && !isNaN(userLng)) {
         distanceExpr = `, ROUND(ST_Distance_Sphere(up.location, ST_SRID(POINT(?, ?), 4326)), 1) AS distance`
         having = ' HAVING distance < ?'
-        geoParams.push(userLng, userLat, Number(searchRadius))
+        geoParams.push(userLng, userLat, Number(searchRadius) * 1000)
       }
     }
 
@@ -155,10 +157,12 @@ router.get('/api/users/search', auth, async (req, res) => {
          JOIN interests i ON i.id = ui.interest_id`
       : 'FROM user_profiles up'
 
-    const params = [...whereParams]
+    const params = []
+    if (hasGeo) params.push(geoParams[0], geoParams[1])
     if (userStyle) params.push(userStyle)
     params.push(...blockParams)
-    if (hasGeo) params.push(...geoParams)
+    params.push(...whereParams)
+    if (hasGeo) params.push(geoParams[2])
 
     const sql = `SELECT ${baseSelect}${distanceExpr}
                  ${fromClause}
@@ -240,6 +244,7 @@ router.post('/api/likes', auth, likeLimiter, async (req, res) => {
     sendPushToUser(liked_user_id, 'SwiftMatch', matched
       ? `It\'s a match with ${liker?.display_name || 'someone'}!`
       : `${liker?.display_name || 'Someone'} liked you!`)
+    trackEvent(likeType, req.userId, { target_user_id: liked_user_id, matched })
 
     res.status(201).json({ message: matched ? 'It\'s a match!' : 'Like sent', matched })
   } catch (err) {
@@ -267,14 +272,17 @@ router.get('/api/matches', auth, cacheRoutePerUser(30), async (req, res) => {
 })
 
 // ─── Invites ───────────────────────────────────────────────────
+const INVITE_TYPES = ['coffee', 'cinema', 'walk', 'dinner', 'other']
+
 router.post('/api/invites', auth, async (req, res) => {
-  const { invitee_id, type } = req.body
+  const { invitee_id, type, message } = req.body
   if (!invitee_id || !type) return res.status(400).json({ message: 'invitee_id and type are required' })
+  if (!INVITE_TYPES.includes(type)) return res.status(400).json({ message: 'Invalid invite type' })
 
   try {
     await pool.query(
-      'INSERT INTO invites (sender_id, receiver_id, type, status) VALUES (?, ?, ?, ?)',
-      [req.userId, invitee_id, type, 'pending'],
+      'INSERT INTO invites (from_user_id, to_user_id, invite_type, message, status) VALUES (?, ?, ?, ?, ?)',
+      [req.userId, invitee_id, type, message ? String(message).slice(0, 500) : null, 'pending'],
     )
 
     const [notifResult] = await pool.query(
@@ -297,11 +305,11 @@ router.post('/api/invites', auth, async (req, res) => {
 router.get('/api/invites', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT i.id, i.type, i.status, i.created_at,
-              up.display_name as sender_name, up.avatar_url as sender_avatar
+      `SELECT i.id, i.invite_type as type, i.message, i.status, i.created_at,
+              i.from_user_id as sender_id, up.display_name as sender_name, up.avatar_url as sender_avatar
        FROM invites i
-       JOIN user_profiles up ON i.sender_id = up.id
-       WHERE i.receiver_id = ?
+       JOIN user_profiles up ON i.from_user_id = up.id
+       WHERE i.to_user_id = ?
        ORDER BY i.created_at DESC`,
       [req.userId],
     )
@@ -314,11 +322,11 @@ router.get('/api/invites', auth, async (req, res) => {
 
 router.put('/api/invites/:id/status', auth, async (req, res) => {
   const { status } = req.body
-  if (!['accepted', 'declined'].includes(status)) return res.status(400).json({ message: 'Invalid status' })
+  if (!['accepted', 'declined', 'cancelled'].includes(status)) return res.status(400).json({ message: 'Invalid status' })
 
   try {
     await pool.query(
-      'UPDATE invites SET status = ? WHERE id = ? AND receiver_id = ?',
+      'UPDATE invites SET status = ? WHERE id = ? AND to_user_id = ?',
       [status, req.params.id, req.userId],
     )
     res.json({ message: `Invite ${status}` })
@@ -449,7 +457,7 @@ router.post('/api/groups/:groupId/posts', auth, async (req, res) => {
   try {
     const [result] = await pool.query(
       'INSERT INTO group_posts (group_id, user_id, text, images) VALUES (?, ?, ?, ?)',
-      [req.params.groupId, req.userId, text || null, JSON.stringify(images || [])],
+      [req.params.groupId, req.userId, stripHtml(text) || null, JSON.stringify(images || [])],
     )
     const [[post]] = await pool.query(
       `SELECT gp.id, gp.group_id, gp.user_id, gp.text, gp.images, gp.created_at,
@@ -539,8 +547,31 @@ router.get('/api/chats', auth, async (req, res) => {
   }
 })
 
-router.put('/api/chats/:chatId/read', auth, async (req, res) => {
+router.get('/api/chats/:chatId', auth, async (req, res) => {
   try {
+    const [[row]] = await pool.query(
+      `SELECT c.id,
+              up.id AS user_id,
+              up.display_name AS name,
+              up.avatar_url AS avatar,
+              up.online
+       FROM chats c
+       JOIN chat_participants cp ON cp.chat_id = c.id AND cp.user_id = ?
+       JOIN chat_participants other ON other.chat_id = c.id AND other.user_id != ?
+       JOIN user_profiles up ON up.id = other.user_id
+       WHERE c.id = ?
+       LIMIT 1`,
+      [req.userId, req.userId, req.params.chatId],
+    )
+    if (!row) return res.status(404).json({ message: 'Chat not found or not a participant' })
+    res.json(row)
+  } catch (err) {
+    logger.error('Chat detail error:', err)
+    res.status(500).json({ message: 'Failed to fetch chat' })
+  }
+})
+
+router.put('/api/chats/:chatId/read', auth, async (req, res) => {  try {
     await pool.query(
       'UPDATE chat_participants SET last_read_at = NOW() WHERE chat_id = ? AND user_id = ?',
       [req.params.chatId, req.userId],
@@ -653,7 +684,7 @@ router.post('/api/chats/:chatId/messages', auth, async (req, res) => {
     const ttl = ttl_seconds > 0 ? ttl_seconds : null
     const [result] = await pool.query(
       'INSERT INTO messages (chat_id, sender_id, text, image_url, ttl_seconds) VALUES (?, ?, ?, ?, ?)',
-      [req.params.chatId, req.userId, text || null, image_url || null, ttl],
+      [req.params.chatId, req.userId, stripHtml(text) || null, image_url || null, ttl],
     )
 
     const preview = image_url ? '📷 Photo' : (text || '')

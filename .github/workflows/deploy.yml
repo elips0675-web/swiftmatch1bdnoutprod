@@ -20,6 +20,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci
+      - run: npm run check:ports
       - run: npm run lint
       - run: npx tsc --noEmit
 
@@ -34,6 +35,8 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm test -- --reporter=verbose
+      - name: Android cleartext guard (этап 35)
+        run: node scripts/check-native-config.mjs
       - run: npx vite build
 
   server-test:
@@ -65,6 +68,13 @@ jobs:
         run: mysql -h127.0.0.1 -uroot -pswiftmatch_test swiftmatch_test < database/mysql_schema.sql
         env:
           MYSQL_PWD: swiftmatch_test
+      - name: Validate schema vs live DB (этап 35)
+        run: node scripts/schema-validate.mjs
+        env:
+          DB_HOST: 127.0.0.1
+          DB_USER: root
+          DB_PASSWORD: swiftmatch_test
+          DB_NAME: swiftmatch_test
       - run: npm test -- --reporter=verbose
         working-directory: server
         env:
@@ -148,30 +158,29 @@ jobs:
       - name: Install server deps (production)
         run: npm ci --omit=dev
         working-directory: server
-      - name: Run DB migrations
-        run: node database/migrations/migrate.js
-        env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_NAME: ${{ secrets.DB_NAME }}
       - name: Deploy via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "dist/,server/,database/,package.json,package-lock.json"
+          source: "dist/,server/,database/,scripts/schema-validate.mjs,package.json,package-lock.json"
           target: "/app/swiftmatch"
           strip_components: 0
-      - name: Restart backend
+      - name: Migrate + restart backend
         uses: appleboy/ssh-action@v1.1.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
-            cd /app/swiftmatch/server
+            cd /app/swiftmatch
+            set -a
+            . ./server/.env
+            set +a
+            node scripts/schema-validate.mjs
+            node database/migrations/migrate.js
+            cd server
             npm ci --omit=dev
             pm2 restart swiftmatch-api || pm2 start src/index.js --name swiftmatch-api
             sudo nginx -s reload || true

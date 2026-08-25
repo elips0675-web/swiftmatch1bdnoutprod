@@ -7,6 +7,9 @@ import { useRouter } from "@/shims/next-navigation"
 import { Sparkles, Check, Zap, Eye, ShieldCheck, Star, Loader2, ArrowLeft } from "lucide-react"
 import { motion } from 'framer-motion'
 import { getToken } from '@/lib/token'
+import { isNative } from '@/lib/native'
+import { purchaseWithIAP } from '@/lib/iap'
+import { useTrackEvent } from '@/hooks/useExperiment'
 import { toast } from 'sonner'
 
 interface Tier {
@@ -34,6 +37,7 @@ export default function Premium() {
   const [selectedTier, setSelectedTier] = useState('')
   const [selectedDuration, setSelectedDuration] = useState(DURATIONS[0].months)
   const [loading, setLoading] = useState(false)
+  const trackEvent = useTrackEvent()
 
   useEffect(() => {
     fetch('/api/premium/tiers')
@@ -60,6 +64,19 @@ export default function Premium() {
     if (!activeTier) return
     setLoading(true)
     try {
+      if (isNative()) {
+        const iap = await purchaseWithIAP(activeTier.id, selectedDuration)
+        if (iap.ok) {
+          trackEvent('purchase_completed', { tier: activeTier.id, duration_months: selectedDuration, channel: 'iap' })
+          toast.success(t('premium.activated'))
+          router.push('/premium/success')
+          return
+        }
+        if (!iap.fallback) {
+          toast.error(iap.message || t('premium.error'))
+          return
+        }
+      }
       const token = getToken()
       const res = await fetch('/api/premium/create-checkout', {
         method: 'POST',
@@ -71,6 +88,7 @@ export default function Premium() {
       if (data.url) {
         window.location.href = data.url
       } else {
+        trackEvent('purchase_completed', { tier: activeTier.id, duration_months: selectedDuration, channel: 'web' })
         toast.success(t('premium.activated'))
         router.push('/premium/success')
       }

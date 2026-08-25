@@ -5,7 +5,7 @@ param(
   [string]$DbHost = "localhost",
   [int]$DbPort = 3306,
   [string]$BackupDir = "$PSScriptRoot\..\backups",
-  [int]$RetentionDays = 7
+  [int]$RetentionDays = 30
 )
 
 # Auto-detect mysqldump

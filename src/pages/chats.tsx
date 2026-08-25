@@ -24,6 +24,7 @@ import { GROUP_CATEGORIES } from '@/lib/demo-data';
 import { containsForbiddenWords, isGibberish } from "@/lib/word-filter";
 import { useAntiScreenshot } from "@/hooks/useAntiScreenshot";
 import { useWebSocket } from "@/hooks/use-websocket";
+import { aiChatIcebreakerSuggestions } from "@/shims/ai-flows";
 
 const VideoCallDialog = dynamic(() => import('@/components/video-call').then(mod => mod.VideoCallDialog), { ssr: false });
 const VoiceCallDialog = dynamic(() => import('@/components/voice-call').then(mod => mod.VoiceCallDialog), { ssr: false });
@@ -140,7 +141,7 @@ function ChatsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { t, language } = useLanguage();
-  const { videoCallsEnabled } = useFeatureFlags();
+  const { videoCallsEnabled, aiIcebreakersEnabled } = useFeatureFlags();
   const { token: authToken, user } = useAuth();
   const { socket: wsSocket } = useWebSocket();
   const matchId = searchParams.get('matchId');
@@ -203,6 +204,7 @@ function ChatsContent() {
   const [apiChats, setApiChats] = useState<any[]>([]);
   const [isChatsLoading, setIsChatsLoading] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [icebreakerSuggestions, setIcebreakerSuggestions] = useState<string[]>([]);
   const msgContainerRef = useAntiScreenshot<HTMLDivElement>();
 
   const allDirectChats = useMemo(() => {
@@ -251,7 +253,8 @@ function ChatsContent() {
   useEffect(() => {
     if (!matchId || !authToken) return;
     const targetUserId = parseInt(matchId);
-    if (isNaN(targetUserId)) return;
+    if (isNaN(targetUserId) || targetUserId === user?.id) return;
+    if (openingChatRef.current === targetUserId) return;
     const existing = apiChats.find(c => c.other_user_id === targetUserId);
     if (existing) {
       setSelectedChat({
@@ -280,7 +283,7 @@ function ChatsContent() {
       return;
     }
 
-    if (apiChats.length > 0) {
+    if (!isChatsLoading) {
       fetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
@@ -315,7 +318,7 @@ function ChatsContent() {
         .catch(() => {});
       openingChatRef.current = targetUserId;
     }
-  }, [matchId, apiChats.length, authToken, user?.id]);
+  }, [matchId, apiChats.length, isChatsLoading, authToken, user?.id]);
 
   useEffect(() => {
     if (groupId) {
@@ -485,6 +488,18 @@ function ChatsContent() {
     fetch(`/api/chats/${chat.id}/read`, { method: 'PUT', headers: authH }).catch(() => {});
   };
 
+  useEffect(() => {
+    if (!selectedChat || selectedChat.isGroup || messages.length > 0 || !aiIcebreakersEnabled) {
+      setIcebreakerSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    aiChatIcebreakerSuggestions({ chatUserId: selectedChat.other_user_id, language: language === 'EN' ? 'en' : 'ru' })
+      .then(({ suggestions }) => { if (!cancelled) setIcebreakerSuggestions(suggestions); })
+      .catch(() => { if (!cancelled) setIcebreakerSuggestions([]); });
+    return () => { cancelled = true; };
+  }, [selectedChat, messages.length, aiIcebreakersEnabled, language]);
+
   const handleThemeClick = (themeId: string) => {
     setInputValue(t(`chats.theme_prompt.${themeId}`));
     setShowTopicsDialog(false);
@@ -510,7 +525,7 @@ function ChatsContent() {
           return next
         })
       }
-    } catch {}
+    } catch { /* ignored */ }
     setReactionMsgId(null)
   }
 
@@ -578,6 +593,23 @@ function ChatsContent() {
           <div className="flex flex-col min-h-full px-4 pt-4 pb-2 space-y-2">
             <div className="flex-1" />
             <div className="text-center my-2"><Badge variant="secondary" className="bg-white/50 text-[9px] text-muted-foreground border-0 font-black uppercase tracking-widest px-2.5 py-0.5">{t('chats.today')}</Badge></div>
+            {messages.length === 0 && icebreakerSuggestions.length > 0 && (
+              <div className="mb-2 px-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">{t('chats.icebreakers.title')}</p>
+                <div className="flex flex-wrap gap-2">
+                  {icebreakerSuggestions.map((s) => (
+                    <button
+                      key={s}
+                      data-testid="icebreaker-chip"
+                      onClick={() => { setIcebreakerSuggestions([]); handleSendMessage(s); }}
+                      className="text-left text-xs font-medium px-3 py-2 rounded-2xl bg-white border border-border/40 shadow-sm hover:bg-primary/10 hover:border-primary/20 active:scale-95 transition-all"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div data-testid="message-list"><AnimatePresence>{messages.map((msg: any) => {
               const msgReactions = reactions[msg.id] || [];
               const reactionEmojis = [...new Set(msgReactions.map((r: any) => r.emoji))];
@@ -749,7 +781,7 @@ function ChatsContent() {
             paginatedItems.map((item) => {
               const hasUnread = (item.unread_count || 0) > 0;
               return (
-                <div key={item.id} onClick={() => openChat(item)} className={cn(
+                <div key={item.id} data-testid={`chat-row-${item.id}`} onClick={() => openChat(item)} className={cn(
                   "flex items-center gap-3 p-3 rounded-2xl transition-all cursor-pointer group border border-white mb-2",
                   "bg-white app-shadow hover:bg-muted/30"
                 )}>

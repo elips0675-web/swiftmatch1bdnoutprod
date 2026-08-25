@@ -13,10 +13,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import Link from "@/shims/next-link";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/context/language-context";
+import { useTrackEvent } from "@/hooks/useExperiment";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -24,8 +26,11 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [ageConfirm, setAgeConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { t } = useLanguage();
+  const trackEvent = useTrackEvent();
 
   const validateEmail = (email: string) => {
     return String(email)
@@ -53,6 +58,16 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!ageConfirm) {
+      toast({ title: t('common.error'), description: t('register.age_required'), variant: "destructive" });
+      return;
+    }
+
+    if (!consent) {
+      toast({ title: t('common.error'), description: t('register.consent_required'), variant: "destructive" });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -61,12 +76,13 @@ export default function RegisterPage() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ email, password, displayName: name, phone: phone || undefined }),
+            body: JSON.stringify({ email, password, displayName: name, phone: phone || undefined, consent }),
         });
 
         const data = await response.json();
 
         if (response.ok) {
+            trackEvent('register_completed', {});
             toast({
                 title: t('common.success'),
                 description: t('register.account_created'),
@@ -164,7 +180,44 @@ export default function RegisterPage() {
               />
             </div>
             
-            <Button 
+<div className="flex items-start gap-3 py-1">
+              <Checkbox
+                data-testid="age-checkbox"
+                id="age-confirm"
+                checked={ageConfirm}
+                onCheckedChange={(val) => setAgeConfirm(val === true)}
+                className="mt-0.5"
+              />
+              <label htmlFor="age-confirm" className="text-xs text-muted-foreground leading-relaxed select-none">
+                {t('register.age_label')}
+              </label>
+            </div>
+
+            <div className="flex items-start gap-3 py-1">
+              <Checkbox
+                data-testid="consent-checkbox"
+                id="consent"
+                checked={consent}
+                onCheckedChange={(val) => setConsent(val === true)}
+                className="mt-0.5"
+              />
+              <label htmlFor="consent" className="text-xs text-muted-foreground leading-relaxed select-none">
+                {t('register.consent_label')}{" "}
+                <Link href="/legal/data-processing" className="text-primary hover:underline font-medium">
+                  {t('register.consent_doc')}
+                </Link>{" "}
+                и{" "}
+                <Link href="/legal/privacy" className="text-primary hover:underline font-medium">
+                  {t('register.consent_privacy')}
+                </Link>
+                {" "}и{" "}
+                <Link href="/legal/terms" className="text-primary hover:underline font-medium">
+                  {t('register.consent_terms')}
+                </Link>
+              </label>
+            </div>
+
+            <Button
               data-testid="submit-register"
               type="submit" 
               disabled={isLoading}

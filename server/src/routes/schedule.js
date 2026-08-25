@@ -2,6 +2,7 @@ import { Router } from 'express'
 import pool from '../db.js'
 import { auth } from '../middleware.js'
 import { getIO } from '../ws.js'
+import logger from '../logger.js'
 
 const router = Router()
 
@@ -32,16 +33,20 @@ router.post('/api/schedule', auth, async (req, res) => {
     if (!chat_id || !scheduled_at) {
       return res.status(400).json({ message: 'chat_id and scheduled_at are required' })
     }
+    const ts = new Date(scheduled_at)
+    if (isNaN(ts.getTime())) {
+      return res.status(400).json({ message: 'Invalid scheduled_at' })
+    }
 
     const [participants] = await pool.query(
       'SELECT user_id FROM chat_participants WHERE chat_id = ?',
       [chat_id],
     )
-    const userIds = participants.map((p) => p.user_id)
+    const userIds = participants.map(p => p.user_id)
     if (!userIds.includes(req.userId)) {
       return res.status(403).json({ message: 'Not a participant' })
     }
-    const inviteeId = userIds.find((id) => id !== req.userId)
+    const inviteeId = userIds.find(id => id !== req.userId)
     if (!inviteeId) {
       return res.status(400).json({ message: 'No other participant found' })
     }
@@ -49,7 +54,7 @@ router.post('/api/schedule', auth, async (req, res) => {
     const [result] = await pool.query(
       `INSERT INTO date_schedules (chat_id, proposer_id, invitee_id, scheduled_at, duration_minutes, message)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [chat_id, req.userId, inviteeId, scheduled_at, duration_minutes || 60, message || null],
+      [chat_id, req.userId, inviteeId, ts, duration_minutes || 60, message || null],
     )
 
     const [[schedule]] = await pool.query(

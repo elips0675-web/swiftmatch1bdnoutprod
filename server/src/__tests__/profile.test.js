@@ -48,6 +48,21 @@ describe('GET /api/profile/:id', () => {
     expect(res.body.interests).toHaveLength(1)
   })
 
+  it('sanitizes legacy XSS payload stored in bio (defense in depth on read)', async () => {
+    pool.query
+      .mockResolvedValueOnce(
+        [[{ id: 2, display_name: 'Ann <b>x</b>', bio: '<script>alert("xss")</script>', email: 'a@t.com' }], []],
+      )
+      .mockResolvedValueOnce([[], []])
+      .mockResolvedValueOnce([[], []])
+
+    const res = await request(app).get('/api/profile/2')
+    expect(res.status).toBe(200)
+    expect(res.body.bio).not.toContain('<script>')
+    expect(res.body.bio).not.toContain('alert(')
+    expect(res.body.display_name).not.toContain('<b>')
+  })
+
   it('handles database error', async () => {
     pool.query.mockRejectedValue(new Error('DB error'))
     const res = await request(app).get('/api/profile/1')

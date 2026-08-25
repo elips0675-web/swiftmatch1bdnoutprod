@@ -88,11 +88,11 @@ export default function AdminUsersPage() {
       setTotal(data.total);
       if (data.cities.length > 0) setCities(data.cities);
     } catch {
-      toast.error('Failed to load users');
+      toast.error(t('admin.error.load'));
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, cityFilter, premiumFilter, sortField, sortDir, page]);
+  }, [search, statusFilter, cityFilter, premiumFilter, sortField, sortDir, page, t]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
@@ -106,7 +106,7 @@ export default function AdminUsersPage() {
       const data: AdminUser = await res.json();
       setDrawerUser(data);
     } catch {
-      toast.error('Failed to load user details');
+      toast.error(t('admin.error.load'));
     }
   };
 
@@ -138,7 +138,7 @@ export default function AdminUsersPage() {
       setSelected(new Set());
       fetchUsers();
     } catch {
-      toast.error('Bulk action failed');
+      toast.error(t('admin.error.operation'));
     }
   }, [selected, t, fetchUsers]);
 
@@ -154,7 +154,7 @@ export default function AdminUsersPage() {
         toast.success(t('admin.users.banned_toast'));
       }
       fetchUsers();
-    } catch { toast.error('Action failed'); }
+    } catch { toast.error(t('admin.error.operation')); }
   };
 
   const handleDelete = async (id: number) => {
@@ -168,7 +168,7 @@ export default function AdminUsersPage() {
       toast.success(t('admin.users.deleted_toast'));
       setDrawerUser(null);
       fetchUsers();
-    } catch { toast.error('Delete failed'); }
+    } catch { toast.error(t('admin.error.operation')); }
   };
 
   const handleExport = () => {

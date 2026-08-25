@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import pool from '../../db.js'
 import { sendPushToAll } from '../push.js'
+import { sendCustomEmail } from '../../mail.js'
 import logger from '../../logger.js'
 
 const router = Router()
@@ -37,6 +38,18 @@ router.post('/campaigns', async (req, res) => {
       sendPushToAll(title, body, '/').catch(err => {
         logger.error('Campaign push send failed:', err)
       })
+    }
+
+    if (channel === 'email') {
+      const [users] = await pool.query(
+        'SELECT email FROM users WHERE is_active = 1 AND deleted_at IS NULL',
+      )
+      const html = `<h2>${title}</h2><p>${body}</p>`
+      for (const u of users) {
+        sendCustomEmail(u.email, title, html).catch(err => {
+          logger.error('Campaign email send failed:', err)
+        })
+      }
     }
 
     res.status(201).json({ id: result.insertId, message: 'Campaign sent' })

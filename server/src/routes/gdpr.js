@@ -22,7 +22,7 @@ router.get('/api/data/export', auth, async (req, res) => {
       [req.userId],
     )
     const [messages] = await pool.query(
-      `SELECT m.id, m.chat_id, m.content, m.created_at FROM messages m
+      `SELECT m.id, m.chat_id, m.text, m.created_at FROM messages m
        JOIN chat_participants cp ON cp.chat_id = m.chat_id AND cp.user_id = ?
        WHERE m.sender_id = ?`,
       [req.userId, req.userId],

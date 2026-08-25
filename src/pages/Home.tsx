@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
-import { Zap, Search, Sparkles, Trophy, ChevronRight, Music, Dumbbell, Palette, Gamepad2, Film, Globe, ChefHat, Cpu, BookOpen, Shirt, HeartPulse, Dog, FlaskConical, Briefcase, Chrome as HomeIcon, Car, Laugh, Star, Scroll, Users, ChevronLeft } from "lucide-react";
+import { Zap, Search, Sparkles, Trophy, ChevronRight, Music, Dumbbell, Palette, Gamepad2, Film, Globe, ChefHat, Cpu, BookOpen, Shirt, HeartPulse, Dog, FlaskConical, Briefcase, Chrome as HomeIcon, Car, Laugh, Star, Scroll, Users, ChevronLeft, CalendarHeart } from "lucide-react";
 import Link from "@/shims/next-link";
 import dynamic from "@/shims/next-dynamic";
 import { AppHeader } from "@/components/layout/app-header";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "@/shims/next-navigation";
 import { useLanguage } from "@/context/language-context";
+import { useFeatureFlags } from "@/context/feature-flags-context";
 import { ALL_DEMO_USERS, GROUP_CATEGORIES } from "@/lib/demo-data";
 import { toast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -29,6 +30,7 @@ const AutosearchDialog = dynamic(() => import('@/components/dialogs/autosearch-d
 export default function Home() {
   const router = useRouter();
   const { t, language } = useLanguage();
+  const { hangoutsEnabled } = useFeatureFlags();
   const [showAutosearchDialog, setShowAutosearchDialog] = useState(false);
   const [isMounted, setIsMounted] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -144,6 +146,17 @@ export default function Home() {
             </Link>
           </Button>
         </section>
+
+        {hangoutsEnabled && (
+          <section className="px-5 pt-4">
+            <Button asChild data-testid="home-hangouts" className="h-16 w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-black text-xs shadow-xl shadow-violet-500/20 uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-1.5">
+              <Link href="/hangouts" prefetch={true}>
+                <CalendarHeart size={20} />
+                <span className="text-sm">{t('hangout.title')}</span>
+              </Link>
+            </Button>
+          </section>
+        )}
 
         <section className="pt-8">
           <div className="flex justify-center gap-8 mb-6 text-sm">

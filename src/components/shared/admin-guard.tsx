@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getToken, setToken } from '@/lib/token'
+import { getToken, setToken, clearToken } from '@/lib/token'
 import { getSupabase } from '@/lib/supabase'
 
 export function AdminGuard({ children }: { children: React.ReactNode }) {
@@ -11,6 +11,14 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     const checkAdmin = async () => {
       const supabase = getSupabase()
       if (!supabase) {
+        const existing = getToken()
+        if (existing) {
+          try {
+            const res = await fetch('/api/admin/me', { headers: { Authorization: `Bearer ${existing}` } })
+            if (res.ok) { setAuthorized(true); return }
+          } catch { /* stale token */ }
+          clearToken()
+        }
         try {
           const res = await fetch('/api/auth/dev-login', { method: 'POST' })
           if (res.ok) {
@@ -19,7 +27,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
             setAuthorized(true)
             return
           }
-        } catch {}
+        } catch { /* ignored */ }
         setAuthorized(true)
         return
       }

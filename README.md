@@ -81,24 +81,31 @@ npx vite --port 8081 --host
 - Модерация: жалобы, запрещённые слова, история действий
 - Контент: управление интересами, целями знакомств
 - Premium-статус в карточке пользователя (из `subscriptions`)
+- **A/B-тесты:** страница `/admin/experiments`, стабильный assign 50/50 по MD5-хэшу, трекинг событий (registration/like/match/premium_purchase)
 
 ### 💬 Социальные функции
 - Real-time чаты через **Socket.IO** с typing indicator и read receipts
 - Emoji-реакции на сообщения (happy / love / sad / angry / like)
 - Онлайн-статус (зелёная точка) через WebSocket
 - Группы по интересам: создание, категории, посты, комментарии, лайки
+- **AI Icebreakers:** чипы первого сообщения в пустом чате (`POST /api/icebreakers/suggest` — OpenAI или fallback из БД, RU/EN, 40 вопросов из сида)
 - Конкурс с голосованием и лидербордом
 - Блокировка пользователей
 
 ### 🔐 Безопасность и инфраструктура
-- JWT (Bearer token), refresh tokens, dev-login для админки
+- JWT в **httpOnly cookie** (`sm_token` 24h + `sm_refresh` 7d, SameSite=Lax, Secure в prod) — ставятся на login/register/refresh/dev-login; мидлвари читают `Bearer ?? cookie` (`server/src/cookies.js`); нативные сборки работают через Bearer; `POST /api/auth/logout` чистит куку + refresh_tokens в БД; probe `GET /api/auth/me` всегда 200
+- **Refresh rotation + reuse detection**: ротация в пределах `family_id`, replay ротированного токена отзывает всю семью; гонка параллельных refresh закрыта атомарным claim'ом (этап 34)
+- **Revoke all sessions**: `POST /api/auth/logout-all`; смена пароля отзывает все сессии пользователя
+- **Account lockout**: 5 неудачных логинов подряд → 429 на 15 мин (`server/src/lockout.js`)
+- **Санитизация ввода**: свободный текст (bio, имена, посты, сообщения) хранится без HTML-тегов (`server/src/sanitize.js`)
 - **Sentry:** `@sentry/react` + `@sentry/node`, `beforeSend` фильтрует PII (email, токены, пароли)
 - **Helmet:** CSP, X-Frame-Options, X-Content-Type-Options и др. security headers
 - **Request ID:** UUID на каждый запрос, `X-Request-Id` в ответе
 - **Rate limiting:** express-rate-limit (30r/s на лайки, 5r/s на auth)
 - **Модерация чатов:** проверка banned-слов при отправке сообщений
 - Бан пользователя + WS `user:banned` (мгновенный разлогин)
-- CORS `*` (для Capacitor), CSRF не нужен (API-only JWT)
+- **API Versioning:** `/api/v1/*` → `/api/*` + заголовок `X-API-Version: v1` (обратная совместимость)
+- CORS: строгий `CORS_ORIGIN` (fail-fast без него в production); CSRF — SameSite=Lax куки + Bearer для нативных
 
 ### 📁 Загрузка файлов
 - MIME-фильтр: только `image/*` + whitelist расширений (.jpg, .jpeg, .png, .gif, .webp)
@@ -114,6 +121,7 @@ npx vite --port 8081 --host
 - **SMTP:** Nodemailer с retry-логикой (3 попытки, exponential backoff 1s/2s/3s)
 - Graceful skip при пустых SMTP_USER/PASS
 - Push-уведомления через VAPID + web-push
+- **Email-кампании:** массовая рассылка из админки (`POST /api/admin/campaigns` → `sendCustomEmail` из `mail.js`, Bull queue при реальном SMTP)
 
 ### 🛡️ Модерация и репорты
 - **AI Moderation:** OpenAI Moderation + AWS Rekognition + эвристика (regex banned-words)
@@ -140,9 +148,10 @@ npx vite --port 8081 --host
 - `GET /api/referral/code`, `POST /api/referral/apply`, `GET /api/referral/stats`
 
 ### 🧪 Тестирование
-- **Фронтенд (Vitest):** 55 тестов, 13 файлов
-- **Сервер (Vitest):** 124 теста, 12 файлов — **0 failures**
-- **E2E (Playwright):** 30 тестов, 2 spec-файла (audit-full, helpers) — **0 failures**
+- **Фронтенд (Vitest):** 58 тестов, 12 файлов — **0 failures**
+- **Сервер (Vitest):** 149 тестов, 14 файлов — **0 failures** (включая cookie-auth, rotation, lockout, sanitize)
+- **E2E (Playwright):** 44 теста, 5 spec-файлов (audit-full, features, login, profile, register) — **0 failures**
+- **Pre-flight:** `npm run check:ports` — сверка портов (vite/proxy/.env/CORS_ORIGIN) + warn на `console.log` в `server/src`
 - **Swagger:** OpenAPI-документация с JSDoc-аннотациями
 
 ### ⚙️ Фоновые задачи (Bull Queue)
@@ -169,6 +178,15 @@ npx vite --port 8081 --host
 - **Load Testing:** k6-скрипт (`k6/load-test.js`, ramp-up 10→100 users, 6 endpoints)
 - **Git hooks:** Husky + lint-staged (prettier + eslint на staged файлах)
 - **Логирование:** Winston (JSON, timestamp/level/msg/rid)
+- **Pre-flight:** `npm run check:ports` (порты + JWT_SECRET в server/.env) и `scripts/check-keys.ps1` (какие прод-ключи не заполнены)
+
+### 🚀 Чек-лист запуска продакшена
+1. **Ключи**: заполнить `server/.env` по `server/.env.example`; проверить `powershell -File scripts/check-keys.ps1` (обязательные: `JWT_SECRET`, `DB_PASSWORD`, `CORS_ORIGIN`; для фич: Stripe, SMTP, FCM, RevenueCat, Twilio, OpenAI, S3, Sentry, Redis)
+2. **Миграции**: `node database/migrations/migrate.js` (или через CI)
+3. **Проверка**: `npm run check:ports` → `npm test` (server) → `npx vitest run` → `npx playwright test` → `npx vite build`
+4. **Запуск**: `cd server && node src/index.js` (строго из `server/` — иначе dotenv не подхватит .env и JWT-токены «сгорят»); продакшн-процесс под pm2/systemd
+5. **Без ключей сервис деградирует, но жив**: Stripe → mock (в prod 502 «not configured» — осознанно), OpenAI → fallback из БД, пуши/SMS → mock, письма → лог «would send», S3 → локальный диск, RevenueCat webhook → 503
+6. **CI-deploy**: завести secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DB_HOST/USER/PASSWORD/NAME` — джоба `deploy` в `.github/workflows/deploy.yml`
 
 ### 📱 Новые фичи (июль 2026)
 - **Background GPS + Geofence** — 5min polling, PUT/GET /api/location, Capacitor geolocation
@@ -192,10 +210,15 @@ npx vite --port 8081 --host
 
 | Переменная | Файл | Назначение |
 |---|---|---|
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `server/.env` | Реальные платежи |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `server/.env` | Реальные платежи (без ключа — mock в dev, 502 в prod) |
 | `SMTP_USER`, `SMTP_PASS` | `server/.env` | Email (регистрация, сброс пароля) |
 | `SENTRY_DSN` | `server/.env` + `.env` | Мониторинг ошибок |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | `server/.env` | Облачное хранение файлов |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | `server/.env` | Облачное хранение файлов (без — локальный диск) |
+| `OPENAI_API_KEY` | `server/.env` | AI Icebreakers + AI-модерация текста (без — fallback БД/эвристика) |
+| `FCM_SERVER_KEY` | `server/.env` | Push-уведомления Android (без — mock) |
+| `REVENUECAT_WEBHOOK_SECRET` | `server/.env` | IAP webhook (без — 503, приём событий отключён) |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | `server/.env` | SMS-верификация (без — mock) |
+| `REDIS_URL` | `server/.env` | Кэш + Bull Queue (email/push/image) + Socket.IO adapter (без — всё off, in-memory) |
 | `DB_PASSWORD` | `server/.env` | Непустой пароль для MySQL |
 | `CORS_ORIGIN` | `server/.env` | Домен прода (вместо `localhost:8081`) |
 | `NODE_ENV=production` | `server/.env` | Отключает Stripe mock, Sentry sampling 0.1 |
@@ -207,6 +230,13 @@ npx vite --port 8081 --host
 | **Ghost Mode** (инкогнито + premium gate) | `profile.js`, `social.js`, `settings-privacy.tsx`, миграция 009 | ✅ |
 | **Passport Mode** (показ в другом городе + premium gate) | Те же файлы, что Ghost Mode | ✅ |
 | **GDPR Compliance** (data export, erase, consent) | `routes/gdpr.js`, миграция 010, UI в settings-privacy | ✅ |
+| **AI Icebreakers** (чипы первого сообщения) | `icebreakers.js`, `chats.tsx`, миграция 018 | ✅ |
+| **A/B Testing + Product Analytics** | `experiments.js`, `useExperiment.ts`, `admin-experiments.tsx`, миграция 019 | ✅ |
+| **API Versioning** (`/api/v1` + X-API-Version) | глобальный middleware в `index.js` | ✅ |
+| **Video Date Scheduling** | `schedule.js`, `schedule.tsx`, WS `schedule:updated`, миграции 013/015, E2E ✅ | ✅ |
+| **Safety Check-in** (экстренные контакты) | `date-checkin.js`, миграция 015, E2E ✅ | ✅ |
+| **Profile Score** | `profile.js` PUT `/api/profile/score`, миграция 014, E2E ✅ | ✅ |
+| **GDPR Consent flow** | чекбокс регистрации + `consent_log` + тумблер настроек (этап 7) | ✅ |
 
 ### 🟠 Код готов — ждут ключи API
 
@@ -221,9 +251,10 @@ npx vite --port 8081 --host
 
 ### 🟢 Ещё не начато
 
-- AI Icebreakers (OpenAI в чаты)
-- A/B Testing + Product Analytics
-- API Versioning, Design System/Storybook
+- AI Icebreakers (OpenAI в чаты) — ✅ сделано, fallback из БД без ключа OpenAI
+- A/B Testing + Product Analytics — ✅ сделано (таблицы experiments, assign/track API, админка)
+- API Versioning — ✅ сделано (`/api/v1` alias)
+- Design System/Storybook
 
 ---
 
@@ -242,7 +273,7 @@ npx vite --port 8081 --host
 | `server/src/routes/report.js` | POST /api/reports + auto-ban escalation |
 | `server/src/routes/referral.js` | Реферальная система (code, apply, stats) |
 | `src/` | Фронтенд на React + Vite + Tailwind |
-| `database/` | `mysql_schema.sql` + `demo_data.sql` + `migrations/` (10 миграций) |
+| `database/` | `mysql_schema.sql` + `demo_data.sql` + `migrations/` (23 миграции) |
 | `server/src/routes/gdpr.js` | GDPR API (data export, erase, consent logging) |
 
 ## Резервное копирование MySQL
@@ -276,19 +307,26 @@ crontab -l | { cat; echo "0 3 * * * /path/to/swiftmatch1bd/scripts/backup-mysql.
 
 ### Структура
 - `android/` — Gradle-проект (в git)
-- `capacitor.config.ts` — конфиг (appId, webDir, plugins)
+- `capacitor.config.ts` — конфиг (appId `com.swiftmatch.app`, webDir, cleartext для LAN-тестов)
 - `src/lib/native.ts` — адаптер fetch/WS для нативного режима
+- `@revenuecat/purchases-capacitor` — IAP-клиент (`src/lib/iap.ts`)
 
 ### Требования
-- Android Studio (скачать [developer.android.com/studio](https://developer.android.com/studio))
-- JDK 17+
-- Android SDK (устанавливается через Android Studio)
+- Android Studio + SDK (platform 35/36, build-tools 35) — ставятся через cmdline-tools
+- **JDK 21** (Temurin): Gradle 8.14.3 не работает на JBR Java 25 из Android Studio
+- AGP 8.13.2, compileSdk 36
 
-### Сборка APK
-```bash
-VITE_API_URL=https://swiftmatch.app npm run build:native
+### Сборка APK (проверено, APK собирается)
+```powershell
+npm run build            # или с VITE_API_URL=http://<LAN-IP>:3002 для теста на устройстве
+npx cap sync android     # из корня; подтягивает capacitor-cordova-android-plugins
+# строго из папки android/ (Gradle берёт root от CWD):
+$env:JAVA_HOME="<путь к JDK 21>"; android\gradlew.bat :app:assembleDebug
+# → android\app\build\outputs\apk\debug\app-debug.apk
 ```
-После сборки открыть `android/` в Android Studio → **Build → Build Bundle(s) / APK**.
+> Грабля: если `compressDebugAssets` падает с «Failed to create MD5 hash ...jar as it does not exist» — прогнать задачу standalone (`gradlew :app:compressDebugAssets`), затем полный `assembleDebug`. Детали в AGENTS.md (#29).
+
+Для релиза: домен вместо LAN-IP, подпись keystore, ключ RevenueCat в .env, App Links.
 
 ### Live Reload (отладка на устройстве)
 Запустить на ПК:
@@ -303,11 +341,12 @@ npx cap run android --livereload=http://192.168.x.x:8081 --open
 ### Нативные фичи
 - **Камера**: `@capacitor/camera` — нативный UI фото/видео
 - **Файлы**: `@capacitor/filesystem`
-- **Хранилище**: `@capacitor/preferences` (замена localStorage)
+- **Хранилище**: `@capacitor/preferences` + sessionStorage/localStorage для JWT (Bearer)
+- **IAP**: RevenueCat (`VITE_REVENUECAT_API_KEY`)
 - **Пуши**: VAPID-ключи в `server/.env` готовы
 
 ### Как это работает
-На сервере настроен `cors({ origin: '*' })` — подходит для Capacitor.
+На сервере строгий CORS_ORIGIN (для нативных сборок авторизация идёт через Bearer-заголовок, не cookie).
 В нативном режиме `src/lib/native.ts` перехватывает все `fetch('/api/...')` и подставляет `VITE_API_URL`.
 WebSocket в `use-websocket.ts` использует `VITE_WS_URL` или `wss://swiftmatch.app`.
 

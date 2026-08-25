@@ -13,10 +13,11 @@ CREATE TABLE users (
   password_hash       VARCHAR(255) NOT NULL,
   role                ENUM('user','admin') NOT NULL DEFAULT 'user',
   is_active           BOOLEAN NOT NULL DEFAULT TRUE,
-  email_verified_at   TIMESTAMP NULL,
   verification_token  VARCHAR(64) NULL,
   reset_token         VARCHAR(64) NULL,
   reset_token_expires TIMESTAMP NULL,
+  totp_secret         VARCHAR(255) NULL,
+  totp_enabled        TINYINT(1) NOT NULL DEFAULT 0,
   created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   last_login          TIMESTAMP NULL,
@@ -83,11 +84,8 @@ CREATE TABLE user_photos (
   is_avatar           BOOLEAN NOT NULL DEFAULT FALSE,
   moderation_status   ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
   moderation_reason   VARCHAR(500) DEFAULT NULL,
-  moderated_by        INT UNSIGNED DEFAULT NULL,
-  moderated_at        TIMESTAMP NULL,
   created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (moderated_by) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_photos_user (user_id),
   INDEX idx_photos_moderation (moderation_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -174,7 +172,8 @@ CREATE TABLE chats (
   created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (last_sender_id) REFERENCES users(id) ON DELETE SET NULL,
-  INDEX idx_chats_updated (updated_at)
+  INDEX idx_chats_updated (updated_at),
+  INDEX idx_chats_group (group_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------
@@ -202,7 +201,6 @@ CREATE TABLE messages (
   image_url   VARCHAR(500) DEFAULT NULL,
   reply_to    INT UNSIGNED DEFAULT NULL,
   ttl_seconds INT UNSIGNED DEFAULT NULL COMMENT 'Auto-delete after N seconds',
-  read_by     JSON DEFAULT NULL COMMENT 'Array of user_ids who read this message',
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
   FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -212,8 +210,6 @@ CREATE TABLE messages (
   INDEX idx_messages_created (chat_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Migration for existing DBs:
--- ALTER TABLE messages ADD COLUMN read_by JSON DEFAULT NULL COMMENT 'Array of user_ids who read this message';
 
 -- -----------------------------------------------------------
 -- 12. MESSAGE REACTIONS
@@ -325,8 +321,6 @@ CREATE TABLE posts (
   text          TEXT NOT NULL,
   likes_count   INT UNSIGNED NOT NULL DEFAULT 0,
   comments_count INT UNSIGNED NOT NULL DEFAULT 0,
-  is_liked      BOOLEAN NOT NULL DEFAULT FALSE,
-  is_bookmarked BOOLEAN NOT NULL DEFAULT FALSE,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -486,6 +480,8 @@ CREATE TABLE feature_flags (
   contest_enabled       BOOLEAN NOT NULL DEFAULT TRUE,
   show_ads              BOOLEAN NOT NULL DEFAULT FALSE,
   autosearch_enabled    BOOLEAN NOT NULL DEFAULT TRUE,
+  hangouts_enabled      BOOLEAN NOT NULL DEFAULT TRUE,
+partner_offers_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   updated_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -885,3 +881,169 @@ INSERT INTO compatibility_scores (style_a, style_b, score) VALUES
   ('avoidant', 'anxious', 0),
   ('avoidant', 'avoidant', 1)
 ON DUPLICATE KEY UPDATE score=VALUES(score);
+
+-- webhook_events (этап 39): идемпотентность вебхуков Stripe/RevenueCat
+CREATE TABLE IF NOT EXISTS webhook_events (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  provider VARCHAR(32) NOT NULL DEFAULT 'stripe',
+  event_id VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_webhook_event (provider, event_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------
+-- «Встречи» (Hangouts) — доска планов «Куда пойдем»
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS hangouts (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id         INT UNSIGNED NOT NULL,
+  category        VARCHAR(50) NOT NULL,
+  title           VARCHAR(255) NOT NULL,
+  description     TEXT,
+  place_name      VARCHAR(255),
+  place_address   VARCHAR(255),
+  city            VARCHAR(100),
+  lat             DECIMAL(10,8),
+  lng             DECIMAL(11,8),
+  event_date      DATETIME NOT NULL,
+  max_companions  TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  partner_offer_id INT UNSIGNED NULL,
+  status          ENUM('active','cancelled','completed','blocked') NOT NULL DEFAULT 'active',
+  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_hangouts_geo (lat, lng),
+  INDEX idx_hangouts_status_category (status, category),
+  INDEX idx_hangouts_event_date (event_date),
+  INDEX idx_hangouts_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS hangout_responses (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  hangout_id  INT UNSIGNED NOT NULL,
+  user_id     INT UNSIGNED NOT NULL,
+  status      ENUM('pending','accepted','declined','cancelled') NOT NULL DEFAULT 'pending',
+  message     TEXT,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (hangout_id) REFERENCES hangouts(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_hangout_user (hangout_id, user_id),
+  INDEX idx_responses_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS hangout_chats (
+  hangout_id   INT UNSIGNED NOT NULL,
+  response_id  INT UNSIGNED NOT NULL,
+  chat_id      INT UNSIGNED NOT NULL,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (hangout_id, response_id),
+  FOREIGN KEY (hangout_id) REFERENCES hangouts(id) ON DELETE CASCADE,
+  FOREIGN KEY (response_id) REFERENCES hangout_responses(id) ON DELETE CASCADE,
+  FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
+  INDEX idx_hangout_chats_chat (chat_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Партнёрская экосистема (Wave 1, Mesta.txt) — миграция 030
+CREATE TABLE IF NOT EXISTS partners (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name              VARCHAR(100) NOT NULL,
+  type              ENUM('api','deeplink','saas') NOT NULL DEFAULT 'deeplink',
+  affiliate_token   VARCHAR(255),
+  hmac_secret       VARCHAR(64),
+  commission_rate   DECIMAL(5,2) NOT NULL DEFAULT 10.00,
+  api_base_url    VARCHAR(255),
+  status          ENUM('active','paused') NOT NULL DEFAULT 'active',
+  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_partners_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS partner_offers (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  partner_id   INT UNSIGNED NOT NULL,
+  category     ENUM('cinema','restaurant','flowers','taxi','hotel','spa','photo','gift','event','experience') NOT NULL,
+  title        VARCHAR(255) NOT NULL,
+  description  TEXT,
+  image_url    VARCHAR(500),
+  deeplink     VARCHAR(500) NOT NULL,
+  price        DECIMAL(10,2),
+  city         VARCHAR(100),
+  lat          DECIMAL(10,8),
+  lng          DECIMAL(11,8),
+  valid_from   DATE,
+  valid_to     DATE,
+  placement    SET('hangout','chat','profile','passport','attachment_result') NOT NULL,
+  status       ENUM('active','paused') NOT NULL DEFAULT 'active',
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE CASCADE,
+  INDEX idx_offers_category (category),
+  INDEX idx_offers_status (status),
+  INDEX idx_offers_geo (lat, lng),
+  INDEX idx_offers_partner (partner_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS partner_conversions (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  partner_id      INT UNSIGNED NOT NULL,
+  offer_id        INT UNSIGNED,
+  user_id         INT UNSIGNED NULL,
+  conversion_type ENUM('click','booking','purchase','lead') NOT NULL DEFAULT 'click',
+  external_order_id VARCHAR(100) NULL,
+  stripe_session_id VARCHAR(255) NULL,
+  amount          DECIMAL(10,2),
+  commission      DECIMAL(10,2),
+  status          ENUM('pending','approved','paid') NOT NULL DEFAULT 'pending',
+  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE CASCADE,
+  FOREIGN KEY (offer_id) REFERENCES partner_offers(id) ON DELETE SET NULL,
+  UNIQUE KEY uq_conversions_external (external_order_id),  INDEX idx_conversions_partner (partner_id),
+  INDEX idx_conversions_user (user_id),
+  INDEX idx_conversions_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------
+-- PARTNER ORDERS (Stripe Checkout for flowers/restaurants)
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS partner_orders (
+  id                 INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  partner_id         INT UNSIGNED NOT NULL,
+  offer_id           INT UNSIGNED NULL,
+  user_id            INT UNSIGNED NOT NULL,
+  stripe_session_id  VARCHAR(255) NULL,
+  amount             DECIMAL(10,2) NOT NULL,
+  commission         DECIMAL(10,2) NOT NULL DEFAULT 0,
+  currency           VARCHAR(3) NOT NULL DEFAULT 'RUB',
+  recipient_name     VARCHAR(200) NULL,
+  recipient_address  TEXT NULL,
+  gift_message       TEXT NULL,
+  status             ENUM('pending','paid','fulfilled','cancelled','refunded') NOT NULL DEFAULT 'pending',
+  created_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE CASCADE,
+  FOREIGN KEY (offer_id) REFERENCES partner_offers(id) ON DELETE SET NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_orders_stripe_session (stripe_session_id),
+  INDEX idx_orders_user (user_id),
+  INDEX idx_orders_partner (partner_id),
+  INDEX idx_orders_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------
+-- PARTNER PAYOUTS (commission withdrawal requests)
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS partner_payouts (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  partner_id      INT UNSIGNED NOT NULL,
+  amount          DECIMAL(10,2) NOT NULL,
+  currency        VARCHAR(3) NOT NULL DEFAULT 'RUB',
+  method          ENUM('bank','card','crypto','manual') NOT NULL DEFAULT 'bank',
+  details         TEXT NULL,
+  status          ENUM('pending','processing','completed','rejected') NOT NULL DEFAULT 'pending',
+  admin_note      TEXT NULL,
+  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  processed_at    TIMESTAMP NULL,
+  FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE CASCADE,
+  INDEX idx_payouts_partner (partner_id),
+  INDEX idx_payouts_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

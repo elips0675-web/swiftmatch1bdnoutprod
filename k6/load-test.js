@@ -30,8 +30,8 @@ export const options = {
 }
 
 const BASE_URL = __ENV.API_URL || 'http://localhost:3002'
-const USER_EMAIL = __ENV.USER_EMAIL || 'user5@demo.com'
-const USER_PASSWORD = __ENV.USER_PASSWORD || 'password123'
+const USER_EMAIL = __ENV.USER_EMAIL || 'user5@mail.ru'
+const USER_PASSWORD = __ENV.USER_PASSWORD || 'demo123456'
 
 export default function () {
   const loginPayload = JSON.stringify({ email: USER_EMAIL, password: USER_PASSWORD })
@@ -61,8 +61,8 @@ export default function () {
   check(profileRes, { 'profile status 200': (r) => r.status === 200 })
   errorRate.add(profileRes.status !== 200)
 
-  // GET /api/search?limit=10
-  const searchRes = http.get(`${BASE_URL}/api/search?limit=10`, authHeaders)
+  // GET /api/users/search?limit=10
+  const searchRes = http.get(`${BASE_URL}/api/users/search?limit=10`, authHeaders)
   searchTrend.add(searchRes.timings.duration)
   check(searchRes, { 'search status 200': (r) => r.status === 200 })
   errorRate.add(searchRes.status !== 200)
@@ -71,15 +71,17 @@ export default function () {
   const chatsRes = http.get(`${BASE_URL}/api/chats`, authHeaders)
   chatTrend.add(chatsRes.timings.duration)
   check(chatsRes, { 'chats status 200': (r) => r.status === 200 })
+  const chats = chatsRes.json('chats') || chatsRes.json()
+  const chatId = Array.isArray(chats) && chats.length > 0 ? chats[0].id : 1
 
   // POST /api/likes (like user 3)
-  const likePayload = JSON.stringify({ liked_id: 3 })
+  const likePayload = JSON.stringify({ liked_user_id: 3 })
   const likeRes = http.post(`${BASE_URL}/api/likes`, likePayload, authHeaders)
   likeTrend.add(likeRes.timings.duration)
   check(likeRes, { 'like status 200/201': (r) => r.status === 200 || r.status === 201 })
 
-  // GET /api/chats/1/messages
-  const msgsRes = http.get(`${BASE_URL}/api/chats/1/messages`, authHeaders)
+  // GET /api/chats/:chatId/messages
+  const msgsRes = http.get(`${BASE_URL}/api/chats/${chatId}/messages`, authHeaders)
   messagesTrend.add(msgsRes.timings.duration)
   check(msgsRes, { 'messages status 200': (r) => r.status === 200 })
 

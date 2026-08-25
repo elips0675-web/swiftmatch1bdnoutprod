@@ -34,9 +34,17 @@ export function initSentry(app) {
     tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
   })
 
+  // requestHandler must be registered before routes (scope/tracing).
+  // errorHandler is registered separately AFTER routes (see registerSentryErrorHandler)
+  // — an error middleware placed before routes never fires in Express.
   app.use(Sentry.Handlers.requestHandler())
-  app.use(Sentry.Handlers.errorHandler())
 
   rootLogger.info('[sentry] initialized')
+  return true
+}
+
+export function registerSentryErrorHandler(app) {
+  if (!SENTRY_DSN) return false
+  app.use(Sentry.Handlers.errorHandler())
   return true
 }

@@ -1,0 +1,121 @@
+SwiftMatch — Оценка готовности к продакшену
+Общий вердикт
+🟢 84% готовности к открытому продакшену
+
+Проект находится в состоянии «код и тесты — production-ready, окружение и релиз — отложены». Это полностью соответствует консенсусу трёх предыдущих аудитов (kimi 7.5/10, qwen 6.5/10, дипсик ~95% технически). Основные блокеры — не инфраструктурные, а организационно-внешние: ключи API, домен, публикация в сторы, политики.
+
+1. Что работает (зелёная зона) ✅
+Категория	Оценка	Детали
+Тесты	100%	258/258 зелёных: сервер 156, фронт 58, E2E 44. Lint 0 errors, build ✅
+Безопасность (ядро)	90%	JWT httpOnly cookie, refresh rotation + reuse detection, lockout, sanitize, helmet, CORS fail-fast
+Архитектура	95%	Чистый Express+React, Socket.IO, Redis, Bull, промисы, graceful degradation
+Функционал	95%	Все фичи Tinder-like реализованы: лайки, мэтчи, чаты, геопоиск, премиум, видео-даты, Safety Check-in, AI Icebreakers, A/B, GDPR
+Инфраструктура (код)	90%	Docker Compose, Nginx, Prometheus+Grafana, k6, CI/CD, бэкапы — всё описано и готово
+Android	70%	APK собран (27.8 MB), RevenueCat SDK подключён, cleartext убран из релиза
+2. Бреши безопасности (оранжевая зона) 🟠
+#	Проблема	Риск	Приоритет	Решение
+1	Admin TOTP 2FA отсутствует	Админка защищена только паролем demo123456. При компрометации admin@mail.ru — полный контроль	🔴	QR-код + Google Authenticator (этап 35+ в плане)
+2	CSRF double-submit token	SameSite=Lax не защищает от same-site атак (поддомены, open redirect). API на отдельном домене = критично	🔴	Вынести API на api.swiftmatch.app, внедрить double-submit cookie
+3	Привязка сессии к устройству/IP	Refresh-токен можно использовать с любого устройства после кражи	🟡	Добавить fingerprint (user-agent + IP hash) в refresh_tokens
+4	Stripe webhook без circuit breaker	При недоступности Stripe очередь webhook'ов может бесконечно расти	🟡	Добавить exponential backoff + dead-letter queue
+5	Sentry в проде	DSN не заполнен → ошибки не мониторятся	🟡	Вписать DSN до релиза
+3. Инфраструктурные риски (жёлтая зона) 🟡
+#	Проблема	Риск	Решение
+1	VPS не поднят	Нет staging-окружения для финального E2E с реальными ключами	Развернуть VPS → GitHub secrets → deploy
+2	Redis на проде не протестирован	REDIS_URL задан локально, но под нагрузкой fallback не проверен	k6 100 VU на staging + сценарий ECONNREFUSED
+3	Docker Compose не запускался	YAML валиден, но реальный подъём на VPS не проверен	Запустить на staging, проверить healthcheck/volumes/сеть
+4	Windows-центричность	Скрипты .bat/.ps1 не адаптированы для Linux VPS	Переписать бэкапы и запуск под bash (или использовать Docker)
+5	Внешний мониторинг отсутствует	Если VPS умрёт — никто не узнает	UptimeRobot + Grafana alerts в Telegram/Slack
+6	Log aggregation нет	Логи на диске, без централизованного сбора	Loki/ELK после релиза
+7	SSL Let's Encrypt auto-renewal	В nginx.conf есть SSL, но автообновление не настроено	certbot + cron
+4. Слепые зоны тестов (жёлтая зона) 🟡
+#	Сценарий	Статус	Что делать
+1	Redis fallback (ECONNREFUSED)	❌	Интеграционный тест: отключить Redis → приложение живёт
+2	Refresh race (два окна)	❌	E2E: два браузера одного юзера → быстрый refresh в обоих
+3	Cookie edge cases	❌	Истекшая cookie mid-session, revoked refresh, concurrent tabs
+4	File upload security	❌	15MB → 413, .php.jpg → 400, ../../etc/passwd → uuid
+5	Rate-limit spec	❌	61-й запрос к логину → 429
+6	WS reconnect + backoff	❌	Эмуляция обрыва мобильного интернета
+7	GDPR full erasure cascade	❌	Юзер → активность → erase → 404 везде
+8	Stripe webhook security	❌	invalid signature → 400, replay → idempotency
+9	RevenueCat webhook	❌	E2E с моком событий
+10	i18n completeness	❌	Все t("...") есть в RU и EN
+11	Backup/restore smoke	❌	Restore → smoke-тесты в CI
+12	IAP sandbox-тест	❌	После публикации в Google Play
+5. Что блокирует открытый релиз (красная зона) 🔴
+#	Блокер	Статус	Что нужно
+1	Реальные API-ключи	❌	Вписать 12+ ключей в server/.env (Stripe LIVE, SMTP, Sentry DSN, S3, OpenAI, FCM, RevenueCat, Twilio, AWS)
+2	Staging VPS	❌	Развернуть VPS → настроить GitHub secrets (DEPLOY_HOST/USER/SSH_KEY)
+3	Домен + SSL	❌	Купить домен, привязать к VPS, настроить SSL (Let's Encrypt)
+4	App Links (Android)	❌	assetlinks.json + SHA256 fingerprint → домен
+5	Keystore + подпись APK	❌	Сгенерировать keystore, подписать AAB
+6	Google Play Console	❌	Создать проект, заполнить политику 17+, контент, скриншоты, TestFlight
+7	Privacy Policy + Terms	⚠️	Страницы есть, но требуется юридическая проверка для сторов
+8	RevenueCat проект	❌	Создать проект, вписать REVENUECAT_WEBHOOK_SECRET и VITE_REVENUECAT_API_KEY
+9	CSRF (если API на отдельном домене)	❌	Если api.swiftmatch.app — внедрить double-submit token
+6. Приоритизация (дорожная карта)
+Фаза 0: «Запуск на VPS» (1–2 недели)
+#	Задача	Ответственный
+1	Развернуть VPS (Ubuntu 22.04)	DevOps
+2	Установить Docker + Docker Compose	DevOps
+3	Настроить GitHub secrets (DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY)	DevOps
+4	Запустить docker-compose up -d на VPS	DevOps
+5	Проверить healthcheck /health и логи	DevOps
+6	Вписать тестовые ключи (Stripe test, SMTP test, Sentry test)	Dev
+7	Прогнать E2E на staging (npx playwright test)	QA
+8	Прогнать k6 100 VU	QA
+Фаза 1: «Безопасность + ключи» (1–2 недели)
+#	Задача	Приоритет
+1	Вписать LIVE ключи (Stripe, SMTP, Sentry, S3, OpenAI)	🔴
+2	Вписать FCM_SERVER_KEY, REVENUECAT_WEBHOOK_SECRET, TWILIO_*	🔴
+3	Admin TOTP 2FA	🔴
+4	CSRF double-submit (если API на отдельном домене)	🔴
+5	Привязка сессии к устройству (fingerprint)	🟡
+6	Circuit breaker для Stripe/OpenAI/S3	🟡
+Фаза 2: «Релиз Android» (2–3 недели)
+#	Задача	Что нужно
+1	Собрать AAB с релизной подписью	Keystore + gradlew bundleRelease
+2	Настроить App Links (assetlinks.json)	Домен + SHA256
+3	Загрузить в Google Play Console	Политика 17+, скриншоты, описание
+4	Пройти ревью Google	2–7 дней
+5	Вписать VITE_REVENUECAT_API_KEY в .env	Собрать APK с ним
+Фаза 3: «Масштабирование и надёжность» (параллельно)
+#	Задача
+1	UptimeRobot + Grafana alerts
+2	Log aggregation (Loki/ELK)
+3	S3/CDN для фото
+4	Storybook/Design System
+5	Разбить AGENTS.md (>1500 строк)
+7. Итоговая оценка по критериям из AGENTS.md
+Критерий	Оценка	Комментарий
+Код	9/10	Чистый, типизированный, тесты зелёные, архитектура продумана
+Тесты	9.5/10	258/258, покрытие высокое, E2E сложные сценарии
+Безопасность	7/10	JWT/cookie/rotation/lockout — отлично, но нет 2FA, CSRF, fingerprint
+Инфраструктура	6/10	Код готов, но не развёрнуто; Windows-скрипты, нет мониторинга
+Android	6/10	APK собран, но нет домена, подписи, App Links, ключа RevenueCat
+Готовность к релизу	6.5/10	Всё упирается в внешние факторы (ключи, VPS, сторы)
+Общая	7.5/10	Продукт технически готов, но нужен организационный рывок для запуска
+8. Конкретные рекомендации на завтра
+Завести VPS (DigitalOcean / Hetzner / AWS Lightsail) — самый критичный шаг.
+
+Вписать тестовые ключи Stripe, SMTP, Sentry — чтобы E2E на staging работал.
+
+Запустить Docker Compose на VPS и проверить все 6 сервисов.
+
+Прогнать k6 100 VU — проверить RADAR_PRE_LEAK_64 под нагрузкой.
+
+Начать процесс Google Play — создание проекта, политика, скриншоты.
+
+Сгенерировать keystore и подписать APK.
+
+Добавить Admin TOTP — до открытого релиза обязательно.
+
+9. Риски, которые могут убить проект после релиза
+Риск	Вероятность	Смягчение
+Падение MySQL под нагрузкой	Средняя	k6 100 VU на staging, connectionLimit 20, мониторинг
+Redis недоступен → кэш-промахи → DDOS MySQL	Средняя	Интеграционный тест ECONNREFUSED + fallback
+Утечка refresh-токенов	Низкая	httpOnly cookie + rotation уже есть
+Google Play отклоняет за политику 17+	Средняя	Заранее подготовить контент, age-gate 18+ есть
+Stripe webhook не доходит	Низкая	Idempotency-Key + retry уже есть
+Windows-скрипты не работают на Linux VPS	Высокая	Использовать Docker, а не нативные скрипты
+Заключение: Проект находится в отличном техническом состоянии. Единственное, что разделяет его и открытый релиз — организационные и инфраструктурные шаги, а не код. Если в ближайшие 2–3 недели развернуть VPS, вписать ключи и пройти Google Play, продукт готов к запуску.

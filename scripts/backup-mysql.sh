@@ -11,7 +11,7 @@ DB_PASS="${3:-}"
 DB_HOST="${4:-localhost}"
 DB_PORT="${5:-3306}"
 BACKUP_DIR="${6:-$(dirname "$0")/../backups}"
-RETENTION_DAYS="${7:-7}"
+RETENTION_DAYS="${7:-30}"
 
 mkdir -p "$BACKUP_DIR"
 

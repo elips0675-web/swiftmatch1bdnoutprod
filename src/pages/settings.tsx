@@ -48,7 +48,9 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setIsClient(true);
-    fetch('/api/settings/privacy', { headers: { Authorization: `Bearer ${getToken()}` } })
+    fetch('/api/settings/privacy', {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
       .then(r => r.json())
       .then(data => {
         setSettings(prev => ({ ...prev, incognito: Boolean(data.incognito) }))
@@ -100,6 +102,11 @@ export default function SettingsPage() {
   const handleConsentChange = (val: boolean) => {
     setSettings(prev => ({ ...prev, dataProcessingConsent: val }));
     localStorage.setItem('data-processing-consent', JSON.stringify(val));
+    fetch('/api/consent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({ consent_type: 'data_processing', granted: val }),
+    }).catch(() => {})
     toast({
       title: t('settings.data_consent'),
       description: val ? t('settings.consent_enabled') : t('settings.consent_withdrawn'),
