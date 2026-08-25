@@ -239,4 +239,116 @@ router.put('/offers/:offerId', async (req, res) => {
   }
 })
 
+/**
+ * @openapi
+ * /api/admin/partners/payouts:
+ *   get:
+ *     tags: [Admin]
+ *     summary: List all payout requests
+ */
+router.get('/payouts', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT pp.id, pp.partner_id, p.name AS partner_name, pp.amount, pp.currency,
+              pp.method, pp.details, pp.status, pp.admin_note, pp.created_at, pp.processed_at
+       FROM partner_payouts pp
+       JOIN partners p ON p.id = pp.partner_id
+       ORDER BY pp.created_at DESC
+       LIMIT 200`,
+    )
+    res.json(rows)
+  } catch (err) {
+    logger.error('Admin payouts list error:', err)
+    res.json([])
+  }
+})
+
+/**
+ * @openapi
+ * /api/admin/partners/payouts:
+ *   post:
+ *     tags: [Admin]
+ *     summary: Create a payout to a partner
+ */
+router.post('/payouts', async (req, res) => {
+  const { partner_id: partnerId, amount, method, details } = req.body || {}
+  if (!partnerId || !/^\d+$/.test(String(partnerId))) {
+    return res.status(400).json({ message: 'partner_id is required' })
+  }
+  if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+    return res.status(400).json({ message: 'Valid amount is required' })
+  }
+  if (method && !['bank', 'card', 'crypto', 'manual'].includes(method)) {
+    return res.status(400).json({ message: 'Invalid method' })
+  }
+  try {
+    const [result] = await pool.query(
+      `INSERT INTO partner_payouts (partner_id, amount, method, details)
+       VALUES (?, ?, ?, ?)`,
+      [Number(partnerId), Number(amount), method || 'bank', details || null],
+    )
+    res.status(201).json({ id: result.insertId })
+  } catch (err) {
+    logger.error('Admin payout create error:', err)
+    res.status(500).json({ message: 'Failed to create payout' })
+  }
+})
+
+/**
+ * @openapi
+ * /api/admin/partners/payouts/{id}:
+ *   put:
+ *     tags: [Admin]
+ *     summary: Update payout status (process/reject)
+ */
+router.put('/payouts/:id', async (req, res) => {
+  const { id } = req.params
+  if (!/^\d+$/.test(id)) return res.status(400).json({ message: 'Invalid id' })
+  const { status, admin_note: adminNote } = req.body || {}
+  if (!status || !['processing', 'completed', 'rejected'].includes(status)) {
+    return res.status(400).json({ message: 'status must be processing, completed or rejected' })
+  }
+  try {
+    const sets = ['status = ?']
+    const params = [status]
+    if (adminNote !== undefined) { sets.push('admin_note = ?'); params.push(adminNote) }
+    if (status === 'completed') { sets.push('processed_at = NOW()') }
+    params.push(id)
+    const [result] = await pool.query(`UPDATE partner_payouts SET ${sets.join(', ')} WHERE id = ?`, params)
+    if (!result.affectedRows) return res.status(404).json({ message: 'Payout not found' })
+    res.json({ message: 'Payout updated' })
+  } catch (err) {
+    logger.error('Admin payout update error:', err)
+    res.status(500).json({ message: 'Failed to update payout' })
+  }
+})
+
+/**
+ * @openapi
+ * /api/admin/partners/stats/daily:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Daily conversion stats for charts (last 30 days)
+ */
+router.get('/stats/daily', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT DATE(created_at) AS date,
+              COUNT(*) AS total,
+              SUM(CASE WHEN conversion_type = 'click' THEN 1 ELSE 0 END) AS clicks,
+              SUM(CASE WHEN conversion_type != 'click' THEN 1 ELSE 0 END) AS conversions,
+              COALESCE(SUM(amount), 0) AS revenue,
+              COALESCE(SUM(commission), 0) AS commission
+       FROM partner_conversions
+       WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+       GROUP BY DATE(created_at)
+       ORDER BY date ASC`,
+    )
+    res.json(rows)
+  } catch (err) {
+    logger.error('Admin partners daily stats error:', err)
+    res.json([])
+  }
+})
+
 export default router

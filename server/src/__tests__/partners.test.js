@@ -396,6 +396,61 @@ describe('Admin partners CRUD', () => {
   })
 })
 
+describe('Admin payouts & stats', () => {
+  it('GET /payouts returns array', async () => {
+    pool.query.mockResolvedValueOnce([[{ id: 1, partner_name: 'Flowwow', amount: 5000, method: 'bank', status: 'pending', admin_note: null, created_at: new Date() }], []])
+    const res = await request(adminApp).get('/payouts')
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body)).toBe(true)
+    expect(res.body[0].amount).toBe(5000)
+  })
+
+  it('GET /payouts returns [] on db error', async () => {
+    pool.query.mockRejectedValueOnce(new Error('db'))
+    const res = await request(adminApp).get('/payouts')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual([])
+  })
+
+  it('POST /payouts validates fields', async () => {
+    const res = await request(adminApp).post('/payouts').send({ partner_id: null, amount: 0 })
+    expect(res.status).toBe(400)
+  })
+
+  it('POST /payouts creates payout', async () => {
+    pool.query.mockResolvedValueOnce([{ insertId: 50 }, []])
+    const res = await request(adminApp)
+      .post('/payouts')
+      .send({ partner_id: 1, amount: 10000, method: 'card', details: 'Счёт 1234' })
+    expect(res.status).toBe(201)
+    expect(res.body.id).toBe(50)
+  })
+
+  it('PUT /payouts/:id updates status', async () => {
+    pool.query.mockResolvedValueOnce([{ affectedRows: 1 }, []])
+    const res = await request(adminApp)
+      .put('/payouts/50')
+      .send({ status: 'completed', admin_note: 'Выполнено' })
+    expect(res.status).toBe(200)
+    expect(res.body.message).toContain('Payout updated')
+  })
+
+  it('GET /stats/daily returns array', async () => {
+    pool.query.mockResolvedValueOnce([[{ date: '2026-08-24', clicks: 15, conversions: 2, total: 17, revenue: 4000, commission: 600 }], []])
+    const res = await request(adminApp).get('/stats/daily')
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body)).toBe(true)
+    expect(res.body[0].clicks).toBe(15)
+  })
+
+  it('GET /stats/daily returns [] on db error', async () => {
+    pool.query.mockRejectedValueOnce(new Error('db'))
+    const res = await request(adminApp).get('/stats/daily')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual([])
+  })
+})
+
 describe('GET /api/partners/offers/:id', () => {
   it('requires auth', async () => {
     const res = await request(userApp).get('/api/partners/offers/1')

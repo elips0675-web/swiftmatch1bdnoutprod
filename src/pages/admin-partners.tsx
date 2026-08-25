@@ -5,13 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { Handshake, Plus, Pause, CircleCheck, Loader2 } from "lucide-react";
+import { Handshake, Plus, Pause, CircleCheck, Loader2, Banknote, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/context/language-context";
 import { getToken } from "@/lib/token";
@@ -59,11 +60,39 @@ interface AdminConversion {
 const OFFER_CATEGORIES = ['cinema', 'restaurant', 'flowers', 'taxi', 'hotel', 'spa', 'photo', 'gift', 'event', 'experience'];
 const PLACEMENT_OPTIONS = ['chat', 'hangout', 'profile', 'passport'];
 
+interface AdminPayout {
+  id: number;
+  partner_id: number;
+  partner_name: string;
+  amount: number;
+  currency: string;
+  method: string;
+  details: string | null;
+  status: string;
+  admin_note: string | null;
+  created_at: string;
+  processed_at: string | null;
+}
+
+interface DailyStats {
+  date: string;
+  total: number;
+  clicks: number;
+  conversions: number;
+  revenue: number;
+  commission: number;
+}
+
+type Tab = "partners" | "offers" | "conversions" | "payouts" | "stats";
+
 export default function AdminPartnersPage() {
   const { t } = useLanguage();
   const [partners, setPartners] = useState<AdminPartner[]>([]);
   const [offers, setOffers] = useState<AdminOffer[]>([]);
   const [conversions, setConversions] = useState<AdminConversion[]>([]);
+  const [payouts, setPayouts] = useState<AdminPayout[]>([]);
+  const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
+  const [tab, setTab] = useState<Tab>("partners");
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -71,27 +100,38 @@ export default function AdminPartnersPage() {
   const [offerOpen, setOfferOpen] = useState(false);
   const [offerForm, setOfferForm] = useState({ partner_id: "", category: "taxi", title: "", deeplink: "", placement: "chat" });
   const [busy, setBusy] = useState(false);
+  const [payoutOpen, setPayoutOpen] = useState(false);
+  const [payoutForm, setPayoutForm] = useState({ partner_id: "", amount: "", method: "bank", details: "" });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const token = getToken();
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const [pRes, oRes, cRes] = await Promise.all([
+      const [pRes, oRes, cRes, ptRes, dsRes] = await Promise.all([
         fetch('/api/admin/partners', { headers }),
         fetch('/api/admin/offers', { headers }),
         fetch('/api/admin/conversions', { headers }),
+        fetch('/api/admin/partners/payouts', { headers }),
+        fetch('/api/admin/partners/stats/daily', { headers }),
       ]);
       const pData = pRes.ok ? await pRes.json() : [];
       const oData = oRes.ok ? await oRes.json() : [];
       const cData = cRes.ok ? await cRes.json() : [];
+      const ptData = ptRes.ok ? await ptRes.json() : [];
+      const dsData = dsRes.ok ? await dsRes.json() : [];
       setPartners(Array.isArray(pData) ? pData : []);
       setOffers(Array.isArray(oData) ? oData : []);
       setConversions(Array.isArray(cData) ? cData : []);
+      setPayouts(Array.isArray(ptData) ? ptData : []);
+      setDailyStats(Array.isArray(dsData) ? dsData : []);
     } catch {
       toast.error(t('error.generic_title'));
       setPartners([]);
       setOffers([]);
+      setConversions([]);
+      setPayouts([]);
+      setDailyStats([]);
     } finally {
       setLoading(false);
     }
@@ -178,28 +218,107 @@ export default function AdminPartnersPage() {
     }
   };
 
+  const createPayout = async () => {
+    if (!payoutForm.partner_id || !Number(payoutForm.amount)) return;
+    setBusy(true);
+    try {
+      const token = getToken();
+      const res = await fetch('/api/admin/partners/payouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({
+          partner_id: Number(payoutForm.partner_id),
+          amount: Number(payoutForm.amount),
+          method: payoutForm.method,
+          details: payoutForm.details || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error('failed');
+      setPayoutOpen(false);
+      setPayoutForm({ partner_id: "", amount: "", method: "bank", details: "" });
+      toast.success(t('admin.features.saved'));
+      fetchData();
+    } catch {
+      toast.error(t('error.generic_title'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updatePayout = async (id: number, status: string) => {
+    try {
+      const token = getToken();
+      const res = await fetch(`/api/admin/partners/payouts/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error('failed');
+      toast.success(t('admin.features.saved'));
+      fetchData();
+    } catch {
+      toast.error(t('error.generic_title'));
+    }
+  };
+
+  const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
+    { key: "partners", label: t('admin.partners'), icon: <Handshake size={14} /> },
+    { key: "offers", label: t('admin.partners.offers_list'), icon: <Plus size={14} /> },
+    { key: "conversions", label: t('admin.partners.conversions'), icon: <CircleCheck size={14} /> },
+    { key: "payouts", label: t('admin.partners.payouts'), icon: <Banknote size={14} /> },
+    { key: "stats", label: t('admin.partners.stats'), icon: <BarChart3 size={14} /> },
+  ];
+
+  const totalCommission = conversions.reduce((s, c) => s + (Number(c.commission) || 0), 0);
+  const pendingPayouts = payouts.filter((p) => p.status === 'pending').length;
+
   return (
     <Card className="border-0 shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-3">
         <CardTitle className="text-lg font-black flex items-center gap-2">
           <Handshake className="h-5 w-5 text-primary" />
           {t('admin.partners')}
+          {pendingPayouts > 0 && <Badge variant="destructive" className="text-[10px] ml-1">{pendingPayouts}</Badge>}
         </CardTitle>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" data-testid="add-offer-button" onClick={() => setOfferOpen(true)} className="rounded-full h-9 px-4 text-xs font-bold">
-            <Plus size={13} className="mr-1" /> {t('admin.partners.add_offer')}
-          </Button>
-          <Button size="sm" data-testid="add-partner-button" onClick={() => setCreateOpen(true)} className="rounded-full h-9 px-4 text-xs font-bold">
-            <Plus size={13} className="mr-1" /> {t('admin.partners.add')}
-          </Button>
+          {tab === "partners" && (
+            <>
+              <Button size="sm" variant="outline" data-testid="add-offer-button" onClick={() => setOfferOpen(true)} className="rounded-full h-9 px-4 text-xs font-bold">
+                <Plus size={13} className="mr-1" /> {t('admin.partners.add_offer')}
+              </Button>
+              <Button size="sm" data-testid="add-partner-button" onClick={() => setCreateOpen(true)} className="rounded-full h-9 px-4 text-xs font-bold">
+                <Plus size={13} className="mr-1" /> {t('admin.partners.add')}
+              </Button>
+            </>
+          )}
+          {tab === "payouts" && (
+            <Button size="sm" data-testid="add-payout-button" onClick={() => setPayoutOpen(true)} className="rounded-full h-9 px-4 text-xs font-bold">
+              <Plus size={13} className="mr-1" /> {t('admin.partners.add_payout')}
+            </Button>
+          )}
         </div>
       </CardHeader>
+
+      <div className="flex gap-1 px-6 overflow-x-auto">
+        {tabs.map((tb) => (
+          <button
+            key={tb.key}
+            type="button"
+            onClick={() => setTab(tb.key)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full whitespace-nowrap transition-colors ${tab === tb.key ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            {tb.icon} {tb.label}
+          </button>
+        ))}
+      </div>
+
       <CardContent className="space-y-8">
         {loading ? (
           <div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
         ) : (
           <>
-            <Table>
+            {tab === "partners" && (
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-14">ID</TableHead>
@@ -241,8 +360,10 @@ export default function AdminPartnersPage() {
                 ))}
               </TableBody>
             </Table>
+            )}
 
-            <div>
+            {tab === "offers" && (
+              <div>
               <h3 className="text-sm font-black uppercase tracking-tight mb-2">{t('admin.partners.offers_list')}</h3>
               <Table>
                 <TableHeader>
@@ -283,7 +404,9 @@ export default function AdminPartnersPage() {
                 </TableBody>
               </Table>
             </div>
+            )}
 
+            {tab === "conversions" && (
             <div>
               <h3 className="text-sm font-black uppercase tracking-tight mb-2">{t('admin.partners.conversions_list')}</h3>
               <Table>
@@ -319,6 +442,89 @@ export default function AdminPartnersPage() {
                 </TableBody>
               </Table>
             </div>
+            )}
+
+            {tab === "payouts" && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-black uppercase tracking-tight">{t('admin.partners.payouts_list')}</h3>
+                <span className="text-xs text-muted-foreground">{t('admin.partners.total_commission')}: ${totalCommission.toFixed(2)}</span>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-14">ID</TableHead>
+                    <TableHead>{t('admin.partners.name')}</TableHead>
+                    <TableHead className="w-20">Amount</TableHead>
+                    <TableHead className="w-24">Method</TableHead>
+                    <TableHead className="w-20">Status</TableHead>
+                    <TableHead className="w-28">Admin Note</TableHead>
+                    <TableHead className="w-36">Date</TableHead>
+                    <TableHead className="w-36"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payouts.length === 0 ? (
+                    <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">—</TableCell></TableRow>
+                  ) : payouts.map((p) => (
+                    <TableRow key={p.id} data-testid={`admin-payout-${p.id}`}>
+                      <TableCell className="font-mono text-xs">{p.id}</TableCell>
+                      <TableCell className="text-sm truncate max-w-[120px]">{p.partner_name}</TableCell>
+                      <TableCell className="text-sm font-medium">{Number(p.amount).toLocaleString()} ₽</TableCell>
+                      <TableCell><Badge variant="outline" className="text-[10px]">{p.method}</Badge></TableCell>
+                      <TableCell><Badge variant={p.status === 'completed' ? 'default' : p.status === 'rejected' ? 'destructive' : 'secondary'} className="text-[10px]">{p.status}</Badge></TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground truncate max-w-[140px]">{p.admin_note ?? '—'}</TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground whitespace-nowrap">{new Date(p.created_at).toLocaleString()}</TableCell>
+                      <TableCell>
+                        {p.status === 'pending' && (
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="outline" onClick={() => updatePayout(p.id, 'completed')} className="rounded-full h-7 px-2 text-[10px] text-green-700">
+                              <CircleCheck size={10} className="mr-1" /> {t('admin.partners.approve')}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => updatePayout(p.id, 'rejected')} className="rounded-full h-7 px-2 text-[10px] text-destructive">
+                              {t('admin.partners.reject')}
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            )}
+
+            {tab === "stats" && (
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-tight mb-2">{t('admin.partners.daily_stats')}</h3>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-28">Date</TableHead>
+                    <TableHead className="w-20">Clicks</TableHead>
+                    <TableHead className="w-20">Conversions</TableHead>
+                    <TableHead className="w-20">Total</TableHead>
+                    <TableHead className="w-24">Revenue</TableHead>
+                    <TableHead className="w-24">Commission</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dailyStats.length === 0 ? (
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">—</TableCell></TableRow>
+                  ) : dailyStats.map((s) => (
+                    <TableRow key={s.date}>
+                      <TableCell className="text-sm">{s.date}</TableCell>
+                      <TableCell className="text-sm font-bold">{s.clicks}</TableCell>
+                      <TableCell className="text-sm">{s.conversions}</TableCell>
+                      <TableCell className="text-sm font-bold">{s.total}</TableCell>
+                      <TableCell className="text-sm font-medium">{Number(s.revenue).toLocaleString()} ₽</TableCell>
+                      <TableCell className="text-sm font-bold text-green-700">{Number(s.commission).toLocaleString()} ₽</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            )}
           </>
         )}
       </CardContent>
@@ -401,6 +607,51 @@ export default function AdminPartnersPage() {
               </Select>
             </div>
             <Button data-testid="submit-create-offer" onClick={createOffer} disabled={busy || !offerForm.partner_id || offerForm.title.trim().length < 3 || !offerForm.deeplink.trim()} className="w-full rounded-full font-bold">
+              {busy && <Loader2 size={14} className="mr-2 animate-spin" />} {t('admin.features.save_btn')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={payoutOpen} onOpenChange={setPayoutOpen}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('admin.partners.add_payout')}</DialogTitle>
+            <DialogDescription>{t('admin.partners.add_payout')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>{t('admin.partners.name')}</Label>
+              <Select value={payoutForm.partner_id} onValueChange={(v) => setPayoutForm((f) => ({ ...f, partner_id: v }))}>
+                <SelectTrigger data-testid="payout-partner"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  {partners.map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="payout-amount">{t('admin.partners.amount')}</Label>
+              <Input id="payout-amount" data-testid="payout-amount" type="number" min={1} value={payoutForm.amount} onChange={(e) => setPayoutForm((f) => ({ ...f, amount: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Method</Label>
+              <Select value={payoutForm.method} onValueChange={(v) => setPayoutForm((f) => ({ ...f, method: v }))}>
+                <SelectTrigger data-testid="payout-method"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bank">Bank</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="crypto">Crypto</SelectItem>
+                  <SelectItem value="manual">Manual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t('admin.partners.details')}</Label>
+              <Textarea data-testid="payout-details" value={payoutForm.details} onChange={(e) => setPayoutForm((f) => ({ ...f, details: e.target.value }))} className="rounded-xl resize-none" rows={2} />
+            </div>
+            <Button data-testid="submit-create-payout" onClick={createPayout} disabled={busy || !payoutForm.partner_id || !Number(payoutForm.amount)} className="w-full rounded-full font-bold">
               {busy && <Loader2 size={14} className="mr-2 animate-spin" />} {t('admin.features.save_btn')}
             </Button>
           </div>
