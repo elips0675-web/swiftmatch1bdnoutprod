@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { ArrowLeft, EyeOff, Globe, ShieldCheck, Scale, Download, Trash2 } from "lucide-react"
 import { toast } from 'sonner'
+import { getToken } from '@/lib/token'
 
 export default function SettingsPrivacy() {
   const { t } = useLanguage()
@@ -15,7 +16,7 @@ export default function SettingsPrivacy() {
 
   useEffect(() => {
     setIsClient(true)
-    fetch('/api/settings/privacy')
+    fetch('/api/settings/privacy', { headers: { Authorization: `Bearer ${getToken()}` } })
       .then(r => r.json())
       .then(data => {
         setSettings(prev => ({
@@ -43,7 +44,7 @@ export default function SettingsPrivacy() {
   const savePrivacy = (body: Record<string, unknown>) => {
     fetch('/api/settings/privacy', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
       body: JSON.stringify(body),
     }).catch(() => {})
   }

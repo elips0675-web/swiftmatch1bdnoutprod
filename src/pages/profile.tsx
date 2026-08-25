@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/context/language-context";
 import { cn, getUserTitles } from "@/lib/utils";
 import { BANNED_WORDS } from "@/lib/constants";
+import { getToken } from "@/lib/token";
 import { ZodiacIcon } from "@/components/shared/zodiac-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
@@ -180,7 +181,7 @@ function normalizeInterests(interests: InterestInput[]): string[] {
     
     (async () => {
       try {
-        const res = await fetch('/api/photos/2')
+        const res = await fetch('/api/photos/2', { headers: { Authorization: `Bearer ${getToken()}` } })
         if (res.ok) {
           const data = await res.json()
           if (data.length > 0) {

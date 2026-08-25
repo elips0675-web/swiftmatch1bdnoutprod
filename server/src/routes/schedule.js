@@ -2,7 +2,6 @@ import { Router } from 'express'
 import pool from '../db.js'
 import { auth } from '../middleware.js'
 import { getIO } from '../ws.js'
-import { logger } from '../logger.js'
 
 const router = Router()
 
@@ -13,7 +12,7 @@ router.get('/api/schedule', auth, async (req, res) => {
                FROM date_schedules ds
                JOIN user_profiles up ON (CASE WHEN ds.proposer_id = ? THEN ds.invitee_id ELSE ds.proposer_id END) = up.id
                WHERE (ds.proposer_id = ? OR ds.invitee_id = ?)`
-    const params: any[] = [req.userId, req.userId, req.userId]
+    const params = [req.userId, req.userId, req.userId]
     if (status && status !== 'all') {
       sql += ' AND ds.status = ?'
       params.push(status)
@@ -38,11 +37,11 @@ router.post('/api/schedule', auth, async (req, res) => {
       'SELECT user_id FROM chat_participants WHERE chat_id = ?',
       [chat_id],
     )
-    const userIds = participants.map((p: any) => p.user_id)
+    const userIds = participants.map((p) => p.user_id)
     if (!userIds.includes(req.userId)) {
       return res.status(403).json({ message: 'Not a participant' })
     }
-    const inviteeId = userIds.find((id: number) => id !== req.userId)
+    const inviteeId = userIds.find((id) => id !== req.userId)
     if (!inviteeId) {
       return res.status(400).json({ message: 'No other participant found' })
     }

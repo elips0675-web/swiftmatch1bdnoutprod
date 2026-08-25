@@ -78,6 +78,7 @@
 | 15 | **Docker Compose** — app + nginx + Prometheus + Grafana | `docker-compose.yml`, `monitoring/` | ✅ Реализовано |
 | 16 | **Load Testing (k6)** — 10→100 users, 6 endpoints | `k6/load-test.js` | ✅ Реализовано |
 | 17 | **Monitoring** — Prometheus+Grafana, 7-panel dashboard | `server/src/metrics.js`, `monitoring/prometheus.yml`, `monitoring/grafana-dashboard.json` | ✅ Реализовано |
+| 18 | **Date Check-in (Safety)** — экстренные контакты, таймер, WS expiry cleanup | `migrations/015_add_date_checkin.sql`, `routes/date-checkin.js`, `pages/safety.tsx`, `ws.js` | ✅ Реализовано |
 
 ## Багфиксы (продолжение)
 | Баг | Фикс | Статус |

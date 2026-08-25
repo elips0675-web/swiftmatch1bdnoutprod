@@ -224,7 +224,7 @@
 |---|--------|--------|
 | 11 | AI Icebreakers (OpenAI) | ⚠️ Scaffold есть, не подключён к чатам |
 | 12 | Profile Score → AI Recommendations | ✅ Score есть, AI рекомендации ждут ключа |
-| 13 | Date Check-in (Safety) | ❌ |
+| 13 | Date Check-in (Safety) | ✅ Контакты, таймер, WS expiry cleanup |
 | 14 | A/B Testing Framework | ❌ |
 | 15 | Product Analytics (PostHog/Amplitude) | ❌ |
 
