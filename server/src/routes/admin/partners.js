@@ -2,6 +2,7 @@
 import crypto from 'crypto'
 import pool from '../../db.js'
 import logger from '../../logger.js'
+import { invalidate } from '../../cache.js'
 
 const router = Router()
 
@@ -193,6 +194,7 @@ router.post('/partners/:id/offers', async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, category, title.trim(), description || null, imageUrl || null, deeplink, price ? Number(price) : null, city || null, validFrom || null, validTo || null, placements.join(',')],
     )
+    await invalidate('partner:offers:hotel:*').catch(() => {})
     res.status(201).json({ id: result.insertId })
   } catch (err) {
     logger.error('Admin offer create error:', err)
@@ -232,6 +234,7 @@ router.put('/offers/:offerId', async (req, res) => {
     params.push(offerId)
     const [result] = await pool.query(`UPDATE partner_offers SET ${sets.join(', ')} WHERE id = ?`, params)
     if (!result.affectedRows) return res.status(404).json({ message: 'Offer not found' })
+    await invalidate('partner:offers:hotel:*').catch(() => {})
     res.json({ message: 'Offer updated' })
   } catch (err) {
     logger.error('Admin offer update error:', err)

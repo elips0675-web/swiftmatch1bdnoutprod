@@ -4,6 +4,7 @@ import pool from '../db.js'
 import { auth } from '../middleware.js'
 import logger from '../logger.js'
 import { getIO } from '../ws.js'
+import { getCached, setCached, invalidate } from '../cache.js'
 
 const router = Router()
 
@@ -232,6 +233,89 @@ router.post('/api/partners/postback/:id', async (req, res) => {
   } catch (err) {
     logger.error('Partner postback error:', err)
     res.status(500).json({ message: 'Failed to process postback' })
+  }
+})
+
+const HOTEL_CACHE_TTL = 3600
+
+router.get('/api/partners/offers/hotel', auth, async (req, res) => {
+  const { city } = req.query
+  if (!city || !String(city).trim()) {
+    return res.status(400).json({ message: 'city is required' })
+  }
+  const cacheKey = `partner:offers:hotel:${String(city).trim().toLowerCase()}`
+  try {
+    const cached = await getCached(cacheKey)
+    if (cached) return res.json(cached)
+
+    const [rows] = await pool.query(
+      `SELECT o.id, o.partner_id, p.name AS partner_name, o.category, o.title,
+              o.description, o.image_url, o.price, o.city, o.lat, o.lng, o.deeplink
+       FROM partner_offers o
+       JOIN partners p ON p.id = o.partner_id
+       WHERE o.category = 'hotel' AND FIND_IN_SET('passport', o.placement)
+         AND o.status = 'active' AND p.status = 'active'
+         AND (o.valid_from IS NULL OR o.valid_from <= CURDATE())
+         AND (o.valid_to IS NULL OR o.valid_to >= CURDATE())
+         AND (o.city = ? OR o.city IS NULL)
+       ORDER BY o.created_at DESC
+       LIMIT 20`,
+      [String(city).trim()],
+    )
+    await setCached(cacheKey, rows, HOTEL_CACHE_TTL).catch(() => {})
+    res.json(rows)
+  } catch (err) {
+    logger.error('Hotel offers error:', err)
+    res.json([])
+  }
+})
+
+router.post('/api/partners/hotel/book', auth, async (req, res) => {
+  const { offer_id: offerId, check_in: checkIn, check_out: checkOut, guests } = req.body || {}
+  if (!offerId || !/^\d+$/.test(String(offerId))) {
+    return res.status(400).json({ message: 'offer_id is required' })
+  }
+  if (!checkIn || !checkOut) {
+    return res.status(400).json({ message: 'check_in and check_out are required (YYYY-MM-DD)' })
+  }
+  try {
+    const [[offer]] = await pool.query(
+      `SELECT o.id, o.partner_id, o.title, o.deeplink, o.city, o.lat, o.lng,
+              p.name AS partner_name, p.commission_rate, p.status AS partner_status
+       FROM partner_offers o JOIN partners p ON p.id = o.partner_id
+       WHERE o.id = ? AND o.category = 'hotel' AND o.status = 'active' AND p.status = 'active' LIMIT 1`,
+      [offerId],
+    )
+    if (!offer) return res.status(404).json({ message: 'Hotel offer not found' })
+
+    const guestsCount = Math.min(Math.max(Number(guests) || 2, 1), 10)
+
+    const [result] = await pool.query(
+      `INSERT INTO partner_conversions (partner_id, offer_id, user_id, conversion_type, amount, commission, status)
+       VALUES (?, ?, ?, 'booking', 0, 0, 'pending')`,
+      [offer.partner_id, offer.id, req.userId],
+    )
+
+    let deeplink = String(offer.deeplink || '')
+    if (deeplink) {
+      const sep = deeplink.includes('?') ? '&' : '?'
+      deeplink += `${sep}checkin=${encodeURIComponent(checkIn)}&checkout=${encodeURIComponent(checkOut)}&guests=${guestsCount}`
+    }
+
+    res.status(201).json({
+      conversion_id: result.insertId,
+      offer_id: offer.id,
+      hotel: offer.title,
+      partner_name: offer.partner_name,
+      check_in: checkIn,
+      check_out: checkOut,
+      guests: guestsCount,
+      deeplink,
+      city: offer.city,
+    })
+  } catch (err) {
+    logger.error('Hotel booking error:', err)
+    res.status(500).json({ message: 'Failed to create hotel booking' })
   }
 })
 

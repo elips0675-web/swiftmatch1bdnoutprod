@@ -19,6 +19,12 @@ vi.mock('../ws.js', () => ({
   getIO: vi.fn(() => null),
 }))
 
+vi.mock('../cache.js', () => ({
+  getCached: vi.fn(() => Promise.resolve(null)),
+  setCached: vi.fn(() => Promise.resolve()),
+  invalidate: vi.fn(() => Promise.resolve()),
+}))
+
 import pool from '../db.js'
 import partnersRoutes from '../routes/partners.js'
 import adminPartners from '../routes/admin/partners.js'
@@ -622,5 +628,82 @@ describe('POST /api/partners/booking/share', () => {
       .set('Authorization', `Bearer ${authToken()}`)
       .send({ chat_id: 'abc', offer_id: 1 })
     expect(res.status).toBe(400)
+  })
+})
+
+describe('GET /api/partners/offers/hotel', () => {
+  it('requires auth', async () => {
+    const res = await request(userApp).get('/api/partners/offers/hotel?city=Moscow')
+    expect(res.status).toBe(401)
+  })
+
+  it('requires city param', async () => {
+    const res = await request(userApp)
+      .get('/api/partners/offers/hotel')
+      .set('Authorization', `Bearer ${authToken()}`)
+    expect(res.status).toBe(400)
+  })
+
+  it('returns cached hotel offers', async () => {
+    const { getCached } = await import('../cache.js')
+    getCached.mockResolvedValueOnce([{ id: 10, title: 'Островок', category: 'hotel' }])
+    const res = await request(userApp)
+      .get('/api/partners/offers/hotel?city=Moscow')
+      .set('Authorization', `Bearer ${authToken()}`)
+    expect(res.status).toBe(200)
+    expect(res.body).toHaveLength(1)
+    expect(res.body[0].title).toBe('Островок')
+  })
+
+  it('falls back to DB when cache empty', async () => {
+    const { getCached, setCached } = await import('../cache.js')
+    getCached.mockResolvedValueOnce(null)
+    pool.query.mockResolvedValueOnce([[{ id: 11, title: 'Отель', category: 'hotel' }], []])
+    const res = await request(userApp)
+      .get('/api/partners/offers/hotel?city=SPB')
+      .set('Authorization', `Bearer ${authToken()}`)
+    expect(res.status).toBe(200)
+    expect(res.body).toHaveLength(1)
+    expect(setCached).toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/partners/hotel/book', () => {
+  it('requires auth', async () => {
+    const res = await request(userApp).post('/api/partners/hotel/book').send({ offer_id: 1 })
+    expect(res.status).toBe(401)
+  })
+
+  it('validates required fields', async () => {
+    const res = await request(userApp)
+      .post('/api/partners/hotel/book')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .send({ offer_id: 1 })
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 404 for non-hotel offer', async () => {
+    pool.query.mockResolvedValueOnce([[], []])
+    const res = await request(userApp)
+      .post('/api/partners/hotel/book')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .send({ offer_id: 99, check_in: '2026-09-01', check_out: '2026-09-05', guests: 2 })
+    expect(res.status).toBe(404)
+  })
+
+  it('creates hotel booking with deeplink', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ id: 5, partner_id: 4, title: 'Островок', deeplink: 'https://ostrovok.ru/hotel?city={city}', city: 'Москва', lat: 55.7, lng: 37.6, partner_name: 'Ostrovok', commission_rate: 7, partner_status: 'active' }], []])
+      .mockResolvedValueOnce([{ insertId: 80 }, []])
+    const res = await request(userApp)
+      .post('/api/partners/hotel/book')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .send({ offer_id: 5, check_in: '2026-09-01', check_out: '2026-09-05', guests: 2 })
+    expect(res.status).toBe(201)
+    expect(res.body.conversion_id).toBe(80)
+    expect(res.body.check_in).toBe('2026-09-01')
+    expect(res.body.check_out).toBe('2026-09-05')
+    expect(res.body.deeplink).toContain('checkin=')
+    expect(res.body.deeplink).toContain('checkout=')
   })
 })
