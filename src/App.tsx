@@ -68,6 +68,8 @@ const SupportChat = lazy(() => import("./pages/support-chat"))
 const User = lazy(() => import("./pages/user"))
 const PremiumSuccess = lazy(() => import("./pages/premium-success"))
 const PremiumCancel = lazy(() => import("./pages/premium-cancel"))
+const PartnerOrderSuccess = lazy(() => import("./pages/partner-order-success"))
+const PartnerOrderCancel = lazy(() => import("./pages/partner-order-cancel"))
 const Schedule = lazy(() => import("./pages/schedule"))
 const Safety = lazy(() => import("./pages/safety"))
 
@@ -112,6 +114,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/reports": "Жалобы — SwiftMatch",
   "/premium/success": "Оплата успешна — SwiftMatch",
   "/premium/cancel": "Оплата отменена — SwiftMatch",
+  "/partner-order/success": "Заказ оформлен — SwiftMatch",
+  "/partner-order/cancel": "Заказ отменён — SwiftMatch",
   "/matches": "Мои совпадения — SwiftMatch",
   "/premium": "Премиум — SwiftMatch",
   "/settings/privacy": "Конфиденциальность — SwiftMatch",
@@ -178,6 +182,8 @@ const App = () => (
                     <Route path="/premium" element={<SuspenseWrapper><Premium /></SuspenseWrapper>} />
                     <Route path="/premium/success" element={<SuspenseWrapper><PremiumSuccess /></SuspenseWrapper>} />
                     <Route path="/premium/cancel" element={<SuspenseWrapper><PremiumCancel /></SuspenseWrapper>} />
+                    <Route path="/partner-order/success" element={<SuspenseWrapper><PartnerOrderSuccess /></SuspenseWrapper>} />
+                    <Route path="/partner-order/cancel" element={<SuspenseWrapper><PartnerOrderCancel /></SuspenseWrapper>} />
                     <Route path="*" element={
                       <SuspenseWrapper>
                         <AppContainer>

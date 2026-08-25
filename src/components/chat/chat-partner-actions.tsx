@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/language-context";
 import { useApi } from "@/hooks/useApi";
 import { getToken } from "@/lib/token";
+import { FlowerOrderDialog } from "./flower-order-dialog";
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ size?: number | string; className?: string }>> = {
   taxi: Car,
@@ -36,8 +37,13 @@ export function ChatPartnerActions({ placement = "chat" }: { placement?: string 
   );
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [fallbackOffer, setFallbackOffer] = useState<PartnerOffer | null>(null);
+  const [flowerOffer, setFlowerOffer] = useState<PartnerOffer | null>(null);
 
   const handleAction = async (offer: PartnerOffer) => {
+    if (offer.category === "flowers" || offer.category === "gift") {
+      setFlowerOffer(offer);
+      return;
+    }
     setPendingId(offer.id);
     let coords: { lat?: number; lng?: number } = {};
     try {
@@ -129,6 +135,14 @@ export function ChatPartnerActions({ placement = "chat" }: { placement?: string 
           </Button>
         </DialogContent>
       </Dialog>
+
+      {flowerOffer && (
+        <FlowerOrderDialog
+          offer={flowerOffer}
+          open={!!flowerOffer}
+          onOpenChange={(open) => { if (!open) setFlowerOffer(null); }}
+        />
+      )}
     </div>
   );
 }

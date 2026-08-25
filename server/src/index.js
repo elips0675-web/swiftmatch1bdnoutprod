@@ -105,6 +105,7 @@ app.use((req, res, next) => {
 app.use(metricsMiddleware)
 app.get('/metrics', metricsRoute)
 app.use('/api/premium/webhook', express.raw({ type: 'application/json' }))
+app.use('/api/partners/order/webhook', express.raw({ type: 'application/json' }))
 app.use(express.json())
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 app.use('/api/', limiter)

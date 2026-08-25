@@ -391,3 +391,121 @@ describe('Admin partners CRUD', () => {
     expect(badPlacement.status).toBe(400)
   })
 })
+
+describe('GET /api/partners/offers/:id', () => {
+  it('requires auth', async () => {
+    const res = await request(userApp).get('/api/partners/offers/1')
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 404 for missing offer', async () => {
+    pool.query.mockResolvedValueOnce([[], []])
+    const res = await request(userApp)
+      .get('/api/partners/offers/999')
+      .set('Authorization', `Bearer ${authToken()}`)
+    expect(res.status).toBe(404)
+  })
+
+  it('returns offer details', async () => {
+    pool.query.mockResolvedValueOnce([[{ id: 1, title: 'Букет роз', price: 2500, partner_name: 'Flowwow' }], []])
+    const res = await request(userApp)
+      .get('/api/partners/offers/1')
+      .set('Authorization', `Bearer ${authToken()}`)
+    expect(res.status).toBe(200)
+    expect(res.body.title).toBe('Букет роз')
+  })
+
+  it('rejects non-numeric id', async () => {
+    const res = await request(userApp)
+      .get('/api/partners/offers/abc')
+      .set('Authorization', `Bearer ${authToken()}`)
+    expect(res.status).toBe(400)
+  })
+})
+
+describe('POST /api/partners/order (mock mode)', () => {
+  it('requires auth', async () => {
+    const res = await request(userApp).post('/api/partners/order').send({ offer_id: 1 })
+    expect(res.status).toBe(401)
+  })
+
+  it('rejects missing offer_id', async () => {
+    const res = await request(userApp)
+      .post('/api/partners/order')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .send({})
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects offer not found', async () => {
+    pool.query.mockResolvedValueOnce([[], []])
+    const res = await request(userApp)
+      .post('/api/partners/order')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .send({ offer_id: 999 })
+    expect(res.status).toBe(404)
+  })
+
+  it('rejects offer with no price', async () => {
+    pool.query.mockResolvedValueOnce([[{ id: 1, price: null, partner_status: 'active' }], []])
+    const res = await request(userApp)
+      .post('/api/partners/order')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .send({ offer_id: 1 })
+    expect(res.status).toBe(400)
+  })
+
+  it('creates mock order when stripe not configured', async () => {
+    const offer = { id: 8, partner_id: 5, title: 'Букет', price: 2500, deeplink: 'https://flowwow.ru', partner_name: 'Flowwow', commission_rate: 15, partner_status: 'active' }
+    pool.query
+      .mockResolvedValueOnce([[offer], []])
+      .mockResolvedValueOnce([{ insertId: 100 }, []])
+      .mockResolvedValueOnce([{ insertId: 200 }, []])
+
+    const res = await request(userApp)
+      .post('/api/partners/order')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .send({ offer_id: 8, recipient_name: 'Аня', recipient_address: 'Москва, ул. Ленина 1' })
+
+    expect(res.status).toBe(201)
+    expect(res.body.message).toContain('mock')
+    expect(res.body.orderId).toBeDefined()
+  })
+})
+
+describe('GET /api/partners/orders/my', () => {
+  it('requires auth', async () => {
+    const res = await request(userApp).get('/api/partners/orders/my')
+    expect(res.status).toBe(401)
+  })
+
+  it('returns user orders', async () => {
+    pool.query.mockResolvedValueOnce([[{ id: 1, amount: 2500, status: 'paid', partner_name: 'Flowwow' }], []])
+    const res = await request(userApp)
+      .get('/api/partners/orders/my')
+      .set('Authorization', `Bearer ${authToken()}`)
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body)).toBe(true)
+    expect(res.body[0].partner_name).toBe('Flowwow')
+  })
+
+  it('returns [] on db error', async () => {
+    pool.query.mockRejectedValueOnce(new Error('down'))
+    const res = await request(userApp)
+      .get('/api/partners/orders/my')
+      .set('Authorization', `Bearer ${authToken()}`)
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual([])
+  })
+})
+
+describe('POST /api/partners/order/webhook', () => {
+  it('returns 200 when stripe not configured', async () => {
+    delete process.env.STRIPE_SECRET_KEY
+    const res = await request(userApp)
+      .post('/api/partners/order/webhook')
+      .send({})
+    expect(res.status).toBe(200)
+    expect(res.body.received).toBe(true)
+  })
+})

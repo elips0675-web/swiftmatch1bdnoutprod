@@ -234,4 +234,224 @@ router.post('/api/partners/postback/:id', async (req, res) => {
   }
 })
 
+/**
+ * @openapi
+ * /api/partners/offers/{id}:
+ *   get:
+ *     tags: [Partners]
+ *     summary: Single offer details
+ */
+router.get('/api/partners/offers/:id', auth, async (req, res) => {
+  const { id } = req.params
+  if (!/^\d+$/.test(id)) return res.status(400).json({ message: 'Invalid id' })
+  try {
+    const [[offer]] = await pool.query(
+      `SELECT o.id, o.partner_id, p.name AS partner_name, o.category, o.title,
+              o.description, o.image_url, o.price, o.city, o.placement
+       FROM partner_offers o
+       JOIN partners p ON p.id = o.partner_id
+       WHERE o.id = ? AND o.status = 'active' AND p.status = 'active'
+       LIMIT 1`,
+      [id],
+    )
+    if (!offer) return res.status(404).json({ message: 'Offer not found' })
+    res.json(offer)
+  } catch (err) {
+    logger.error('Partner offer detail error:', err)
+    res.status(500).json({ message: 'Failed to fetch offer' })
+  }
+})
+
+/**
+ * @openapi
+ * /api/partners/order:
+ *   post:
+ *     tags: [Partners]
+ *     summary: Create a Stripe Checkout order (flowers/gifts)
+ */
+router.post('/api/partners/order', auth, async (req, res) => {
+  const { offer_id: offerId, recipient_name: recipientName, recipient_address: recipientAddress, gift_message: giftMessage } = req.body || {}
+  if (!offerId || !/^\d+$/.test(String(offerId))) {
+    return res.status(400).json({ message: 'offer_id is required' })
+  }
+  try {
+    const [[offer]] = await pool.query(
+      `SELECT o.id, o.partner_id, o.title, o.price, o.deeplink, p.name AS partner_name, p.commission_rate, p.status AS partner_status
+       FROM partner_offers o JOIN partners p ON p.id = o.partner_id
+       WHERE o.id = ? AND o.status = 'active' AND p.status = 'active' LIMIT 1`,
+      [offerId],
+    )
+    if (!offer) return res.status(404).json({ message: 'Offer not found' })
+    if (!offer.price || Number(offer.price) <= 0) {
+      return res.status(400).json({ message: 'This offer has no price set' })
+    }
+
+    const amount = Math.round(Number(offer.price) * 100) / 100
+    const commission = Math.round(amount * Number(offer.commission_rate)) / 100
+
+    const stripeKey = process.env.STRIPE_SECRET_KEY
+    const isLive = process.env.STRIPE_LIVE === 'true'
+    const isProd = process.env.NODE_ENV === 'production'
+
+    if (stripeKey || isLive) {
+      if (isLive && !stripeKey) {
+        return res.status(500).json({ message: 'STRIPE_LIVE=true but STRIPE_SECRET_KEY is not set' })
+      }
+      try {
+        const { default: Stripe } = await import('stripe')
+        const stripe = new Stripe(stripeKey)
+        const session = await stripe.checkout.sessions.create({
+          payment_method_types: ['card'],
+          line_items: [{
+            price_data: {
+              currency: 'rub',
+              product_data: { name: offer.title, description: `${offer.partner_name} — ${offer.title}` },
+              unit_amount: Math.round(amount * 100),
+            },
+            quantity: 1,
+          }],
+          mode: 'payment',
+          success_url: `${req.headers.origin}/partner-order/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${req.headers.origin}/partner-order/cancel?offer_id=${offerId}`,
+          metadata: {
+            userId: String(req.userId),
+            offer_id: String(offerId),
+            partner_id: String(offer.partner_id),
+            recipient_name: recipientName || '',
+            recipient_address: recipientAddress || '',
+            gift_message: giftMessage || '',
+          },
+        })
+
+        await pool.query(
+          `INSERT INTO partner_orders (partner_id, offer_id, user_id, stripe_session_id, amount, commission, recipient_name, recipient_address, gift_message, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+          [offer.partner_id, offerId, req.userId, session.id, amount, commission,
+           recipientName || null, recipientAddress || null, giftMessage || null],
+        )
+
+        return res.json({ url: session.url, sessionId: session.id })
+      } catch (err) {
+        if (isLive) {
+          return res.status(502).json({ message: 'Stripe payment failed', error: err.message })
+        }
+        req.log?.warn('Stripe error (partner order), falling back to mock: ' + err.message)
+      }
+    }
+
+    if (isLive || isProd) {
+      return res.status(502).json({ message: isProd ? 'Stripe not configured for production' : 'Stripe not configured in live mode' })
+    }
+
+    const orderId = `mock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    await pool.query(
+      `INSERT INTO partner_orders (partner_id, offer_id, user_id, stripe_session_id, amount, commission, recipient_name, recipient_address, gift_message, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid')`,
+      [offer.partner_id, offerId, req.userId, orderId, amount, commission,
+       recipientName || null, recipientAddress || null, giftMessage || null],
+    )
+    await pool.query(
+      `INSERT INTO partner_conversions (partner_id, offer_id, user_id, conversion_type, amount, commission, external_order_id, stripe_session_id, status)
+       VALUES (?, ?, ?, 'purchase', ?, ?, ?, ?, 'approved')`,
+      [offer.partner_id, offerId, req.userId, amount, commission, orderId, orderId],
+    )
+    res.status(201).json({ message: 'Order created (mock)', orderId, deeplink: offer.deeplink })
+  } catch (err) {
+    logger.error('Partner order error:', err)
+    res.status(500).json({ message: 'Failed to create order' })
+  }
+})
+
+/**
+ * @openapi
+ * /api/partners/order/webhook:
+ *   post:
+ *     tags: [Partners]
+ *     summary: Stripe webhook for partner orders (flowers/gifts)
+ */
+router.post('/api/partners/order/webhook', async (req, res) => {
+  const stripeKey = process.env.STRIPE_SECRET_KEY
+  if (!stripeKey) return res.status(200).json({ received: true })
+
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET
+  const sig = req.headers['stripe-signature']
+  if (!sig || !endpointSecret) return res.status(400).json({ message: 'Missing signature' })
+
+  let event
+  try {
+    const { default: Stripe } = await import('stripe')
+    const stripe = new Stripe(stripeKey)
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret)
+  } catch (err) {
+    logger.error('Partner order webhook signature error:', err)
+    return res.status(400).json({ message: 'Invalid signature' })
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object
+    const { userId, offer_id: offerId, partner_id: partnerId, recipient_name, recipient_address, gift_message } = session.metadata || {}
+    if (session.payment_status !== 'paid') return res.json({ received: true })
+    try {
+      const conn = await pool.getConnection()
+      try {
+        await conn.beginTransaction()
+        const [evt] = await conn.query(
+          'INSERT IGNORE INTO webhook_events (provider, event_id) VALUES (?, ?)',
+          ['stripe_partner_order', String(event.id || '')],
+        )
+        if (!evt || evt.affectedRows === 0) {
+          await conn.rollback()
+          return res.json({ received: true })
+        }
+        await conn.query(
+          `UPDATE partner_orders SET status = 'paid' WHERE stripe_session_id = ? AND status = 'pending'`,
+          [session.id],
+        )
+        await conn.query(
+          `INSERT INTO partner_conversions (partner_id, offer_id, user_id, conversion_type, external_order_id, stripe_session_id, amount, commission, status)
+           SELECT po.partner_id, po.offer_id, po.user_id, 'purchase', po.stripe_session_id, po.stripe_session_id, po.amount, po.commission, 'approved'
+           FROM partner_orders po WHERE po.stripe_session_id = ? LIMIT 1`,
+          [session.id],
+        )
+        await conn.commit()
+      } catch (err) {
+        await conn.rollback()
+        throw err
+      } finally {
+        conn.release()
+      }
+    } catch (err) {
+      logger.error('Partner order webhook processing error:', err)
+    }
+  }
+  res.json({ received: true })
+})
+
+/**
+ * @openapi
+ * /api/partners/orders/my:
+ *   get:
+ *     tags: [Partners]
+ *     summary: User's partner order history
+ */
+router.get('/api/partners/orders/my', auth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT po.id, po.amount, po.status, po.recipient_name, po.gift_message,
+              po.created_at, o.title AS offer_title, p.name AS partner_name, o.category
+       FROM partner_orders po
+       JOIN partner_offers o ON o.id = po.offer_id
+       JOIN partners p ON p.id = po.partner_id
+       WHERE po.user_id = ?
+       ORDER BY po.created_at DESC
+       LIMIT 50`,
+      [req.userId],
+    )
+    res.json(rows)
+  } catch (err) {
+    logger.error('Partner orders list error:', err)
+    res.json([])
+  }
+})
+
 export default router
