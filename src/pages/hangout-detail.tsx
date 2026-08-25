@@ -19,7 +19,7 @@ import { useWebSocket } from "@/hooks/use-websocket";
 import { getToken } from "@/lib/token";
 import { formatEventDate, type Hangout } from "@/lib/hangouts";
 import { categoryIcon } from "./hangouts";
-import { CalendarDays, MapPin, Users, Check, X, MessageCircle, ArrowLeft, Compass, Pencil } from "lucide-react";
+import { CalendarDays, MapPin, Users, Check, X, MessageCircle, ArrowLeft, Compass, Pencil, Heart, UserPlus, UserMinus, Star, Navigation } from "lucide-react";
 import { toast } from "sonner";
 
 const RESPONSE_STATUS_KEYS: Record<string, string> = {
@@ -136,6 +136,101 @@ export default function HangoutDetailPage() {
     }
   };
 
+  const likeHangout = async () => {
+    if (!id) return;
+    try {
+      const token = getToken();
+      const res = await fetch(`/api/hangouts/${id}/like`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (res.status === 401) { navigate("/login"); return; }
+      if (!res.ok) throw new Error("failed");
+      const data = await res.json();
+      if (data.mutual) {
+        toast.success(t("hangout.toast.mutual_like"));
+      } else {
+        toast.success(t("hangout.toast.liked"));
+      }
+      load();
+    } catch {
+      toast.error(t("hangout.error.load"));
+    }
+  };
+
+  const skipHangout = async () => {
+    if (!id) return;
+    try {
+      const token = getToken();
+      await fetch(`/api/hangouts/${id}/skip`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      load();
+    } catch {
+      toast.error(t("hangout.error.load"));
+    }
+  };
+
+  const joinHangout = async () => {
+    if (!id) return;
+    setSubmitting(true);
+    try {
+      const token = getToken();
+      const res = await fetch(`/api/hangouts/${id}/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (res.status === 401) { navigate("/login"); return; }
+      if (!res.ok) throw new Error("failed");
+      toast.success(t("hangout.toast.joined"));
+      load();
+    } catch {
+      toast.error(t("hangout.error.load"));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const leaveHangout = async () => {
+    if (!id) return;
+    try {
+      const token = getToken();
+      await fetch(`/api/hangouts/${id}/join`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      toast.info(t("hangout.toast.left"));
+      load();
+    } catch {
+      toast.error(t("hangout.error.load"));
+    }
+  };
+
+  const checkIn = async () => {
+    if (!id) return;
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+      });
+      const token = getToken();
+      const res = await fetch(`/api/hangouts/${id}/checkin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.message || t("hangout.error.load"));
+        return;
+      }
+      toast.success(t("hangout.toast.checked_in"));
+      load();
+    } catch {
+      toast.error(t("hangout.error.checkin_failed"));
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
@@ -165,6 +260,8 @@ export default function HangoutDetailPage() {
   const Icon = categoryIcon(hangout.category);
   const myStatus = hangout.my_response_status;
   const acceptedCount = hangout.accepted_count ?? 0;
+  const isDate = hangout.hangout_type === 'date';
+  const isCompany = hangout.hangout_type === 'company';
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
@@ -187,9 +284,15 @@ export default function HangoutDetailPage() {
               <p className="font-bold text-sm">{hangout.display_name}</p>
               <p className="text-xs text-muted-foreground">{t("hangout.label.author")}</p>
             </div>
-            <Badge className="ml-auto border-transparent bg-primary/10 text-primary font-bold">
-              {t(`hangout.category.${hangout.category}`)}
-            </Badge>
+            <div className="ml-auto flex gap-1.5">
+              <Badge className="border-transparent bg-primary/10 text-primary font-bold">
+                {t(`hangout.category.${hangout.category}`)}
+              </Badge>
+              <Badge className={cn("border-transparent font-bold", isDate ? "bg-pink-100 text-pink-700" : "bg-blue-100 text-blue-700")}>
+                {isDate ? <Heart size={10} className="mr-0.5" /> : <UserPlus size={10} className="mr-0.5" />}
+                {t(`hangout.type.${hangout.hangout_type}`)}
+              </Badge>
+            </div>
           </div>
 
           <h1 className="text-lg font-black mt-4 leading-snug">{hangout.title}</h1>
@@ -210,11 +313,19 @@ export default function HangoutDetailPage() {
                 {[hangout.place_name, hangout.place_address, hangout.city].filter(Boolean).join(", ")}
               </p>
             )}
-            <p className="flex items-center gap-2">
-              <Users size={15} className="text-primary shrink-0" />
-              <span className="text-muted-foreground mr-1">{t("hangout.label.companions")}:</span>
-              {t("hangout.label.companions_count", { count: acceptedCount, max: hangout.max_companions })}
-            </p>
+            {isDate ? (
+              <p className="flex items-center gap-2">
+                <Heart size={15} className="text-primary shrink-0" />
+                <span className="text-muted-foreground mr-1">{t("hangout.label.likes")}:</span>
+                {hangout.like_count ?? 0}
+              </p>
+            ) : (
+              <p className="flex items-center gap-2">
+                <Users size={15} className="text-primary shrink-0" />
+                <span className="text-muted-foreground mr-1">{t("hangout.label.companions")}:</span>
+                {hangout.participant_count ?? 0} / {hangout.max_companions}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-2 mt-4 flex-wrap">
@@ -243,42 +354,48 @@ export default function HangoutDetailPage() {
           </Link>
         )}
 
-        {!hangout.is_author && (
+        {/* ─── DATE TYPE: Like / Skip ─── */}
+        {!hangout.is_author && isDate && (
           <Card className="p-4">
-            {myStatus === null || myStatus === "cancelled" || myStatus === "declined" ? (
-              <>
-                <p className="font-semibold text-sm mb-3">{t("hangout.detail.want_join")}</p>
-                <Button
-                  data-testid="respond-button"
-                  className="w-full rounded-full font-bold"
-                  disabled={hangout.status !== "active"}
-                  onClick={() => {
-                    const token = getToken();
-                    if (!token) { navigate("/login"); return; }
-                    setRespondOpen(true);
-                  }}
-                >
-                  {t("hangout.action.respond")}
-                </Button>
-              </>
-            ) : (
+            {hangout.my_like_status === 'like' ? (
               <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <Badge className={`border-transparent ${STATUS_COLORS[myStatus]}`}>
-                    {t("hangout.label.you_responded")} · {t(RESPONSE_STATUS_KEYS[myStatus] || "")}
-                  </Badge>
-                </div>
-                {myStatus === "pending" && (
-                  <Button data-testid="cancel-response-button" variant="outline" className="w-full rounded-full" onClick={cancelResponse}>
-                    <X size={15} className="mr-2" /> {t("hangout.action.cancel_response")}
-                  </Button>
+                <Badge className="bg-pink-100 text-pink-700 border-transparent">
+                  <Heart size={12} className="mr-1" /> {t("hangout.label.you_liked")}
+                </Badge>
+                {hangout.chat_id && (
+                  <Link to={`/chats/${hangout.chat_id}`}>
+                    <Button variant="outline" className="w-full rounded-full">
+                      <MessageCircle size={15} className="mr-2" /> {t("hangout.action.open_chat")}
+                    </Button>
+                  </Link>
                 )}
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                <Button
+                  data-testid="skip-hangout"
+                  variant="outline"
+                  className="flex-1 rounded-full font-bold"
+                  disabled={hangout.status !== "active"}
+                  onClick={() => { const token = getToken(); if (!token) { navigate("/login"); return; } skipHangout(); }}
+                >
+                  <X size={16} className="mr-1" /> {t("hangout.action.skip")}
+                </Button>
+                <Button
+                  data-testid="like-hangout"
+                  className="flex-1 rounded-full font-bold bg-pink-500 hover:bg-pink-600"
+                  disabled={hangout.status !== "active"}
+                  onClick={() => { const token = getToken(); if (!token) { navigate("/login"); return; } likeHangout(); }}
+                >
+                  <Heart size={16} className="mr-1" /> {t("hangout.action.like")}
+                </Button>
               </div>
             )}
           </Card>
         )}
 
-        {hangout.is_author && (
+        {/* ─── DATE TYPE: Author manages responses ─── */}
+        {hangout.is_author && isDate && (
           <Card className="p-4">
             <p className="font-bold text-sm mb-3">{t("hangout.label.responses")}</p>
             {!hangout.responses || hangout.responses.length === 0 ? (
@@ -337,6 +454,86 @@ export default function HangoutDetailPage() {
                 </Button>
               </Link>
             )}
+          </Card>
+        )}
+
+        {/* ─── COMPANY TYPE: Join / Leave + Participants ─── */}
+        {isCompany && (
+          <Card className="p-4">
+            <p className="font-bold text-sm mb-3">{t("hangout.label.participants")}</p>
+
+            {hangout.participants && hangout.participants.length > 0 ? (
+              <div className="space-y-2">
+                {hangout.participants.map((p) => (
+                  <div key={p.id} className="flex items-center gap-3 p-2 rounded-lg">
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
+                      {p.avatar_url ? (
+                        <img src={p.avatar_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-bold">{(p.display_name || "?").slice(0, 1)}</span>
+                      )}
+                    </div>
+                    <Link to={`/profile/${p.user_id}`} className="text-sm font-semibold hover:underline">
+                      {p.display_name}
+                    </Link>
+                    {p.role === 'organizer' && (
+                      <Badge className="text-[10px] border-transparent bg-primary/10 text-primary ml-auto">{t("hangout.label.organizer")}</Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-4 text-center">{t("hangout.label.no_participants")}</p>
+            )}
+
+            <div className="mt-4 space-y-2">
+              {!hangout.is_author && hangout.my_participant_status !== 'joined' && hangout.status === 'active' && (
+                <Button
+                  data-testid="join-hangout"
+                  className="w-full rounded-full font-bold"
+                  disabled={submitting}
+                  onClick={() => { const token = getToken(); if (!token) { navigate("/login"); return; } joinHangout(); }}
+                >
+                  <UserPlus size={16} className="mr-2" /> {t("hangout.action.join")}
+                </Button>
+              )}
+              {!hangout.is_author && hangout.my_participant_status === 'joined' && (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Button
+                      data-testid="checkin-hangout"
+                      variant="outline"
+                      className="flex-1 rounded-full"
+                      onClick={checkIn}
+                    >
+                      <Navigation size={15} className="mr-1" /> {t("hangout.action.checkin")}
+                    </Button>
+                    <Button
+                      data-testid="leave-hangout"
+                      variant="outline"
+                      className="flex-1 rounded-full text-destructive"
+                      onClick={leaveHangout}
+                    >
+                      <UserMinus size={15} className="mr-1" /> {t("hangout.action.leave")}
+                    </Button>
+                  </div>
+                  {hangout.chat_id && (
+                    <Link to={`/chats/${hangout.chat_id}`}>
+                      <Button variant="outline" className="w-full rounded-full">
+                        <MessageCircle size={15} className="mr-2" /> {t("hangout.action.open_chat")}
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              )}
+              {hangout.is_author && hangout.chat_id && (
+                <Link to={`/chats/${hangout.chat_id}`}>
+                  <Button variant="outline" className="w-full rounded-full">
+                    <MessageCircle size={15} className="mr-2" /> {t("hangout.action.open_chat")}
+                  </Button>
+                </Link>
+              )}
+            </div>
           </Card>
         )}
       </main>

@@ -8,7 +8,10 @@ export const HANGOUT_CATEGORIES = [
   'other',
 ] as const
 
+export const HANGOUT_TYPES = ['date', 'company'] as const
+
 export type HangoutCategory = (typeof HANGOUT_CATEGORIES)[number]
+export type HangoutType = (typeof HANGOUT_TYPES)[number]
 
 export type HangoutStatus = 'active' | 'cancelled' | 'completed' | 'blocked'
 export type HangoutResponseStatus = 'pending' | 'accepted' | 'declined' | 'cancelled'
@@ -32,10 +35,22 @@ export interface HangoutResponse {
   city?: string | null
 }
 
+export interface HangoutParticipant {
+  id: number
+  user_id: number
+  role: 'organizer' | 'member'
+  status: 'joined' | 'left' | 'removed'
+  joined_at: string
+  display_name: string
+  avatar_url: string | null
+  age?: number
+}
+
 export interface Hangout {
   id: number
   author_id: number
   category: HangoutCategory
+  hangout_type: HangoutType
   title: string
   description: string | null
   place_name: string | null
@@ -52,12 +67,17 @@ export interface Hangout {
   age?: number
   online?: number | boolean
   accepted_count?: number
+  participant_count?: number
+  like_count?: number
+  my_like_status?: 'like' | 'skip' | null
+  my_participant_status?: 'joined' | 'left' | 'removed' | null
   pending_count?: number
   distance_km?: number | null
   is_author?: boolean
   my_response_status?: HangoutResponseStatus | null
   chat_id?: number | null
   responses?: HangoutResponse[]
+  participants?: HangoutParticipant[]
 }
 
 export interface MyHangoutResponse {

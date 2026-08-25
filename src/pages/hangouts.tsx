@@ -9,8 +9,8 @@ import { Slider } from "@/components/ui/slider";
 import { useLanguage } from "@/context/language-context";
 import { useFeatureFlags } from "@/context/feature-flags-context";
 import { getToken } from "@/lib/token";
-import { HANGOUT_CATEGORIES, formatEventDate, type Hangout } from "@/lib/hangouts";
-import { Clapperboard, Theater, Palette, Coffee, Music, Dumbbell, Sparkles, CalendarDays, MapPin, Users, PlusCircle, Compass } from "lucide-react";
+import { HANGOUT_CATEGORIES, formatEventDate, type Hangout, type HangoutType } from "@/lib/hangouts";
+import { Clapperboard, Theater, Palette, Coffee, Music, Dumbbell, Sparkles, CalendarDays, MapPin, Users, PlusCircle, Compass, Heart, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const categoryIcon = (category: string) => {
@@ -61,6 +61,7 @@ function dateRange(filter: HangoutDateFilter): { from?: string; to?: string } {
 function HangoutCard({ hangout }: { hangout: Hangout }) {
   const { t } = useLanguage();
   const Icon = categoryIcon(hangout.category);
+  const isDate = hangout.hangout_type === 'date';
 
   return (
     <Link to={`/hangouts/${hangout.id}`} className="block">
@@ -78,6 +79,10 @@ function HangoutCard({ hangout }: { hangout: Hangout }) {
               <Badge className={cn("text-[10px] font-bold border-transparent", CATEGORY_COLORS[hangout.category])}>
                 {t(`hangout.category.${hangout.category}`)}
               </Badge>
+              <Badge className={cn("text-[10px] font-bold border-transparent", isDate ? "bg-pink-100 text-pink-700" : "bg-blue-100 text-blue-700")}>
+                {isDate ? <Heart size={10} className="mr-0.5" /> : <UserPlus size={10} className="mr-0.5" />}
+                {t(`hangout.type.${hangout.hangout_type}`)}
+              </Badge>
               <span className="text-[11px] text-muted-foreground truncate">{hangout.display_name}</span>
             </div>
             <p className="font-semibold text-sm mt-1.5 leading-snug line-clamp-2">{hangout.title}</p>
@@ -93,8 +98,11 @@ function HangoutCard({ hangout }: { hangout: Hangout }) {
                 </p>
               )}
               <p className="flex items-center gap-1.5">
-                <Users size={12} />
-                {t("hangout.label.companions_count", { count: hangout.accepted_count ?? 0, max: hangout.max_companions })}
+                {isDate ? <Heart size={12} /> : <Users size={12} />}
+                {isDate
+                  ? t("hangout.label.likes_count", { count: hangout.like_count ?? 0 })
+                  : t("hangout.label.participants_count", { count: hangout.participant_count ?? 0, max: hangout.max_companions })
+                }
                 {typeof hangout.distance_km === "number" && (
                   <span className="ml-1">· {t("hangout.label.distance", { km: hangout.distance_km })}</span>
                 )}
@@ -113,6 +121,7 @@ export default function HangoutsPage() {
   const { hangoutsEnabled } = useFeatureFlags();
   const [items, setItems] = useState<Hangout[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hangoutType, setHangoutType] = useState<HangoutType | "all">("all");
   const [category, setCategory] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<HangoutDateFilter>("all");
   const [page, setPage] = useState(1);
@@ -138,6 +147,7 @@ export default function HangoutsPage() {
     setLoading(true);
     const params = new URLSearchParams();
     if (category) params.set("category", category);
+    if (hangoutType !== "all") params.set("type", hangoutType);
     const range = dateRange(dateFilter);
     if (range.from) params.set("date_from", range.from);
     if (range.to) params.set("date_to", range.to);
@@ -162,7 +172,7 @@ export default function HangoutsPage() {
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [category, dateFilter, page, coords, radiusKm, hangoutsEnabled]);
+  }, [category, hangoutType, dateFilter, page, coords, radiusKm, hangoutsEnabled]);
 
   const chips = useMemo(
     () => [{ key: null, label: t("hangout.filter.all_categories") }, ...HANGOUT_CATEGORIES.map((c) => ({ key: c as string, label: t(`hangout.category.${c}`) }))],
@@ -210,6 +220,26 @@ export default function HangoutsPage() {
               <PlusCircle size={18} className="mr-2" />
               {t("hangout.action.create")}
             </Button>
+
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" data-testid="hangout-type-chips">
+              {(["all", "date", "company"] as const).map((typ) => (
+                <button
+                  key={typ}
+                  type="button"
+                  aria-pressed={hangoutType === typ}
+                  data-testid={`hangout-type-${typ}`}
+                  onClick={() => { setPage(1); setHangoutType(typ); }}
+                  className={cn(
+                    "shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors",
+                    hangoutType === typ
+                      ? "gradient-bg border-0 text-white shadow-md"
+                      : "bg-background border-muted text-muted-foreground hover:bg-muted/40",
+                  )}
+                >
+                  {typ === "all" ? t("hangout.filter.all_types") : t(`hangout.type.${typ}`)}
+                </button>
+              ))}
+            </div>
 
             <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" data-testid="hangout-category-chips">
               {chips.map((chip) => (

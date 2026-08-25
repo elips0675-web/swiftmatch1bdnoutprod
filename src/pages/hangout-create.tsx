@@ -17,9 +17,10 @@ import {
 import { useLanguage } from "@/context/language-context";
 import { useFeatureFlags } from "@/context/feature-flags-context";
 import { getToken } from "@/lib/token";
-import { HANGOUT_CATEGORIES, type HangoutCategory } from "@/lib/hangouts";
+import { cn } from "@/lib/utils";
+import { HANGOUT_CATEGORIES, HANGOUT_TYPES, type HangoutCategory, type HangoutType } from "@/lib/hangouts";
 import { toast } from "sonner";
-import { Loader2, Ticket } from "lucide-react";
+import { Loader2, Ticket, Heart, Users } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,7 @@ export default function HangoutCreatePage() {
   const { partnerOffersEnabled } = useFeatureFlags();
   const navigate = useNavigate();
   const [category, setCategory] = useState<HangoutCategory>("cinema");
+  const [hangoutType, setHangoutType] = useState<HangoutType>("date");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [placeName, setPlaceName] = useState("");
@@ -119,6 +121,7 @@ export default function HangoutCreatePage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           category,
+          hangout_type: hangoutType,
           title: title.trim(),
           description: description.trim() || undefined,
           place_name: placeName.trim() || undefined,
@@ -158,6 +161,37 @@ export default function HangoutCreatePage() {
       <AppHeader title={t("hangout.action.create")} />
       <main className="px-4 pb-24 pt-4 max-w-2xl mx-auto">
         <Card className="p-5 space-y-4">
+          <div className="space-y-1.5">
+            <Label>{t("hangout.form.type")}</Label>
+            <div className="flex gap-2">
+              {HANGOUT_TYPES.map((typ) => (
+                <button
+                  key={typ}
+                  type="button"
+                  data-testid={`hangout-type-${typ}`}
+                  onClick={() => setHangoutType(typ)}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold border transition-colors",
+                    hangoutType === typ
+                      ? typ === "date"
+                        ? "border-pink-400 bg-pink-50 text-pink-700"
+                        : "border-blue-400 bg-blue-50 text-blue-700"
+                      : "border-muted bg-background text-muted-foreground hover:bg-muted/40",
+                  )}
+                >
+                  {typ === "date" ? <Heart size={16} /> : <Users size={16} />}
+                  {t(`hangout.type.${typ}`)}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {hangoutType === "date"
+                ? t("hangout.form.type_date_desc")
+                : t("hangout.form.type_company_desc")
+              }
+            </p>
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="hangout-category">{t("hangout.form.category")}</Label>
             <Select value={category} onValueChange={(v) => setCategory(v as HangoutCategory)}>

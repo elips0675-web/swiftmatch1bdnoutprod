@@ -79,13 +79,14 @@ function parseLimit(value) {
 const HANGOUT_LIST_SELECT = `
   SELECT h.id, h.user_id AS author_id, h.category, h.title, h.description,
          h.place_name, h.place_address, h.city, h.lat, h.lng, h.event_date,
-         h.max_companions, h.status, h.created_at,
+         h.max_companions, h.hangout_type, h.status, h.created_at,
          up.display_name, up.avatar_url, up.age, up.online,
-         (SELECT COUNT(*) FROM hangout_responses hr WHERE hr.hangout_id = h.id AND hr.status = 'accepted') AS accepted_count`
+         (SELECT COUNT(*) FROM hangout_responses hr WHERE hr.hangout_id = h.id AND hr.status = 'accepted') AS accepted_count,
+         (SELECT COUNT(*) FROM hangout_participants hp WHERE hp.hangout_id = h.id AND hp.status = 'joined') AS participant_count`
 
 // ─── Feed ──────────────────────────────────────────────────────
 router.get('/api/hangouts', optionalAuth, async (req, res) => {
-  const { category, lat, lng, radius, date_from, date_to, city } = req.query
+  const { category, type, lat, lng, radius, date_from, date_to, city } = req.query
   const page = Math.max(Number(req.query.page) || 1, 1)
   const limit = parseLimit(req.query.limit)
   const offset = (page - 1) * limit
@@ -97,6 +98,10 @@ router.get('/api/hangouts', optionalAuth, async (req, res) => {
     if (category && HANGOUT_CATEGORIES.includes(category)) {
       where.push('h.category = ?')
       params.push(category)
+    }
+    if (type === 'date' || type === 'company') {
+      where.push('h.hangout_type = ?')
+      params.push(type)
     }
     if (city) {
       where.push('h.city = ?')
@@ -186,17 +191,21 @@ router.get('/api/hangouts/:id', optionalAuth, async (req, res) => {
   try {
     const sql = `${HANGOUT_LIST_SELECT},
          (SELECT COUNT(*) FROM hangout_responses hr2 WHERE hr2.hangout_id = h.id AND hr2.status = 'pending') AS pending_count,
-         (SELECT hr3.status FROM hangout_responses hr3 WHERE hr3.hangout_id = h.id AND hr3.user_id = ? LIMIT 1) AS my_response_status
+         (SELECT hr3.status FROM hangout_responses hr3 WHERE hr3.hangout_id = h.id AND hr3.user_id = ? LIMIT 1) AS my_response_status,
+         (SELECT COUNT(*) FROM hangout_likes hl WHERE hl.hangout_id = h.id AND hl.status = 'like') AS like_count,
+         (SELECT hl2.status FROM hangout_likes hl2 WHERE hl2.hangout_id = h.id AND hl2.user_id = ? LIMIT 1) AS my_like_status,
+         (SELECT hp2.status FROM hangout_participants hp2 WHERE hp2.hangout_id = h.id AND hp2.user_id = ? LIMIT 1) AS my_participant_status
      FROM hangouts h
      JOIN user_profiles up ON up.id = h.user_id
      WHERE h.id = ?`
-    const [rows] = await pool.query(sql, [req.userId || 0, id])
+    const [rows] = await pool.query(sql, [req.userId || 0, req.userId || 0, req.userId || 0, id])
     if (rows.length === 0) return res.status(404).json({ message: 'Hangout not found' })
 
     const hangout = rows[0]
     const isAuthor = req.userId === hangout.author_id
 
     let responses = []
+    let participants = []
     if (isAuthor) {
       ;[responses] = await pool.query(
         `SELECT hr.id, hr.user_id, hr.status, hr.message, hr.created_at,
@@ -205,6 +214,18 @@ router.get('/api/hangouts/:id', optionalAuth, async (req, res) => {
          JOIN user_profiles up ON up.id = hr.user_id
          WHERE hr.hangout_id = ? AND hr.status != 'cancelled'
          ORDER BY hr.created_at ASC`,
+        [id],
+      )
+    }
+
+    if (hangout.hangout_type === 'company') {
+      ;[participants] = await pool.query(
+        `SELECT hp.id, hp.user_id, hp.role, hp.status, hp.joined_at,
+                up.display_name, up.avatar_url, up.age
+         FROM hangout_participants hp
+         JOIN user_profiles up ON up.id = hp.user_id
+         WHERE hp.hangout_id = ? AND hp.status = 'joined'
+         ORDER BY hp.role = 'organizer' DESC, hp.joined_at ASC`,
         [id],
       )
     }
@@ -220,6 +241,7 @@ router.get('/api/hangouts/:id', optionalAuth, async (req, res) => {
       ...hangout,
       is_author: isAuthor,
       responses: isAuthor ? responses : undefined,
+      participants,
       chat_id: chat ? chat.chat_id : null,
     })
   } catch (err) {
@@ -230,13 +252,15 @@ router.get('/api/hangouts/:id', optionalAuth, async (req, res) => {
 
 // ─── Create ────────────────────────────────────────────────────
 router.post('/api/hangouts', auth, createLimiter, async (req, res) => {
-  const { category, title, description, place_name, place_address, city, lat, lng, event_date, max_companions, partner_offer_id } = req.body
+  const { category, title, description, place_name, place_address, city, lat, lng, event_date, max_companions, partner_offer_id, hangout_type } = req.body
   if (!category || !title || !event_date) {
     return res.status(400).json({ message: 'category, title and event_date are required' })
   }
   if (!HANGOUT_CATEGORIES.includes(category)) {
     return res.status(400).json({ message: 'Invalid category' })
   }
+
+  const validType = ['date', 'company'].includes(hangout_type) ? hangout_type : 'date'
 
   const eventDate = new Date(event_date)
   if (isNaN(eventDate.getTime()) || eventDate.getTime() <= Date.now()) {
@@ -277,8 +301,8 @@ router.post('/api/hangouts', auth, createLimiter, async (req, res) => {
     }
 
     const [result] = await pool.query(
-      `INSERT INTO hangouts (user_id, category, title, description, place_name, place_address, city, lat, lng, event_date, max_companions, partner_offer_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO hangouts (user_id, category, title, description, place_name, place_address, city, lat, lng, event_date, max_companions, partner_offer_id, hangout_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.userId,
         category,
@@ -292,6 +316,7 @@ router.post('/api/hangouts', auth, createLimiter, async (req, res) => {
         eventDate,
         companions,
         partner_offer_id && /^\d+$/.test(String(partner_offer_id)) ? Number(partner_offer_id) : null,
+        validType,
       ],
     )
 
@@ -626,6 +651,354 @@ router.get('/api/hangouts/by-chat/:chatId', auth, async (req, res) => {
   } catch (err) {
     logger.error('Hangout by-chat error:', err)
     res.status(500).json({ message: 'Failed to fetch hangout context' })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════
+//  HANGOUTS 2.0 — Date Flow (like / skip / mutual) + Company Flow (join)
+// ═══════════════════════════════════════════════════════════════
+
+const likeLimiter = rateLimit({ windowMs: 60_000, max: 30, message: { message: 'Too many likes' } })
+const joinLimiter = rateLimit({ windowMs: 60_000, max: 20, message: { message: 'Too many joins' } })
+const checkinLimiter = rateLimit({ windowMs: 60_000, max: 5, message: { message: 'Too many check-ins' } })
+const reviewLimiter = rateLimit({ windowMs: 300_000, max: 10, message: { message: 'Too many reviews' } })
+
+const CHECKIN_RADIUS_M = 500
+const CHECKIN_WINDOW_HOURS = 2
+
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371000
+  const toRad = (d) => (d * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+// ─── Like (date flow) ──────────────────────────────────────────
+router.post('/api/hangouts/:id/like', auth, likeLimiter, async (req, res) => {
+  const { id } = req.params
+  if (!/^\d+$/.test(id)) return res.status(400).json({ message: 'Invalid id' })
+
+  try {
+    const [[hangout]] = await pool.query('SELECT id, user_id, hangout_type, status, title FROM hangouts WHERE id = ?', [id])
+    if (!hangout) return res.status(404).json({ message: 'Hangout not found' })
+    if (hangout.user_id === req.userId) return res.status(400).json({ message: 'Cannot like your own hangout' })
+    if (hangout.status !== 'active') return res.status(409).json({ message: 'Hangout is not active' })
+    if (hangout.hangout_type !== 'date') return res.status(400).json({ message: 'Like is only for date-type hangouts' })
+
+    await pool.query(
+      'INSERT INTO hangout_likes (hangout_id, user_id, status) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE status = VALUES(status)',
+      [id, req.userId, 'like'],
+    )
+
+    const [[mutual]] = await pool.query(
+      'SELECT 1 FROM hangout_likes WHERE hangout_id = ? AND user_id = ? AND status = ? LIMIT 1',
+      [id, hangout.user_id, 'like'],
+    )
+
+    let chatId = null
+    if (mutual) {
+      const [existingPair] = await pool.query(
+        `SELECT c.id FROM chats c
+         JOIN chat_participants cp1 ON cp1.chat_id = c.id AND cp1.user_id = ?
+         JOIN chat_participants cp2 ON cp2.chat_id = c.id AND cp2.user_id = ?
+         WHERE c.is_group = 0 LIMIT 1`,
+        [req.userId, hangout.user_id],
+      )
+      if (existingPair.length > 0) {
+        chatId = existingPair[0].id
+      } else {
+        const [chatResult] = await pool.query('INSERT INTO chats (is_group) VALUES (0)')
+        chatId = chatResult.insertId
+        await pool.query(
+          'INSERT INTO chat_participants (chat_id, user_id) VALUES (?, ?), (?, ?)',
+          [chatId, req.userId, chatId, hangout.user_id],
+        )
+      }
+    }
+
+    const io = getIO()
+    if (mutual && io) {
+      io.to(`user:${hangout.user_id}`).emit('hangout:mutual_like', {
+        hangoutId: Number(id),
+        chatId: chatId ? Number(chatId) : null,
+        fromUserId: req.userId,
+      })
+      try {
+        const [notifResult] = await pool.query(
+          'INSERT INTO notifications (user_id, type, payload) VALUES (?, ?, ?)',
+          [hangout.user_id, 'hangout_mutual_like', JSON.stringify({ hangout_id: Number(id), chat_id: chatId, from_user_id: req.userId })],
+        )
+        const [[notif]] = await pool.query('SELECT id, type, payload, is_read, created_at FROM notifications WHERE id = ?', [notifResult.insertId])
+        io.to(`user:${hangout.user_id}`).emit('notification:new', notif)
+      } catch {}
+      const [[author]] = await pool.query('SELECT display_name FROM user_profiles WHERE id = ?', [hangout.user_id])
+      sendPushToUser(hangout.user_id, 'SwiftMatch', `${author?.display_name || 'Someone'} liked your hangout: ${hangout.title}`).catch(() => {})
+      trackEvent('hangout_mutual_like', req.userId, { hangout_id: Number(id), chat_id: chatId })
+    }
+
+    res.json({ liked: true, mutual: !!mutual, chat_id: chatId })
+  } catch (err) {
+    if (err?.code === 'ER_DUP_ENTRY') {
+      return res.json({ liked: true, mutual: false })
+    }
+    logger.error('Hangout like error:', err)
+    res.status(500).json({ message: 'Failed to like hangout' })
+  }
+})
+
+// ─── Skip (date flow) ──────────────────────────────────────────
+router.post('/api/hangouts/:id/skip', auth, likeLimiter, async (req, res) => {
+  const { id } = req.params
+  if (!/^\d+$/.test(id)) return res.status(400).json({ message: 'Invalid id' })
+
+  try {
+    const [[hangout]] = await pool.query('SELECT id, hangout_type, status FROM hangouts WHERE id = ?', [id])
+    if (!hangout) return res.status(404).json({ message: 'Hangout not found' })
+    if (hangout.hangout_type !== 'date') return res.status(400).json({ message: 'Skip is only for date-type hangouts' })
+
+    await pool.query(
+      'INSERT INTO hangout_likes (hangout_id, user_id, status) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE status = VALUES(status)',
+      [id, req.userId, 'skip'],
+    )
+    res.json({ skipped: true })
+  } catch (err) {
+    logger.error('Hangout skip error:', err)
+    res.status(500).json({ message: 'Failed to skip hangout' })
+  }
+})
+
+// ─── Join (company flow) ───────────────────────────────────────
+router.post('/api/hangouts/:id/join', auth, joinLimiter, async (req, res) => {
+  const { id } = req.params
+  if (!/^\d+$/.test(id)) return res.status(400).json({ message: 'Invalid id' })
+
+  try {
+    const [[hangout]] = await pool.query(
+      'SELECT id, user_id, hangout_type, status, max_companions, title FROM hangouts WHERE id = ?', [id])
+    if (!hangout) return res.status(404).json({ message: 'Hangout not found' })
+    if (hangout.hangout_type !== 'company') return res.status(400).json({ message: 'Join is only for company-type hangouts' })
+    if (hangout.status !== 'active') return res.status(409).json({ message: 'Hangout is not active' })
+    if (hangout.user_id === req.userId) return res.status(400).json({ message: 'You are the organizer' })
+
+    const [[existing]] = await pool.query(
+      'SELECT id, status FROM hangout_participants WHERE hangout_id = ? AND user_id = ? LIMIT 1',
+      [id, req.userId],
+    )
+    if (existing && existing.status === 'joined') {
+      return res.status(409).json({ message: 'Already joined' })
+    }
+    if (existing && existing.status === 'removed') {
+      return res.status(403).json({ message: 'You were removed from this hangout' })
+    }
+
+    const [[{ cnt }]] = await pool.query(
+      "SELECT COUNT(*) AS cnt FROM hangout_participants WHERE hangout_id = ? AND status = 'joined'",
+      [id],
+    )
+    if (cnt >= hangout.max_companions) {
+      return res.status(409).json({ message: 'Hangout is full' })
+    }
+
+    if (existing) {
+      await pool.query("UPDATE hangout_participants SET status = 'joined', role = 'member' WHERE id = ?", [existing.id])
+    } else {
+      await pool.query(
+        'INSERT INTO hangout_participants (hangout_id, user_id, role, status) VALUES (?, ?, ?, ?)',
+        [id, req.userId, 'member', 'joined'],
+      )
+    }
+
+    const [[{ cntAfter }]] = await pool.query(
+      "SELECT COUNT(*) AS cntAfter FROM hangout_participants WHERE hangout_id = ? AND status = 'joined'",
+      [id],
+    )
+    let chatId = null
+    if (cntAfter >= 2) {
+      const [[existingChat]] = await pool.query(
+        `SELECT hc.chat_id FROM hangout_chats hc
+         JOIN chats c ON c.id = hc.chat_id
+         WHERE hc.hangout_id = ? AND c.is_group = 1 LIMIT 1`,
+        [id],
+      )
+      if (existingChat) {
+        chatId = existingChat.chat_id
+        const [[alreadyParticipant]] = await pool.query(
+          'SELECT 1 FROM chat_participants WHERE chat_id = ? AND user_id = ? LIMIT 1',
+          [chatId, req.userId],
+        )
+        if (!alreadyParticipant) {
+          await pool.query('INSERT INTO chat_participants (chat_id, user_id) VALUES (?, ?)', [chatId, req.userId])
+        }
+      } else {
+        const [chatResult] = await pool.query('INSERT INTO chats (is_group) VALUES (1)')
+        chatId = chatResult.insertId
+        const [members] = await pool.query(
+          "SELECT user_id FROM hangout_participants WHERE hangout_id = ? AND status = 'joined'",
+          [id],
+        )
+        await pool.query('INSERT INTO chat_participants (chat_id, user_id) VALUES (?, ?)', [chatId, hangout.user_id])
+        for (const m of members) {
+          await pool.query(
+            'INSERT IGNORE INTO chat_participants (chat_id, user_id) VALUES (?, ?)',
+            [chatId, m.user_id],
+          )
+        }
+        await pool.query(
+          'INSERT IGNORE INTO hangout_chats (hangout_id, chat_id) VALUES (?, ?)',
+          [id, chatId],
+        )
+      }
+    }
+
+    const io = getIO()
+    if (io) {
+      io.to(`user:${hangout.user_id}`).emit('hangout:new_participant', {
+        hangoutId: Number(id),
+        userId: req.userId,
+        participantCount: cntAfter,
+      })
+    }
+
+    const [[joiner]] = await pool.query('SELECT display_name FROM user_profiles WHERE id = ?', [req.userId])
+    sendPushToUser(hangout.user_id, 'SwiftMatch', `${joiner?.display_name || 'Someone'} joined your hangout: ${hangout.title}`).catch(() => {})
+    trackEvent('hangout_joined', req.userId, { hangout_id: Number(id) })
+
+    res.status(201).json({ joined: true, chat_id: chatId, participant_count: cntAfter })
+  } catch (err) {
+    if (err?.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ message: 'Already joined' })
+    }
+    logger.error('Hangout join error:', err)
+    res.status(500).json({ message: 'Failed to join hangout' })
+  }
+})
+
+// ─── Leave (company flow) ──────────────────────────────────────
+router.delete('/api/hangouts/:id/join', auth, async (req, res) => {
+  const { id } = req.params
+  if (!/^\d+$/.test(id)) return res.status(400).json({ message: 'Invalid id' })
+
+  try {
+    const [result] = await pool.query(
+      "UPDATE hangout_participants SET status = 'left' WHERE hangout_id = ? AND user_id = ? AND status = 'joined' AND role = 'member'",
+      [id, req.userId],
+    )
+    if (result.affectedRows === 0) return res.status(404).json({ message: 'Not a participant' })
+
+    const io = getIO()
+    const [[hangout]] = await pool.query('SELECT user_id FROM hangouts WHERE id = ?', [id])
+    if (hangout && io) {
+      io.to(`user:${hangout.user_id}`).emit('hangout:participant_left', { hangoutId: Number(id), userId: req.userId })
+    }
+
+    res.json({ left: true })
+  } catch (err) {
+    logger.error('Hangout leave error:', err)
+    res.status(500).json({ message: 'Failed to leave hangout' })
+  }
+})
+
+// ─── Check-in ──────────────────────────────────────────────────
+router.post('/api/hangouts/:id/checkin', auth, checkinLimiter, async (req, res) => {
+  const { id } = req.params
+  if (!/^\d+$/.test(id)) return res.status(400).json({ message: 'Invalid id' })
+  const { lat, lng } = req.body
+  const parsedLat = parseFloat(lat)
+  const parsedLng = parseFloat(lng)
+  if (isNaN(parsedLat) || isNaN(parsedLng)) {
+    return res.status(400).json({ message: 'lat and lng are required' })
+  }
+
+  try {
+    const [[hangout]] = await pool.query('SELECT id, user_id, hangout_type, status, lat, lng FROM hangouts WHERE id = ?', [id])
+    if (!hangout) return res.status(404).json({ message: 'Hangout not found' })
+    if (hangout.status !== 'active') return res.status(409).json({ message: 'Hangout is not active' })
+
+    if (hangout.lat && hangout.lng) {
+      const dist = haversineDistance(parsedLat, parsedLng, parseFloat(hangout.lat), parseFloat(hangout.lng))
+      if (dist > CHECKIN_RADIUS_M) {
+        return res.status(400).json({ message: 'Too far from hangout location', distance_m: Math.round(dist) })
+      }
+    }
+
+    const isParticipant = hangout.user_id === req.userId || hangout.hangout_type === 'company'
+      ? (await pool.query(
+          "SELECT 1 FROM hangout_participants WHERE hangout_id = ? AND user_id = ? AND status = 'joined' LIMIT 1",
+          [id, req.userId],
+        ))[0].length > 0
+      : (await pool.query(
+          "SELECT 1 FROM hangout_responses WHERE hangout_id = ? AND user_id = ? AND status = 'accepted' LIMIT 1",
+          [id, req.userId],
+        ))[0].length > 0
+
+    if (!isParticipant) {
+      return res.status(403).json({ message: 'Not a participant of this hangout' })
+    }
+
+    await pool.query(
+      'INSERT INTO hangout_checkins (hangout_id, user_id, lat, lng) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE lat = VALUES(lat), lng = VALUES(lng), checked_at = NOW()',
+      [id, req.userId, parsedLat, parsedLng],
+    )
+
+    const io = getIO()
+    if (io) {
+      io.to(`user:${hangout.user_id}`).emit('hangout:checkin', {
+        hangoutId: Number(id),
+        userId: req.userId,
+        lat: parsedLat,
+        lng: parsedLng,
+      })
+    }
+
+    res.json({ checked_in: true })
+  } catch (err) {
+    logger.error('Hangout checkin error:', err)
+    res.status(500).json({ message: 'Failed to check in' })
+  }
+})
+
+// ─── Review ────────────────────────────────────────────────────
+router.post('/api/hangouts/:id/review', auth, reviewLimiter, async (req, res) => {
+  const { id } = req.params
+  if (!/^\d+$/.test(id)) return res.status(400).json({ message: 'Invalid id' })
+  const { reviewee_id, rating, tag } = req.body
+  const parsedRating = Number(rating)
+  if (!reviewee_id || !Number.isFinite(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+    return res.status(400).json({ message: 'reviewee_id and rating (1-5) are required' })
+  }
+  const validTags = ['punctual', 'fun', 'reliable', 'no_show']
+  const safeTag = validTags.includes(tag) ? tag : null
+
+  try {
+    const [[hangout]] = await pool.query('SELECT id, user_id, status FROM hangouts WHERE id = ?', [id])
+    if (!hangout) return res.status(404).json({ message: 'Hangout not found' })
+    if (hangout.status !== 'active' && hangout.status !== 'completed') {
+      return res.status(409).json({ message: 'Hangout must be active or completed to review' })
+    }
+    if (hangout.user_id === req.userId) {
+      return res.status(400).json({ message: 'Cannot review yourself' })
+    }
+
+    const [[existing]] = await pool.query(
+      'SELECT id FROM hangout_reviews WHERE hangout_id = ? AND reviewer_id = ? AND reviewee_id = ? LIMIT 1',
+      [id, req.userId, reviewee_id],
+    )
+    if (existing) return res.status(409).json({ message: 'Already reviewed' })
+
+    await pool.query(
+      'INSERT INTO hangout_reviews (hangout_id, reviewer_id, reviewee_id, rating, tag) VALUES (?, ?, ?, ?, ?)',
+      [id, req.userId, reviewee_id, parsedRating, safeTag],
+    )
+
+    res.status(201).json({ review: true })
+  } catch (err) {
+    if (err?.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ message: 'Already reviewed' })
+    }
+    logger.error('Hangout review error:', err)
+    res.status(500).json({ message: 'Failed to submit review' })
   }
 })
 
