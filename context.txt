@@ -41,6 +41,7 @@
 - **54** — Hangouts 2.0: миграция 037 (hangout_type ENUM date/company, таблицы hangout_likes/hangout_participants/hangout_checkins/hangouts_reviews); 6 новых эндпоинтов (like/skip/join/leave/checkin/review) с rate-limiter'ами; mutual like → auto-chat; чек-ин через haversine (≤ 500м); фронт — тоглл All/Date/Company в хедере, карточки с лайками/участниками, detail страница с context-aware actions; 26 ключей i18n; 388/388 ✅
 - **56** — Wave 3 часть 2 (спа/фитнес): миграция 038 (сид LoveSpa + FitBro, 4 оффера spa/experience), POST /api/partners/spa/book, SpaBookingDialog, интеграция в chat-partner-actions, 10 ключей i18n partner.spa.*; 388/388 ✅
 - **57** — Псевдонимы (как в Telegram): миграция 039 (user_aliases), 4 эндпоинта CRUD (GET/POST/PUT primary/DELETE), UI в profile-edit (бейджи + ввод + выбор primary), отображение в profile под именем, 7 ключей i18n; 388/388 ✅
+- **58** — B2B-маркетплейс (Wave 4): миграция 040 (user_id в partners, partner_subscriptions, b2b_marketplace_enabled), 8 эндпоинтов (register, dashboard, offers CRUD, conversions, subscribe), PartnerGuard, PartnerRegister, PartnerDashboard (4 вкладки: stats, offers, conversions, subscription), 80 ключей i18n; 388/388 ✅
 - Тесты после этапов 22–26: E2E 44/44 ✅, фронт 57/57 ✅, сервер 126/126 ✅, tsc ✅, build ✅, lint 0 errors
 
 ---

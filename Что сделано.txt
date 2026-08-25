@@ -41,6 +41,27 @@
 - **i18n** — 7 ключей RU/EN (`profile.aliases/alias_placeholder/alias_add/alias_added/alias_deleted/alias_error`)
 - **Тесты**: 388/388 ✅, Vite build ✅
 
+## Этап 58: Wave 4 — B2B-маркетплейс услуг (25.08.2026)
+
+- **Миграция 040** (`040_b2b_marketplace.sql`): расширение `partners` (user_id, description, logo_url, contact_email, contact_phone), таблица `partner_subscriptions` (tier basic/pro, status, stripe_session_id, expires_at), флаг `b2b_marketplace_enabled`
+- **Backend** (`server/src/routes/partner-dashboard.js`) — 8 эндпоинтов:
+  - `POST /api/partner/register` — регистрация пользователя как партнёра (user_id привязывается к partners)
+  - `GET /api/partner/dashboard` — статистика (офферы, клики, конверсии, комиссия, выплаты, подписка)
+  - `GET /api/partner/offers` — список собственных офферов
+  - `POST /api/partner/offers` — создание оффера (лимит 5 basic / 50 pro)
+  - `PUT /api/partner/offers/:id` — редактирование оффера
+  - `DELETE /api/partner/offers/:id` — удаление оффера
+  - `GET /api/partner/conversions` — список конверсий (100 последних)
+  - `GET /api/partner/subscription` — статус подписки
+  - `POST /api/partner/subscribe` — оформление подписки (Stripe Checkout или mock)
+- **Frontend** — 3 новых файла:
+  - `partner-guard.tsx` — редирект на `/partner/register` если не партнёр
+  - `partner-register.tsx` — форма регистрации (название, тип deeplink/api/saas, описание, контакты)
+  - `partner-dashboard.tsx` — дашборд с 4 вкладками: Обзор (6 карточек-метрик), Офферы (CRUD + pause/play), Конверсии (список), Подписка (Basic 0₽ / Pro 2990₽ с Stripe Checkout)
+- **App.tsx** — маршруты `/partner/register` и `/partner/dashboard`
+- **i18n** — 80 ключей RU/EN (`partner.register_*`, `partner.tab_*`, `partner.stat_*`, `partner.offer_*`, `partner.tier_*`, `partner.type_*`)
+- **Тесты**: 388/388 ✅, Vite build ✅
+
 ## Этап 53: отели в passport-mode + Redis-кэш (25.08.2026)
 
 - **Отели — GET /api/partners/offers/hotel?city=**: Redis-кэш (TTL 1ч, ключ `partner:offers:hotel:{city}`) через `getCached`/`setCached` из `server/src/cache.js`; при отсутствии в кэше — выборка из БД (DISTINCT city, JOIN partner_offers+partners, placement=passport, active=1, valid_from/to, type=hotel); кэш сбрасывается при создании/обновлении hotel-офферов в админке (`invalidate('partner:offers:hotel:*')`)

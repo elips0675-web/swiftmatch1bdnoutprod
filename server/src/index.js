@@ -51,6 +51,7 @@ import icebreakersRoutes from './routes/icebreakers.js'
 import experimentsRoutes from './routes/experiments.js'
 import hangoutsRoutes from './routes/hangouts.js'
 import partnersRoutes from './routes/partners.js'
+import partnerDashboard from './routes/partner-dashboard.js'
 import adminPartners from './routes/admin/partners.js'
 import notificationsRoutes from './routes/notifications.js'
 import { metricsMiddleware, metricsRoute } from './metrics.js'
@@ -277,6 +278,7 @@ app.use(icebreakersRoutes)
 app.use(experimentsRoutes)
 app.use(hangoutsRoutes)
 app.use(partnersRoutes)
+app.use(partnerDashboard)
 app.use(notificationsRoutes)
 
 app.get('/health', async (req, res) => {

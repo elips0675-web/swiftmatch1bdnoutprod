@@ -324,7 +324,7 @@
 - [x] Wave 2: рестораны/цветы — Stripe + webhook партнёра, первая реальная комиссия **(этапы 49–52: HMAC-подпись, Stripe Checkout, бронирование, выплаты)**
 - [x] Wave 3 (часть 1): отели в passport-mode — Redis-кэш офферов TTL 1ч, GET /api/partners/offers/hotel, POST /api/partners/hotel/book, HotelBookingDialog **(этап 53)**
 - [ ] Wave 3 (часть 2): спа/фитнес-офферы — аналогичная структура (offers с типом spa, размещение в профиле/чате, spa-запись через партнёров)
-- [ ] Wave 4: B2B-маркетплейс услуг (роль partner, ЛК, подписка через Stripe)
+- [x] Wave 4: B2B-маркетплейс услуг (роль partner, ЛК, подписка через Stripe) — **ЗАКРЫТО этапом 58**
 
 ### Этап 49 (25.08.2026): HMAC-подпись postback + сиды цветочных партнёров — ЗАКРЫТО
 - HMAC-SHA256 подпись postback: X-Partner-Signature header, timingSafeEqual, fallback на token если hmac_secret=null
@@ -414,7 +414,7 @@
 
 ### Хвосты (не блокируют, низкий приоритет)
 - [x] **Wave 3 (часть 2)**: спа/фитнес-офферы — offers с типом spa, размещение в профиле/чате, spa-запись через партнёров — **ЗАКРЫТО этапом 56**
-- [ ] **Wave 4**: B2B-маркетплейс услуг (роль partner, ЛК, подписка через Stripe)
+- [x] **Wave 4**: B2B-маркетплейс услуг (роль partner, ЛК, подписка через Stripe) — **ЗАКРЫТО этапом 58**
 - [x] **Hangouts 2.0**: Date vs Company режимы, mutual like, чек-ин с геолокацией, рейтинг после встречи — **ЗАКРЫТО этапом 54**
 - [x] Фильтр дат date_from/date_to в ленте встреч — **ЗАКРЫТО этапом 48** (API: hangouts.js:110-117)
 - [x] Пагинация page/limit в ленте — **ЗАКРЫТО этапом 48** (API: hangouts.js:90-92, 137-138)

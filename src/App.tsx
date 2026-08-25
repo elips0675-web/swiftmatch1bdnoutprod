@@ -12,6 +12,7 @@ import { PageLoading } from "@/components/shared/loading-screen"
 import { AppContainer } from "@/components/layout/app-container"
 import { AdminLayout } from "@/components/layout/admin-layout"
 import { AdminGuard } from "@/components/shared/admin-guard"
+import { PartnerGuard } from "@/components/shared/partner-guard"
 import { ClientOnly } from "@/components/shared/client-only"
 import { CookieConsent } from "@/components/shared/cookie-consent"
 import { PwaInstallBanner } from "@/components/shared/pwa-install-banner"
@@ -70,6 +71,8 @@ const PremiumSuccess = lazy(() => import("./pages/premium-success"))
 const PremiumCancel = lazy(() => import("./pages/premium-cancel"))
 const PartnerOrderSuccess = lazy(() => import("./pages/partner-order-success"))
 const PartnerOrderCancel = lazy(() => import("./pages/partner-order-cancel"))
+const PartnerRegister = lazy(() => import("./pages/partner-register"))
+const PartnerDashboard = lazy(() => import("./pages/partner-dashboard"))
 const Schedule = lazy(() => import("./pages/schedule"))
 const Safety = lazy(() => import("./pages/safety"))
 
@@ -116,6 +119,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/premium/cancel": "Оплата отменена — SwiftMatch",
   "/partner-order/success": "Заказ оформлен — SwiftMatch",
   "/partner-order/cancel": "Заказ отменён — SwiftMatch",
+  "/partner/register": "Регистрация партнёра — SwiftMatch",
+  "/partner/dashboard": "Панель партнёра — SwiftMatch",
   "/matches": "Мои совпадения — SwiftMatch",
   "/premium": "Премиум — SwiftMatch",
   "/settings/privacy": "Конфиденциальность — SwiftMatch",
@@ -184,6 +189,8 @@ const App = () => (
                     <Route path="/premium/cancel" element={<SuspenseWrapper><PremiumCancel /></SuspenseWrapper>} />
                     <Route path="/partner-order/success" element={<SuspenseWrapper><PartnerOrderSuccess /></SuspenseWrapper>} />
                     <Route path="/partner-order/cancel" element={<SuspenseWrapper><PartnerOrderCancel /></SuspenseWrapper>} />
+                    <Route path="/partner/register" element={<SuspenseWrapper><PartnerRegister /></SuspenseWrapper>} />
+                    <Route path="/partner/dashboard" element={<PartnerGuard><SuspenseWrapper><PartnerDashboard /></SuspenseWrapper></PartnerGuard>} />
                     <Route path="*" element={
                       <SuspenseWrapper>
                         <AppContainer>
