@@ -7,6 +7,7 @@ import { useLanguage } from "@/context/language-context";
 import { useApi } from "@/hooks/useApi";
 import { getToken } from "@/lib/token";
 import { FlowerOrderDialog } from "./flower-order-dialog";
+import { RestaurantBookingDialog } from "./restaurant-booking-dialog";
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ size?: number | string; className?: string }>> = {
   taxi: Car,
@@ -38,10 +39,15 @@ export function ChatPartnerActions({ placement = "chat" }: { placement?: string 
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [fallbackOffer, setFallbackOffer] = useState<PartnerOffer | null>(null);
   const [flowerOffer, setFlowerOffer] = useState<PartnerOffer | null>(null);
+  const [restaurantOffer, setRestaurantOffer] = useState<PartnerOffer | null>(null);
 
   const handleAction = async (offer: PartnerOffer) => {
     if (offer.category === "flowers" || offer.category === "gift") {
       setFlowerOffer(offer);
+      return;
+    }
+    if (offer.category === "restaurant") {
+      setRestaurantOffer(offer);
       return;
     }
     setPendingId(offer.id);
@@ -141,6 +147,14 @@ export function ChatPartnerActions({ placement = "chat" }: { placement?: string 
           offer={flowerOffer}
           open={!!flowerOffer}
           onOpenChange={(open) => { if (!open) setFlowerOffer(null); }}
+        />
+      )}
+
+      {restaurantOffer && (
+        <RestaurantBookingDialog
+          offer={restaurantOffer}
+          open={!!restaurantOffer}
+          onOpenChange={(open) => { if (!open) setRestaurantOffer(null); }}
         />
       )}
     </div>

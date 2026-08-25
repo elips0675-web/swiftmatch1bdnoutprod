@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import pool from '../db.js'
 import { auth } from '../middleware.js'
 import logger from '../logger.js'
+import { getIO } from '../ws.js'
 
 const router = Router()
 
@@ -451,6 +452,124 @@ router.get('/api/partners/orders/my', auth, async (req, res) => {
   } catch (err) {
     logger.error('Partner orders list error:', err)
     res.json([])
+  }
+})
+
+/**
+ * @openapi
+ * /api/partners/booking:
+ *   post:
+ *     tags: [Partners]
+ *     summary: Create a restaurant table booking
+ */
+router.post('/api/partners/booking', auth, async (req, res) => {
+  const { offer_id: offerId, date, time, guests, message } = req.body || {}
+  if (!offerId || !/^\d+$/.test(String(offerId))) {
+    return res.status(400).json({ message: 'offer_id is required' })
+  }
+  if (!date || !time) {
+    return res.status(400).json({ message: 'date and time are required (YYYY-MM-DD, HH:MM)' })
+  }
+  try {
+    const [[offer]] = await pool.query(
+      `SELECT o.id, o.partner_id, o.title, o.deeplink, o.city, o.lat, o.lng, p.name AS partner_name, p.commission_rate, p.status AS partner_status
+       FROM partner_offers o JOIN partners p ON p.id = o.partner_id
+       WHERE o.id = ? AND o.category = 'restaurant' AND o.status = 'active' AND p.status = 'active' LIMIT 1`,
+      [offerId],
+    )
+    if (!offer) return res.status(404).json({ message: 'Restaurant offer not found' })
+
+    const guestsCount = Math.min(Math.max(Number(guests) || 2, 1), 20)
+
+    const [result] = await pool.query(
+      `INSERT INTO partner_conversions (partner_id, offer_id, user_id, conversion_type, amount, commission, status)
+       VALUES (?, ?, ?, 'booking', 0, 0, 'pending')`,
+      [offer.partner_id, offer.id, req.userId],
+    )
+
+    let deeplink = String(offer.deeplink || '')
+    if (deeplink) {
+      const sep = deeplink.includes('?') ? '&' : '?'
+      deeplink += `${sep}date=${encodeURIComponent(date)}&time=${encodeURIComponent(time)}&guests=${guestsCount}`
+    }
+
+    const bookingData = {
+      conversion_id: result.insertId,
+      offer_id: offer.id,
+      restaurant: offer.title,
+      partner_name: offer.partner_name,
+      date,
+      time,
+      guests: guestsCount,
+      message: message || null,
+      deeplink,
+      city: offer.city,
+    }
+
+    res.status(201).json(bookingData)
+  } catch (err) {
+    logger.error('Partner booking error:', err)
+    res.status(500).json({ message: 'Failed to create booking' })
+  }
+})
+
+/**
+ * @openapi
+ * /api/partners/booking/share:
+ *   post:
+ *     tags: [Partners]
+ *     summary: Share a restaurant booking card in a chat (WS event)
+ */
+router.post('/api/partners/booking/share', auth, async (req, res) => {
+  const { chat_id: chatId, offer_id: offerId, date, time, guests, message: bookMsg } = req.body || {}
+  if (!chatId || !/^\d+$/.test(String(chatId))) {
+    return res.status(400).json({ message: 'chat_id is required' })
+  }
+  if (!offerId || !/^\d+$/.test(String(offerId))) {
+    return res.status(400).json({ message: 'offer_id is required' })
+  }
+  try {
+    const [[offer]] = await pool.query(
+      `SELECT o.id, o.title, o.deeplink, o.city, p.name AS partner_name
+       FROM partner_offers o JOIN partners p ON p.id = o.partner_id
+       WHERE o.id = ? AND o.category = 'restaurant' AND o.status = 'active' LIMIT 1`,
+      [offerId],
+    )
+    if (!offer) return res.status(404).json({ message: 'Restaurant not found' })
+
+    const [[participant]] = await pool.query(
+      'SELECT user_id FROM chat_participants WHERE chat_id = ? AND user_id = ? LIMIT 1',
+      [chatId, req.userId],
+    )
+    if (!participant) return res.status(403).json({ message: 'Not a participant of this chat' })
+
+    const guestsCount = Math.min(Math.max(Number(guests) || 2, 1), 20)
+    const card = {
+      type: 'restaurant_shared',
+      restaurant: offer.title,
+      partner_name: offer.partner_name,
+      date: date || null,
+      time: time || null,
+      guests: guestsCount,
+      message: bookMsg || null,
+      city: offer.city,
+    }
+
+    try {
+      const ws = getIO()
+      if (ws) {
+        ws.to(`chat:${chatId}`).emit('partner:restaurant_shared', {
+          chatId: Number(chatId),
+          senderId: req.userId,
+          card,
+        })
+      }
+    } catch {}
+
+    res.json({ shared: true })
+  } catch (err) {
+    logger.error('Partner booking share error:', err)
+    res.status(500).json({ message: 'Failed to share booking' })
   }
 })
 

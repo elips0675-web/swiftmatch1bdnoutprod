@@ -15,6 +15,10 @@ vi.mock('../logger.js', () => ({
   default: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }))
 
+vi.mock('../ws.js', () => ({
+  getIO: vi.fn(() => null),
+}))
+
 import pool from '../db.js'
 import partnersRoutes from '../routes/partners.js'
 import adminPartners from '../routes/admin/partners.js'
@@ -507,5 +511,61 @@ describe('POST /api/partners/order/webhook', () => {
       .send({})
     expect(res.status).toBe(200)
     expect(res.body.received).toBe(true)
+  })
+})
+
+describe('POST /api/partners/booking', () => {
+  it('requires auth', async () => {
+    const res = await request(userApp).post('/api/partners/booking').send({ offer_id: 1 })
+    expect(res.status).toBe(401)
+  })
+
+  it('rejects missing fields', async () => {
+    const res = await request(userApp)
+      .post('/api/partners/booking')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .send({ offer_id: 1 })
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects non-restaurant offer', async () => {
+    pool.query.mockResolvedValueOnce([[], []])
+    const res = await request(userApp)
+      .post('/api/partners/booking')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .send({ offer_id: 1, date: '2026-09-01', time: '19:00' })
+    expect(res.status).toBe(404)
+  })
+
+  it('creates booking and returns data', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ id: 3, partner_id: 3, title: 'Ресторан', deeplink: 'https://restoclub.ru/123', city: 'Москва', lat: 55.7, lng: 37.6, partner_name: 'Restoclub', commission_rate: 12, partner_status: 'active' }], []])
+      .mockResolvedValueOnce([{ insertId: 50 }, []])
+
+    const res = await request(userApp)
+      .post('/api/partners/booking')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .send({ offer_id: 3, date: '2026-09-01', time: '19:00', guests: 2 })
+
+    expect(res.status).toBe(201)
+    expect(res.body.conversion_id).toBe(50)
+    expect(res.body.date).toBe('2026-09-01')
+    expect(res.body.guests).toBe(2)
+    expect(res.body.deeplink).toContain('date=')
+  })
+})
+
+describe('POST /api/partners/booking/share', () => {
+  it('requires auth', async () => {
+    const res = await request(userApp).post('/api/partners/booking/share').send({ chat_id: 1, offer_id: 1 })
+    expect(res.status).toBe(401)
+  })
+
+  it('rejects invalid chat_id', async () => {
+    const res = await request(userApp)
+      .post('/api/partners/booking/share')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .send({ chat_id: 'abc', offer_id: 1 })
+    expect(res.status).toBe(400)
   })
 })
