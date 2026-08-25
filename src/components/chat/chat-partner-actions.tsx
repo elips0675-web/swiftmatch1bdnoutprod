@@ -39,12 +39,20 @@ export function ChatPartnerActions({ placement = "chat" }: { placement?: string 
 
   const handleAction = async (offer: PartnerOffer) => {
     setPendingId(offer.id);
+    let coords: { lat?: number; lng?: number } = {};
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        if (!navigator.geolocation) return reject(new Error("no geo"));
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
+      });
+      coords = { lat: Number(pos.coords.latitude.toFixed(6)), lng: Number(pos.coords.longitude.toFixed(6)) };
+    } catch {}
     try {
       const token = getToken();
       const res = await fetch("/api/partners/track", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ offer_id: offer.id }),
+        body: JSON.stringify({ offer_id: offer.id, ...coords }),
       });
       if (!res.ok) throw new Error("track failed");
       const { deeplink } = await res.json();

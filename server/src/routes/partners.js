@@ -87,14 +87,14 @@ router.get('/api/partners/offers', auth, async (req, res) => {
  *       404: { description: Offer not found or paused }
  */
 router.post('/api/partners/track', auth, async (req, res) => {
-  const { offer_id: offerId, conversion_type: conversionType } = req.body || {}
+  const { offer_id: offerId, conversion_type: conversionType, lat, lng, city } = req.body || {}
   const type = ['click', 'booking', 'purchase', 'lead'].includes(conversionType) ? conversionType : 'click'
   if (!offerId || !/^\d+$/.test(String(offerId))) {
     return res.status(400).json({ message: 'offer_id is required' })
   }
   try {
     const [[offer]] = await pool.query(
-      `SELECT o.id, o.partner_id, o.deeplink
+      `SELECT o.id, o.partner_id, o.deeplink, o.city AS offer_city, o.lat AS offer_lat, o.lng AS offer_lng
        FROM partner_offers o JOIN partners p ON p.id = o.partner_id
        WHERE o.id = ? AND o.status = 'active' AND p.status = 'active'
        LIMIT 1`,
@@ -110,37 +110,113 @@ router.post('/api/partners/track', auth, async (req, res) => {
 
     const [[user]] = await pool.query('SELECT referral_code FROM users WHERE id = ? LIMIT 1', [req.userId])
     const ref = user && user.referral_code ? user.referral_code : ''
-    const sep = offer.deeplink.includes('?') ? '&' : '?'
-    let deeplink = `${offer.deeplink}${sep}utm_source=swiftmatch&ref=${encodeURIComponent(ref)}`
-
-    // Подстановка плейсхолдеров {lat}/{to_lat}/{lng}/{city} из контекста запроса
-    const body = req.body || {}
+    // {lat}/{lng} — точка юзера (body или query); {to_lat}/{to_lng} — место оффера, иначе точка юзера;
+    // {city} — город оффера или юзера. Неизвестные и незаполненные плейсхолдеры сохраняются как есть.
     const query = req.query || {}
-    const ctxLat = body.lat ?? query.lat
-    const ctxLng = body.lng ?? query.lng
-    const ctxCity = body.city ?? query.city
-    const numOrEmpty = (v) =>
+    const ctxLat = lat ?? query.lat
+    const ctxLng = lng ?? query.lng
+    const numOrNull = (v) =>
       v !== undefined && v !== null && String(v).trim() !== '' && !Number.isNaN(Number(v))
         ? encodeURIComponent(String(v))
         : null
-    const replacements = {
-      '{lat}': numOrEmpty(ctxLat),
-      '{to_lat}': numOrEmpty(ctxLat),
-      '{lng}': numOrEmpty(ctxLng),
-      '{to_lng}': numOrEmpty(ctxLng),
-      '{city}':
-        ctxCity !== undefined && ctxCity !== null && String(ctxCity).trim() !== ''
-          ? encodeURIComponent(String(ctxCity).trim())
+    const placeholders = {
+      lat: numOrNull(ctxLat),
+      lng: numOrNull(ctxLng),
+      to_lat:
+        offer.offer_lat !== null && offer.offer_lat !== undefined
+          ? encodeURIComponent(String(offer.offer_lat))
+          : numOrNull(ctxLat ?? ''),
+      to_lng:
+        offer.offer_lng !== null && offer.offer_lng !== undefined
+          ? encodeURIComponent(String(offer.offer_lng))
+          : numOrNull(ctxLng ?? ''),
+      city:
+        (city || query.city) && String(city || query.city).trim() !== ''
+          ? encodeURIComponent(String(city || query.city).trim())
           : null,
     }
-    for (const [placeholder, value] of Object.entries(replacements)) {
-      if (value !== null) deeplink = deeplink.split(placeholder).join(value)
-    }
-
+    let deeplink = String(offer.deeplink).replace(/\{(\w+)\}/g, (match, key) =>
+      Object.prototype.hasOwnProperty.call(placeholders, key) && placeholders[key] !== null
+        ? placeholders[key]
+        : match,
+    )
+    deeplink += `${deeplink.includes('?') ? '&' : '?'}utm_source=swiftmatch&ref=${encodeURIComponent(ref)}`
     res.json({ deeplink })
   } catch (err) {
     logger.error('Partner track error:', err)
     res.status(500).json({ message: 'Failed to track partner action' })
+  }
+})
+
+/**
+ * @openapi
+ * /api/partners/postback/{id}:
+ *   post:
+ *     tags: [Partners]
+ *     summary: S2S postback from a partner (server-to-server conversion)
+ *     description: Auth via affiliate_token in "token" field, query param or Authorization header. Idempotent by external_order_id.
+ *     responses:
+ *       200: { description: "{ id, commission }" }
+ *       401: { description: Invalid token }
+ *       404: { description: Partner not found or paused }
+ */
+router.post('/api/partners/postback/:id', async (req, res) => {
+  const { id } = req.params
+  if (!/^\d+$/.test(id)) return res.status(400).json({ message: 'Invalid id' })
+  const body = req.body || {}
+  const token = body.token || req.query.token || (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  const { external_order_id: externalOrderId, offer_id: offerId } = body
+  const type = ['booking', 'purchase', 'lead'].includes(body.conversion_type) ? body.conversion_type : 'purchase'
+  const amount = Number(body.amount)
+
+  if (!externalOrderId || typeof externalOrderId !== 'string' || externalOrderId.length > 100) {
+    return res.status(400).json({ message: 'external_order_id is required' })
+  }
+  if (!Number.isFinite(amount) || amount < 0) {
+    return res.status(400).json({ message: 'Valid amount is required' })
+  }
+
+  try {
+    const [[partner]] = await pool.query(
+      `SELECT id, affiliate_token, commission_rate FROM partners
+       WHERE id = ? AND status = 'active' AND affiliate_token IS NOT NULL AND affiliate_token != ''
+       LIMIT 1`,
+      [id],
+    )
+    if (!partner || !token || token !== partner.affiliate_token) {
+      return res.status(401).json({ message: 'Unauthorized' })
+    }
+
+    const [[dup]] = await pool.query(
+      `SELECT id FROM partner_conversions WHERE external_order_id = ? LIMIT 1`,
+      [externalOrderId],
+    )
+    if (dup) {
+      return res.json({ id: dup.id, duplicate: true })
+    }
+
+    let offerIdResolved = null
+    if (offerId && /^\d+$/.test(String(offerId))) {
+      const [[offer]] = await pool.query(
+        'SELECT id FROM partner_offers WHERE id = ? AND partner_id = ? LIMIT 1',
+        [offerId, partner.id],
+      )
+      offerIdResolved = offer ? offer.id : null
+    }
+
+    const commission = Math.round(amount * Number(partner.commission_rate)) / 100
+    const [result] = await pool.query(
+      `INSERT INTO partner_conversions
+         (partner_id, offer_id, user_id, conversion_type, external_order_id, amount, commission, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'approved')
+       ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)`,
+      [partner.id, offerIdResolved, body.user_id && /^\d+$/.test(String(body.user_id)) ? Number(body.user_id) : null,
+       type, externalOrderId, amount, commission],
+    )
+    res.json({ id: result.insertId, commission })
+  } catch (err) {
+    logger.error('Partner postback error:', err)
+    res.status(500).json({ message: 'Failed to process postback' })
   }
 })
 

@@ -1376,6 +1376,7 @@ const translations = {
     'admin.partners.offers_list': 'Офферы партнёров',
     'admin.partners.clicks': 'Клики',
     'admin.partners.conversions': 'Конверсии',
+    'admin.partners.conversions_list': 'История конверсий',
     'admin.partners.pause': 'Пауза',
     'admin.partners.activate': 'Включить',
   },
@@ -2748,6 +2749,7 @@ const translations = {
     'admin.partners.offers_list': 'Partner offers',
     'admin.partners.clicks': 'Clicks',
     'admin.partners.conversions': 'Conversions',
+    'admin.partners.conversions_list': 'Conversion history',
     'admin.partners.pause': 'Pause',
     'admin.partners.activate': 'Activate',
   }

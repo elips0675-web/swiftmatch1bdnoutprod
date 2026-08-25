@@ -39,6 +39,22 @@ interface AdminOffer {
   clicks_total: number;
 }
 
+interface AdminConversion {
+  id: number;
+  partner_id: number;
+  partner_name: string;
+  offer_id: number | null;
+  offer_title: string | null;
+  user_id: number | null;
+  user_email: string | null;
+  conversion_type: string;
+  external_order_id: string | null;
+  amount: number | null;
+  commission: number | null;
+  status: string;
+  created_at: string;
+}
+
 const OFFER_CATEGORIES = ['cinema', 'restaurant', 'flowers', 'taxi', 'hotel', 'spa', 'photo', 'gift', 'event', 'experience'];
 const PLACEMENT_OPTIONS = ['chat', 'hangout', 'profile', 'passport'];
 
@@ -46,6 +62,7 @@ export default function AdminPartnersPage() {
   const { t } = useLanguage();
   const [partners, setPartners] = useState<AdminPartner[]>([]);
   const [offers, setOffers] = useState<AdminOffer[]>([]);
+  const [conversions, setConversions] = useState<AdminConversion[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -59,14 +76,17 @@ export default function AdminPartnersPage() {
     try {
       const token = getToken();
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const [pRes, oRes] = await Promise.all([
+      const [pRes, oRes, cRes] = await Promise.all([
         fetch('/api/admin/partners', { headers }),
         fetch('/api/admin/offers', { headers }),
+        fetch('/api/admin/conversions', { headers }),
       ]);
       const pData = pRes.ok ? await pRes.json() : [];
       const oData = oRes.ok ? await oRes.json() : [];
+      const cData = cRes.ok ? await cRes.json() : [];
       setPartners(Array.isArray(pData) ? pData : []);
       setOffers(Array.isArray(oData) ? oData : []);
+      setConversions(Array.isArray(cData) ? cData : []);
     } catch {
       toast.error(t('error.generic_title'));
       setPartners([]);
@@ -255,6 +275,42 @@ export default function AdminPartnersPage() {
                           </Button>
                         )}
                       </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-tight mb-2">{t('admin.partners.conversions_list')}</h3>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-14">ID</TableHead>
+                    <TableHead>{t('admin.partners.name')}</TableHead>
+                    <TableHead>{t('hangout.form.title')}</TableHead>
+                    <TableHead className="w-24">Type</TableHead>
+                    <TableHead className="w-28">External ID</TableHead>
+                    <TableHead className="w-20">Amount</TableHead>
+                    <TableHead className="w-20">Commission</TableHead>
+                    <TableHead className="w-20">Status</TableHead>
+                    <TableHead className="w-36">Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {conversions.length === 0 ? (
+                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">—</TableCell></TableRow>
+                  ) : conversions.map((c) => (
+                    <TableRow key={c.id} data-testid={`admin-conversion-${c.id}`}>
+                      <TableCell className="font-mono text-xs">{c.id}</TableCell>
+                      <TableCell className="text-sm truncate max-w-[120px]">{c.partner_name}</TableCell>
+                      <TableCell className="text-sm truncate max-w-[180px]">{c.offer_title ?? '—'}</TableCell>
+                      <TableCell><Badge variant="outline" className="text-[10px]">{c.conversion_type}</Badge></TableCell>
+                      <TableCell className="font-mono text-[10px] text-muted-foreground truncate max-w-[140px]">{c.external_order_id ?? '—'}</TableCell>
+                      <TableCell className="text-sm font-medium">{c.amount != null ? `$${Number(c.amount).toFixed(2)}` : '—'}</TableCell>
+                      <TableCell className="text-sm font-bold text-green-700">{c.commission != null ? `$${Number(c.commission).toFixed(2)}` : '—'}</TableCell>
+                      <TableCell><Badge variant={c.status === 'approved' ? 'default' : 'secondary'} className="text-[10px]">{c.status}</Badge></TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground whitespace-nowrap">{new Date(c.created_at).toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -275,7 +275,21 @@
 | Тесты: сервер +4 (лимит free/premium, обновлены create-моки), фронт +6 (hangout-edit 4, дата-чипсы и load-more 2); заодно закрыты 2 старых lint-ошибки пустых catch в hangout-create.tsx | server 250/250, front 74/74 |
 | Живая проверка localhost:3002: login → create 201 → create 403 HANGOUT_DAILY_LIMIT → track подставил lat/lng/city + ref; тестовые записи удалены | Temp/opencode/verify-stage48.mjs |
 
-Счётчики после этапа 48: server 250/250, front 74/74, E2E 55/55 = **379/379**
+Счётчики после этапа 48 (remote): server 250/250, front 74/74, E2E 55/55 = **379/379**
+
+### Этап 48б (25.08.2026): postback, плейсхолдеры координат, конверсии в админке — ЗАКРЫТО
+
+| Что | Чем закрыто |
+|---|---|
+| Миграция 033: external_order_id UNIQUE + nullable user_id в partner_conversions; partner_offer_id + FK в hangouts | 033_partner_postback.sql ×2 exit 0 |
+| Deeplink-плейсхолдеры: {lat}/{lng} — юзер, {to_lat}/{to_lng} — offer (фолбэк → юзер), {city} — offer || юзер;未知 — сохраняются; URL-encoded | partners.js track |
+| S2S postback: POST /api/partners/postback/:id, affiliate_token auth, commission = amount × rate / 100, идемпотентность через external_order_id | partners.js postback |
+| hangouts partner_offer_id: POST принимает, INSERT + FK; hangout-create.tsx передаёт offer.id при выборе из афиши | hangouts.js + hangout-create.tsx |
+| Админка конверсий: GET /conversions (JOIN partners+offers+users, LIMIT 100), UI-таблица в admin-partners.tsx, i18n conversions_list RU/EN | admin/partners.js + admin-partners.tsx |
+| Фронт координаты в track: Geolocation.getCurrentPosition → lat/lng в body | chat-partner-actions.tsx |
+| Тесты: +14 в partners.test.js (плейсхолдеры, postback auth/commission/idempotent, admin conversions), mockReset() вместо clearAllMocks(); сервер 269/269 | partners.test.js 27 тестов |
+
+Счётчики после этапа 48б: server 269/269, front 74/74, E2E 55/55 = **398/398**
 
 ### Хотфикс (24.08.2026): /admin/content «ошибка сохранения» при живой сессии
 
@@ -302,9 +316,9 @@
 Счётчики после этапа 47: server 246/246, front 68/68, E2E 55/55 = **369/369**
 
 ### Хвосты партнёрки Wave 1 (не блокируют)
-- [x] Подстановка плейсхолдеров {lat}/{to_lat}/{lng}/{city} в deeplink'ах при track (этап 48)
-- [ ] S2S postback от партнёров для booking/purchase (сейчас пишутся только click/lead)
-- [ ] partner_offer_id в hangouts (связь встречи с оффером афиши)
+- [x] Подстановка плейсхолдеров {lat}/{to_lat}/{lng}/{city} в deeplink'ах при track (этап 48remote + 48б)
+- [x] S2S postback от партнёров для booking/purchase (этап 48б)
+- [x] partner_offer_id в hangouts (связь встречи с оффером афиши) (этап 48б)
 
 ### Волны 2–4 (следующие, по Mesta.txt)
 - [ ] Wave 2: рестораны/цветы — Stripe + webhook партнёра, первая реальная комиссия

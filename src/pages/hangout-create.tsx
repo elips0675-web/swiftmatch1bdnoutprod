@@ -58,6 +58,7 @@ export default function HangoutCreatePage() {
   const [listingsOpen, setListingsOpen] = useState(false);
   const [listings, setListings] = useState<Array<{ id: number; category: string; title: string; description?: string; partner_name: string }>>([]);
   const [listingsLoading, setListingsLoading] = useState(false);
+  const [selectedOfferId, setSelectedOfferId] = useState<number | null>(null);
 
   const openListings = async () => {
     setListingsOpen(true);
@@ -127,6 +128,7 @@ export default function HangoutCreatePage() {
           lng,
           event_date: new Date(eventDate).toISOString(),
           max_companions: maxCompanions,
+          partner_offer_id: selectedOfferId ?? undefined,
         }),
       });
       if (!res.ok) {

@@ -103,6 +103,38 @@ router.put('/partners/:id', async (req, res) => {
 
 /**
  * @openapi
+ * /api/admin/conversions:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Latest partner conversions (filter by partner_id)
+ */
+router.get('/conversions', async (req, res) => {
+  try {
+    const { partner_id: partnerId } = req.query
+    const where = Number(partnerId) > 0 ? 'WHERE c.partner_id = ?' : ''
+    const params = Number(partnerId) > 0 ? [Number(partnerId)] : []
+    const [rows] = await pool.query(
+      `SELECT c.id, c.partner_id, p.name AS partner_name, c.offer_id, o.title AS offer_title,
+              c.user_id, u.email AS user_email, c.conversion_type, c.external_order_id,
+              c.amount, c.commission, c.status, c.created_at
+       FROM partner_conversions c
+       JOIN partners p ON p.id = c.partner_id
+       LEFT JOIN partner_offers o ON o.id = c.offer_id
+       LEFT JOIN users u ON u.id = c.user_id
+       ${where}
+       ORDER BY c.created_at DESC
+       LIMIT 100`,
+      params,
+    )
+    res.json(rows)
+  } catch (err) {
+    logger.error('Admin conversions list error:', err)
+    res.json([])
+  }
+})
+
+/**
+ * @openapi
  * /api/admin/offers:
  *   get:
  *     tags: [Admin]

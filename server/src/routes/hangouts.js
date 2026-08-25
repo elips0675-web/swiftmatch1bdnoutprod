@@ -230,7 +230,7 @@ router.get('/api/hangouts/:id', optionalAuth, async (req, res) => {
 
 // ─── Create ────────────────────────────────────────────────────
 router.post('/api/hangouts', auth, createLimiter, async (req, res) => {
-  const { category, title, description, place_name, place_address, city, lat, lng, event_date, max_companions } = req.body
+  const { category, title, description, place_name, place_address, city, lat, lng, event_date, max_companions, partner_offer_id } = req.body
   if (!category || !title || !event_date) {
     return res.status(400).json({ message: 'category, title and event_date are required' })
   }
@@ -277,8 +277,8 @@ router.post('/api/hangouts', auth, createLimiter, async (req, res) => {
     }
 
     const [result] = await pool.query(
-      `INSERT INTO hangouts (user_id, category, title, description, place_name, place_address, city, lat, lng, event_date, max_companions)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO hangouts (user_id, category, title, description, place_name, place_address, city, lat, lng, event_date, max_companions, partner_offer_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.userId,
         category,
@@ -291,6 +291,7 @@ router.post('/api/hangouts', auth, createLimiter, async (req, res) => {
         parsedLng,
         eventDate,
         companions,
+        partner_offer_id && /^\d+$/.test(String(partner_offer_id)) ? Number(partner_offer_id) : null,
       ],
     )
 

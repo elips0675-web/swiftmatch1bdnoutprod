@@ -36,7 +36,7 @@ function authToken(userId = 1) {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  pool.query.mockReset()
 })
 
 describe('GET /api/partners/offers', () => {
@@ -162,6 +162,118 @@ describe('POST /api/partners/track', () => {
     expect(res.status).toBe(200)
     expect(res.body.deeplink).toBe('https://taxi.ru/order?from={lat},{lng}&utm_source=swiftmatch&ref=')
   })
+
+  it('uses offer lat/lng for {to_lat}/{to_lng} when available', async () => {
+    pool.query
+      .mockResolvedValueOnce([
+        [{ id: 7, partner_id: 1, deeplink: 'https://taxi.ru/order?to={to_lat},{to_lng}', offer_lat: 55.75, offer_lng: 37.62 }],
+        [],
+      ])
+      .mockResolvedValueOnce([{ insertId: 46 }, []])
+      .mockResolvedValueOnce([[{ referral_code: 'REF7' }], []])
+
+    const res = await request(userApp)
+      .post('/api/partners/track')
+      .set('Authorization', `Bearer ${authToken(7)}`)
+      .send({ offer_id: 7, lat: '59.93', lng: '30.33' })
+
+    expect(res.status).toBe(200)
+    expect(res.body.deeplink).toBe(
+      `https://taxi.ru/order?to=55.75,37.62&utm_source=swiftmatch&ref=REF7`,
+    )
+  })
+})
+
+describe('POST /api/partners/postback/:id', () => {
+  const AFFILIATE_TOKEN = 'tok_abc123'
+
+  it('rejects invalid id', async () => {
+    const res = await request(userApp)
+      .post('/api/partners/postback/abc')
+      .send({ external_order_id: 'ext1', amount: 100 })
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects missing external_order_id', async () => {
+    pool.query.mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, commission_rate: 8 }], []])
+    const res = await request(userApp)
+      .post('/api/partners/postback/1')
+      .send({ token: AFFILIATE_TOKEN, amount: 100 })
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects invalid amount', async () => {
+    pool.query.mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, commission_rate: 8 }], []])
+    const res = await request(userApp)
+      .post('/api/partners/postback/1')
+      .send({ token: AFFILIATE_TOKEN, external_order_id: 'ext1', amount: -1 })
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects wrong token', async () => {
+    pool.query.mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, commission_rate: 8 }], []])
+    const res = await request(userApp)
+      .post('/api/partners/postback/1')
+      .send({ token: 'wrong', external_order_id: 'ext1', amount: 100 })
+    expect(res.status).toBe(401)
+  })
+
+  it('rejects partner not found or paused', async () => {
+    pool.query.mockResolvedValueOnce([[], []])
+    const res = await request(userApp)
+      .post('/api/partners/postback/99')
+      .send({ token: AFFILIATE_TOKEN, external_order_id: 'ext1', amount: 100 })
+    expect(res.status).toBe(401)
+  })
+
+  it('creates conversion with commission and returns id + commission', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, commission_rate: 8 }], []])
+      .mockResolvedValueOnce([[], []])
+      .mockResolvedValueOnce([{ insertId: 101 }, []])
+
+    const res = await request(userApp)
+      .post('/api/partners/postback/1')
+      .send({ token: AFFILIATE_TOKEN, external_order_id: 'order_42', amount: 5000, conversion_type: 'purchase' })
+
+    expect(res.status).toBe(200)
+    expect(res.body.id).toBe(101)
+    expect(res.body.commission).toBe(400)
+
+    const insertCall = pool.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO partner_conversions'))
+    expect(insertCall[0]).toContain("'approved'")
+    expect(insertCall[1]).toContain('order_42')
+    expect(insertCall[1]).toContain(5000)
+  })
+
+  it('returns duplicate response when external_order_id already exists', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, commission_rate: 8 }], []])
+      .mockResolvedValueOnce([[{ id: 77 }], []])
+
+    const res = await request(userApp)
+      .post('/api/partners/postback/1')
+      .send({ token: AFFILIATE_TOKEN, external_order_id: 'order_42', amount: 5000 })
+
+    expect(res.status).toBe(200)
+    expect(res.body.id).toBe(77)
+    expect(res.body.duplicate).toBe(true)
+  })
+
+  it('accepts token via Authorization header', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, commission_rate: 10 }], []])
+      .mockResolvedValueOnce([[], []])
+      .mockResolvedValueOnce([{ insertId: 200 }, []])
+
+    const res = await request(userApp)
+      .post('/api/partners/postback/1')
+      .set('Authorization', `Bearer ${AFFILIATE_TOKEN}`)
+      .send({ external_order_id: 'ext_hdr', amount: 1000 })
+
+    expect(res.status).toBe(200)
+    expect(res.body.commission).toBe(100)
+  })
 })
 
 describe('Admin partners CRUD', () => {
@@ -184,6 +296,28 @@ describe('Admin partners CRUD', () => {
       .send({ name: 'New Partner', type: 'deeplink' })
     expect(res.status).toBe(201)
     expect(res.body.id).toBe(11)
+  })
+
+  it('GET /conversions returns array', async () => {
+    pool.query.mockResolvedValueOnce([[{ id: 1, partner_name: 'Test', commission: 10 }], []])
+    const res = await request(adminApp).get('/conversions')
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body)).toBe(true)
+  })
+
+  it('GET /conversions filters by partner_id', async () => {
+    pool.query.mockResolvedValueOnce([[], []])
+    await request(adminApp).get('/conversions?partner_id=3')
+    const [sql, params] = pool.query.mock.calls[0]
+    expect(sql).toContain('c.partner_id = ?')
+    expect(params).toContain(3)
+  })
+
+  it('GET /conversions returns [] on DB error', async () => {
+    pool.query.mockRejectedValueOnce(new Error('db down'))
+    const res = await request(adminApp).get('/conversions')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual([])
   })
 
   it('PUT rejects invalid status', async () => {

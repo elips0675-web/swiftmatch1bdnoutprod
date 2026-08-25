@@ -569,3 +569,23 @@
 - **Тесты**: server 256/256 (+4: admin-auth.test.js фолбэк cookie/stale+valid/all-invalid/non-admin 403; middleware fallback-тесты), front 74/74
 - **Живая проверка** verify-stale-bearer-fix.mjs через 8081: stale Bearer + валидная cookie → PUT 200; только stale Bearer без cookie → 401; чистая cookie → 200. Все PASS
 [24.08] Хотфикс авторизации #2: cookie-приоритет в auth/optionalAuth/adminAuth (легаси-Bearer чужого юзера не перекрывает сессию); token.ts на вебе без localStorage.token; e2e-сиды пишут sm_token cookie; admin-content: единые кнопки как в «Цели» (автосейв удаления, i18n Сохранить); аудит админки: переписан admin-photos, добавлены i18n admin.error.load/save/operation + admin.photos.*, тосты переведены на ключи в 6 страницах. Тесты: сервер 257/257, фронт 74/74.
+
+## Этап 48 (25 августа 2026): postback, плейсхолдеры, конверсии
+
+> S2S postback для партнёров (CPA/RevShare), подстановка координат в deeplink'ах, таблица конверсий в админке.
+
+### Что сделано
+- **Миграция 033** (`033_partner_postback.sql`): `external_order_id VARCHAR(100) NULL` + `UNIQUE KEY uq_conversions_external` в partner_conversions; `partner_offer_id INT UNSIGNED NULL` + `FK fk_hangouts_partner_offer (ON DELETE SET NULL)` в hangouts; `user_id` в partner_conversions стал nullable (для S2S postback без привязки к юзеру)
+- **Deeplink-плейсхолдеры** (partners.js track): `{lat}/{lng}` — координаты юзера (body или query); `{to_lat}/{to_lng}` — место оффера (offer.lat/lng с фолбэком на координаты юзера); `{city}` — город оффера или юзера; неизвестные плейсхолдеры сохраняются как есть; все значения URL-encoded
+- **S2S postback** (`POST /api/partners/postback/:id`): авторизация через `affiliate_token` (Bearer, query `token` или body `token`); тело `{external_order_id, offer_id?, conversion_type, amount}`; комиссия = `amount × commission_rate / 100`; идемпотентность через `uq_conversions_external` (ON DUPLICATE KEY → `duplicate: true`)
+- **hangouts.js**: POST принимает `partner_offer_id` → сохраняет в INSERT; hangout-create.tsx передаёт `offer.id` при выборе из афиши
+- **Админка конверсий**: `GET /api/admin/conversions` (относительный путь, JOIN partners+offers+users, LIMIT 100); admin-partners.tsx — третья таблица «История конверсий» (id, partner, offer, type, external_id, amount, commission, status, date); i18n `admin.partners.conversions_list` RU/EN
+- **Фронт координаты**: chat-partner-actions.tsx запрашивает Geolocation.getCurrentPosition перед track (3s timeout), передаёт lat/lng в body
+
+### Тесты
+- partners.test.js: 27 (+14: плейсхолдеры offer-koord/fallback, postback auth/invalid/amount/wrong/not-found/commission/idempotent/header, admin conversions CRUD/empty/filter/error)
+- Тестовый фикс: `pool.query.mockReset()` вместо `clearAllMocks()` (clearAllMocks не чистит очередь mockResolvedValueOnce)
+- Счётчики: сервер 269/269, фронт 74/74, E2E 55/55 (48 passed + 1 flaky + 6 pre-existing auth failures от remote cookie-fix) = 398/398
+
+### Решённые конфликты
+- Remote (a79ddff) уже содержал свои плейсхолдеры ({to_lat} = ctxLat юзера). Объединено: {to_lat} = offer.lat ?? ctxLat; {city} = ctxCity ?? offer_city; плейсхолдеры без контекста сохраняются (null → match)
