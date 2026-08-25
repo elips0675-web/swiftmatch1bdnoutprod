@@ -115,14 +115,20 @@ app.use('/api/premium/create-checkout', idempotency)
 
 // adminAuth импортируется из middleware/adminAuth.js (единый гейт, этап 38)
 
-// Dev route: auto-login as demo user (id=2, has chats in demo data)
+// Dev route: auto-login as first admin from DB (or fallback userId=2)
 app.post('/api/auth/dev-login', async (req, res) => {
   if (process.env.NODE_ENV === 'production') {
     return res.status(404).json({ message: 'Not found' })
   }
-  const token = jwt.sign({ userId: 2, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
+  let userId = 2
+  let role = 'user'
+  try {
+    const [[admin]] = await pool.query("SELECT id FROM users WHERE role = 'admin' AND is_active = 1 LIMIT 1")
+    if (admin) { userId = admin.id; role = 'admin' }
+  } catch { /* fallback to userId=2 */ }
+  const token = jwt.sign({ userId, role }, JWT_SECRET(), { expiresIn: '24h' })
   setAuthCookies(res, token)
-  res.json({ token, role: 'user' })
+  res.json({ token, role })
 })
 
 app.post('/api/auth/login', async (req, res) => {

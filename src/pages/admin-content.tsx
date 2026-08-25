@@ -153,8 +153,8 @@ export default function ContentManagementPage() {
       await saveSection(section, items)
       toast.success(t('admin.content.saved'))
     } catch (e) {
-      if ((e as { status?: number })?.status === 401) {
-        // Протухшая сессия/легаси-токен — чистим storage и отправляем на релогин
+      const status = (e as { status?: number })?.status
+      if (status === 401 || status === 403) {
         clearToken();
         toast.error(t('admin.session_expired'));
         navigate('/login');
