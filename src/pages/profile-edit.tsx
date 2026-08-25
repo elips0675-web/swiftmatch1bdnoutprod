@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "@/shims/next-navigation";
-import { Sparkles, User, MapPin, Info, Target, Loader as Loader2, Trash2, CloudUpload as UploadCloud } from "lucide-react";
+import { Sparkles, User, MapPin, Info, Target, Loader as Loader2, Trash2, CloudUpload as UploadCloud, AtSign, Star } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { generateProfileBio } from "@/shims/ai-flows";
 import { toast } from "@/hooks/use-toast";
+import { getToken } from "@/lib/token";
 import {
   Select,
   SelectContent,
@@ -134,6 +135,8 @@ export default function EditProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingBio, setIsGeneratingBio] = useState(false);
+  const [aliases, setAliases] = useState<{ id: number; alias: string; is_primary: boolean }[]>([]);
+  const [newAlias, setNewAlias] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -189,6 +192,65 @@ export default function EditProfilePage() {
       setIsLoading(false);
     })()
   }, [t]);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    fetch("/api/profile/aliases", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => { if (Array.isArray(data)) setAliases(data); })
+      .catch(() => {});
+  }, []);
+
+  const addAlias = async () => {
+    const trimmed = newAlias.trim();
+    if (!trimmed) return;
+    const token = getToken();
+    if (!token) return;
+    try {
+      const res = await fetch("/api/profile/aliases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ alias: trimmed }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        toast({ title: data.message || t("profile.alias_error"), variant: "destructive" });
+        return;
+      }
+      const created = await res.json();
+      setAliases((prev) => [...prev, created]);
+      setNewAlias("");
+      toast({ title: t("profile.alias_added") });
+    } catch {
+      toast({ title: t("profile.alias_error"), variant: "destructive" });
+    }
+  };
+
+  const deleteAlias = async (aliasId: number) => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      await fetch(`/api/profile/aliases/${aliasId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setAliases((prev) => prev.filter((a) => a.id !== aliasId));
+      toast({ title: t("profile.alias_deleted") });
+    } catch { /* ignored */ }
+  };
+
+  const setPrimary = async (aliasId: number) => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      await fetch(`/api/profile/aliases/${aliasId}/primary`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setAliases((prev) => prev.map((a) => ({ ...a, is_primary: a.id === aliasId })));
+    } catch { /* ignored */ }
+  };
 
   const handlePhotosChange = (newPhotos: string[]) => {
     setPhotos(newPhotos);
@@ -482,6 +544,61 @@ export default function EditProfilePage() {
                 </Badge>
               ))}
             </div>
+          </div>
+
+          {/* Aliases (псевдонимы) */}
+          <div className="space-y-3">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">{t('profile.aliases')}</Label>
+            <div className="flex flex-wrap gap-2">
+              {aliases.map((a) => (
+                <Badge
+                  key={a.id}
+                  variant={a.is_primary ? "default" : "secondary"}
+                  className={cn(
+                    "cursor-pointer px-3 py-1.5 rounded-lg transition-all border-0 font-bold text-[11px] uppercase tracking-tight shadow-sm",
+                    a.is_primary ? "gradient-bg text-white shadow-md" : "bg-muted text-muted-foreground hover:bg-border"
+                  )}
+                  onClick={() => setPrimary(a.id)}
+                  data-testid={`alias-${a.id}`}
+                >
+                  <AtSign size={10} className="mr-1 inline" />
+                  {a.alias}
+                  {a.is_primary && <Star size={10} className="ml-1 inline" fill="currentColor" />}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); deleteAlias(a.id); }}
+                    className="ml-1.5 opacity-60 hover:opacity-100"
+                    data-testid={`delete-alias-${a.id}`}
+                  >
+                    <Trash2 size={10} />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+            {aliases.length < 5 && (
+              <div className="flex gap-2">
+                <Input
+                  value={newAlias}
+                  onChange={(e) => setNewAlias(e.target.value)}
+                  placeholder={t('profile.alias_placeholder')}
+                  maxLength={50}
+                  className="h-9 text-xs rounded-lg"
+                  data-testid="new-alias-input"
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addAlias(); } }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg text-xs font-bold shrink-0"
+                  onClick={addAlias}
+                  disabled={!newAlias.trim()}
+                  data-testid="add-alias-button"
+                >
+                  {t('profile.alias_add')}
+                </Button>
+              </div>
+            )}
           </div>
 
         </div>

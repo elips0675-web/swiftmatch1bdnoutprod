@@ -28,6 +28,19 @@
 - **i18n** — 10 ключей RU/EN (`partner.spa.title/date/time/price/book/fill_required/error/shared/close`)
 - **Тесты**: 388/388 ✅, Vite build ✅
 
+## Этап 57: Псевдонимы (как в Telegram) (25.08.2026)
+
+- **Миграция 039** (`039_user_aliases.sql`): таблица `user_aliases` (user_id FK, alias VARCHAR(50), is_primary, UNIQUE user_id+alias)
+- **Backend** — 4 эндпоинта в `profile.js`:
+  - `GET /api/profile/aliases` — список алиасов текущего пользователя
+  - `POST /api/profile/aliases` — создание (2-50 символов, max 5, первый = primary, запрещённые символы)
+  - `PUT /api/profile/aliases/:id/primary` — назначить основным
+  - `DELETE /api/profile/aliases/:id` — удаление (при удалении primary → следующий по created_at)
+- **Frontend profile-edit.tsx** — секция «Псевдонимы»: бейджи алиасов (gradient-bg для primary), ввод нового + Enter/кнопка, удаление, выбор primary кликом
+- **Frontend profile.tsx** — алиасы отображаются под именем (маленькие бейджи с @ и звёздочка для primary)
+- **i18n** — 7 ключей RU/EN (`profile.aliases/alias_placeholder/alias_add/alias_added/alias_deleted/alias_error`)
+- **Тесты**: 388/388 ✅, Vite build ✅
+
 ## Этап 53: отели в passport-mode + Redis-кэш (25.08.2026)
 
 - **Отели — GET /api/partners/offers/hotel?city=**: Redis-кэш (TTL 1ч, ключ `partner:offers:hotel:{city}`) через `getCached`/`setCached` из `server/src/cache.js`; при отсутствии в кэше — выборка из БД (DISTINCT city, JOIN partner_offers+partners, placement=passport, active=1, valid_from/to, type=hotel); кэш сбрасывается при создании/обновлении hotel-офферов в админке (`invalidate('partner:offers:hotel:*')`)

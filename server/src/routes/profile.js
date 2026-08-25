@@ -316,4 +316,94 @@ router.put('/api/settings/privacy', auth, async (req, res) => {
   }
 })
 
+// ─── Aliases (псевдонимы) ────────────────────────────────────
+
+router.get('/api/profile/aliases', auth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, alias, is_primary, created_at FROM user_aliases WHERE user_id = ? ORDER BY is_primary DESC, created_at ASC',
+      [req.userId],
+    )
+    res.json(rows)
+  } catch (err) {
+    logger.error('Aliases GET error:', err)
+    res.status(500).json({ message: 'Failed to fetch aliases' })
+  }
+})
+
+router.post('/api/profile/aliases', auth, async (req, res) => {
+  const { alias } = req.body || {}
+  const trimmed = String(alias || '').trim()
+  if (!trimmed || trimmed.length < 2 || trimmed.length > 50) {
+    return res.status(400).json({ message: 'Alias must be 2-50 characters' })
+  }
+  if (/[<>"'`;\\]/.test(trimmed)) {
+    return res.status(400).json({ message: 'Alias contains forbidden characters' })
+  }
+  try {
+    const [[{ count }]] = await pool.query(
+      'SELECT COUNT(*) AS count FROM user_aliases WHERE user_id = ?',
+      [req.userId],
+    )
+    if (count >= 5) {
+      return res.status(400).json({ message: 'Maximum 5 aliases allowed' })
+    }
+    const isPrimary = count === 0 ? 1 : 0
+    const [result] = await pool.query(
+      'INSERT INTO user_aliases (user_id, alias, is_primary) VALUES (?, ?, ?)',
+      [req.userId, trimmed, isPrimary],
+    )
+    res.status(201).json({ id: result.insertId, alias: trimmed, is_primary: !!isPrimary })
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ message: 'Alias already exists' })
+    }
+    logger.error('Aliases POST error:', err)
+    res.status(500).json({ message: 'Failed to create alias' })
+  }
+})
+
+router.put('/api/profile/aliases/:aliasId/primary', auth, async (req, res) => {
+  const { aliasId } = req.params
+  if (!/^\d+$/.test(aliasId)) return res.status(400).json({ message: 'Invalid alias id' })
+  try {
+    await pool.query('UPDATE user_aliases SET is_primary = 0 WHERE user_id = ?', [req.userId])
+    const [result] = await pool.query(
+      'UPDATE user_aliases SET is_primary = 1 WHERE id = ? AND user_id = ?',
+      [aliasId, req.userId],
+    )
+    if (result.affectedRows === 0) return res.status(404).json({ message: 'Alias not found' })
+    res.json({ message: 'Primary alias updated' })
+  } catch (err) {
+    logger.error('Aliases PUT primary error:', err)
+    res.status(500).json({ message: 'Failed to update primary alias' })
+  }
+})
+
+router.delete('/api/profile/aliases/:aliasId', auth, async (req, res) => {
+  const { aliasId } = req.params
+  if (!/^\d+$/.test(aliasId)) return res.status(400).json({ message: 'Invalid alias id' })
+  try {
+    const [[alias]] = await pool.query(
+      'SELECT id, is_primary FROM user_aliases WHERE id = ? AND user_id = ?',
+      [aliasId, req.userId],
+    )
+    if (!alias) return res.status(404).json({ message: 'Alias not found' })
+    await pool.query('DELETE FROM user_aliases WHERE id = ?', [aliasId])
+    if (alias.is_primary) {
+      const [[first]] = await pool.query(
+        'SELECT id FROM user_aliases WHERE user_id = ? ORDER BY created_at ASC LIMIT 1',
+        [req.userId],
+      )
+      if (first) {
+        await pool.query('UPDATE user_aliases SET is_primary = 1 WHERE id = ?', [first.id])
+      }
+    }
+    res.json({ message: 'Alias deleted' })
+  } catch (err) {
+    logger.error('Aliases DELETE error:', err)
+    res.status(500).json({ message: 'Failed to delete alias' })
+  }
+})
+
 export default router
