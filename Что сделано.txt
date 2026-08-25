@@ -427,6 +427,8 @@
 | Migration 006 SELECT on nonexistent table | удалён несуществующий SELECT | ✅ Исправлен |
 | Server test script missing | "test": "vitest run" в package.json | ✅ Исправлен |
 | Missing @capacitor/push-notifications package | npm install в корень проекта | ✅ Исправлен |
+| Admin-content delete handlers вызывали handleSave внутри setState updater'а | handleSave вынесен наружу (5 хендлеров: interests, dating_goals, education, cities, banned_words) | ✅ Исправлен |
+| Admin content save 500 — MySQL was down | mysqld killed by Windows RADAR_PRE_LEAK_64; перезапуск mysqld.exe | ✅ Диагностика |
 | Missing @socket.io/redis-adapter package | npm install в server/ | ✅ Исправлен |
 
 ## Этап 2: Реализовано без внешних ключей
