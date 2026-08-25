@@ -329,3 +329,4 @@ UI: зелёный badge ≥80, жёлтый ≥50, красный <50; спис
 - **Этап 56:** Wave 3 часть 2 — миграция 038 (сид LoveSpa + FitBro, 4 оффера spa/experience), POST /api/partners/spa/book, SpaBookingDialog, интеграция в chat-partner-actions, 10 ключей i18n partner.spa.*, 388/388
 - **Этап 57:** Псевдонимы — миграция 039 (user_aliases), CRUD (GET/POST/PUT primary/DELETE), UI в profile-edit (бейджи + ввод + выбор primary), отображение в profile под именем, 7 ключей i18n, 388/388
 - **Этап 58:** B2B-маркетплейс — миграция 040 (partners user_id, partner_subscriptions, b2b flag), 8 эндпоинтов (register, dashboard, offers CRUD, conversions, subscribe), PartnerGuard, PartnerRegister, PartnerDashboard (4 вкладки), 80 ключей i18n, 388/388
+- **Этап 59:** Анти-кот верификация — миграция 041 (user_verifications + photo_verified), 4 эндпоинта (submit/status/admin approve), VerificationBadge + VerificationDialog, интеграция в profile, 17 ключей i18n, 388/388

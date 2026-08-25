@@ -69,4 +69,50 @@ router.get('/moderation-log', async (req, res) => {
   }
 })
 
+// ─── Photo verification (anti-cat) ────────────────────────────
+router.get('/verifications', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT v.id, v.user_id, v.photo_url, v.status, v.admin_note, v.created_at, v.reviewed_at,
+              u.email, up.display_name
+       FROM user_verifications v
+       LEFT JOIN users u ON u.id = v.user_id
+       LEFT JOIN user_profiles up ON up.id = v.user_id
+       WHERE v.status = 'pending'
+       ORDER BY v.created_at ASC LIMIT 50`,
+    )
+    res.json(rows)
+  } catch (err) {
+    logger.error('Verifications list error:', err)
+    res.status(500).json({ message: 'Failed to fetch verifications' })
+  }
+})
+
+router.put('/verifications/:id', async (req, res) => {
+  const { id } = req.params
+  const { status, admin_note } = req.body || {}
+  if (!/^\d+$/.test(id)) return res.status(400).json({ message: 'Invalid id' })
+  if (!['verified', 'rejected'].includes(status)) {
+    return res.status(400).json({ message: 'status must be verified or rejected' })
+  }
+  try {
+    const [result] = await pool.query(
+      'UPDATE user_verifications SET status = ?, admin_note = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?',
+      [status, admin_note || null, req.userId || null, id],
+    )
+    if (result.affectedRows === 0) return res.status(404).json({ message: 'Verification not found' })
+
+    if (status === 'verified') {
+      const [[sub]] = await pool.query('SELECT user_id FROM user_verifications WHERE id = ?', [id])
+      if (sub) {
+        await pool.query('UPDATE user_profiles SET photo_verified = 1 WHERE id = ?', [sub.user_id])
+      }
+    }
+    res.json({ message: `Verification ${status}` })
+  } catch (err) {
+    logger.error('Verifications update error:', err)
+    res.status(500).json({ message: 'Failed to update verification' })
+  }
+})
+
 export default router

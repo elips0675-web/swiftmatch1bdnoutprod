@@ -406,4 +406,40 @@ router.delete('/api/profile/aliases/:aliasId', auth, async (req, res) => {
   }
 })
 
+// ─── Photo verification (anti-cat) ────────────────────────────
+router.get('/api/profile/verification', auth, async (req, res) => {
+  try {
+    const [[profile]] = await pool.query('SELECT photo_verified FROM user_profiles WHERE id = ?', [req.userId])
+    const [submissions] = await pool.query(
+      'SELECT id, photo_url, status, created_at, reviewed_at FROM user_verifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 5',
+      [req.userId],
+    )
+    res.json({ verified: profile?.photo_verified || false, submissions })
+  } catch (err) {
+    logger.error('Verification GET error:', err)
+    res.status(500).json({ message: 'Failed to get verification status' })
+  }
+})
+
+router.post('/api/profile/verification', auth, async (req, res) => {
+  const { photo_url } = req.body || {}
+  if (!photo_url) return res.status(400).json({ message: 'photo_url is required' })
+  try {
+    const [[existing]] = await pool.query(
+      "SELECT id FROM user_verifications WHERE user_id = ? AND status = 'pending' LIMIT 1",
+      [req.userId],
+    )
+    if (existing) return res.status(409).json({ message: 'Verification already pending' })
+
+    const [result] = await pool.query(
+      'INSERT INTO user_verifications (user_id, photo_url) VALUES (?, ?)',
+      [req.userId, photo_url],
+    )
+    res.status(201).json({ id: result.insertId, status: 'pending' })
+  } catch (err) {
+    logger.error('Verification POST error:', err)
+    res.status(500).json({ message: 'Failed to submit verification' })
+  }
+})
+
 export default router

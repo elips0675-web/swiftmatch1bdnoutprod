@@ -41,6 +41,21 @@
 - **i18n** — 7 ключей RU/EN (`profile.aliases/alias_placeholder/alias_add/alias_added/alias_deleted/alias_error`)
 - **Тесты**: 388/388 ✅, Vite build ✅
 
+## Этап 59: Анти-кот верификация (25.08.2026)
+
+- **Миграция 041** (`041_user_verification.sql`): таблица `user_verifications` (user_id, photo_url, status pending/verified/rejected, admin_note, reviewed_by, reviewed_at), колонка `photo_verified` в `user_profiles`
+- **Backend** — 5 эндпоинтов:
+  - `GET /api/profile/verification` — статус + история заявок (только свои)
+  - `POST /api/profile/verification` — подача заявки (одна pending за раз, photo_url обязателен)
+  - `GET /api/admin/verifications` — список pending заявок (admin)
+  - `PUT /api/admin/verifications/:id` — approve/reject (при verified → photo_verified=1 в user_profiles)
+- **Frontend** — 2 компонента:
+  - `VerificationBadge` — зелёный бейдж «Верифицирован» с盾图标 (в profile.tsx рядом с именем)
+  - `VerificationDialog` — модалка: описание, ввод photo_url, кнопка отправки, история заявок
+  - `profile-edit.tsx` — кнопка «Верифицировать профиль» перед кнопкой сохранения
+- **i18n** — 17 ключей RU/EN (`verification.*`)
+- **Тесты**: 388/388 ✅, Vite build ✅
+
 ## Этап 58: Wave 4 — B2B-маркетплейс услуг (25.08.2026)
 
 - **Миграция 040** (`040_b2b_marketplace.sql`): расширение `partners` (user_id, description, logo_url, contact_email, contact_phone), таблица `partner_subscriptions` (tier basic/pro, status, stripe_session_id, expires_at), флаг `b2b_marketplace_enabled`

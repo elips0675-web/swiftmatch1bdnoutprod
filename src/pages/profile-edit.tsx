@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "@/shims/next-navigation";
-import { Sparkles, User, MapPin, Info, Target, Loader as Loader2, Trash2, CloudUpload as UploadCloud, AtSign, Star } from "lucide-react";
+import { Sparkles, User, MapPin, Info, Target, Loader as Loader2, Trash2, CloudUpload as UploadCloud, AtSign, Star, ShieldCheck } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import { useContentConfig } from "@/lib/useContentConfig";
 import { useLanguage } from "@/context/language-context";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { BANNED_WORDS } from "@/lib/constants";
+import { VerificationDialog } from "@/components/shared/verification";
 
 const INTEREST_KEY_TO_ID: Record<string, number> = {
   'interest.sport': 1, 'interest.music': 2, 'interest.movies': 3, 'interest.books': 4,
@@ -135,6 +136,7 @@ export default function EditProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingBio, setIsGeneratingBio] = useState(false);
+  const [showVerification, setShowVerification] = useState(false);
   const [aliases, setAliases] = useState<{ id: number; alias: string; is_primary: boolean }[]>([]);
   const [newAlias, setNewAlias] = useState("");
 
@@ -636,6 +638,10 @@ export default function EditProfilePage() {
               </div>
             )
           })()}
+          <Button variant="outline" className="w-full" onClick={() => setShowVerification(true)}>
+            <ShieldCheck size={16} className="mr-2" />{t('verification.verify_button')}
+          </Button>
+          <VerificationDialog open={showVerification} onClose={() => setShowVerification(false)} />
           <Button data-testid="save-profile" onClick={handleSave} disabled={isSaving} className="w-full h-14 rounded-2xl gradient-bg text-white font-black uppercase tracking-widest shadow-xl shadow-primary/30 border-0 hover:brightness-110 active:scale-95 transition-all">
             {isSaving ? <Loader2 className="animate-spin mr-2" /> : null}
             {t('profile.save_all')}
