@@ -2,6 +2,23 @@
 
 > Актуально на август 2026. Все тесты: **388/388** — сервер 307/307 ✅, фронт 81/81 ✅. Vite build: ✅. Lint: 0 errors.
 
+## Этап 54: Hangouts 2.0 — Date vs Company режимы (25.08.2026)
+
+- **Миграция 037** (`037_hangouts_v2.sql`): `ALTER TABLE hangouts ADD hangout_type ENUM('date','company') DEFAULT 'date'`; таблицы `hangout_likes` (liker_id→liked_id, UNIQUE для mutual like), `hangout_participants` (hangout_id + user_id + role organizer/member), `hangout_checkins` (hangout_id + user_id + lat/lng + geofence_verified), `hangout_reviews` (hangout_id + reviewer_id + rating 1–5 + comment + tags JSON)
+- **Backend — 6 новых эндпоинтов** в `hangouts.js`:
+  - `POST /api/hangouts/:id/like` — лайк встречи; при взаимном лайке → автоматический chat + уведомление `hangout_mutual_like`
+  - `POST /api/hangouts/:id/skip` — пропуск встречи
+  - `POST /api/hangouts/:id/join` — присоединиться (company mode); group chat создание; лимит participants
+  - `DELETE /api/hangouts/:id/join` — покинуть встречу (company mode)
+  - `POST /api/hangouts/:id/checkin` — чек-ин с геолокацией (lat/lng), серверная проверка расстояния (haversine, ≤ 500м от hangout lat/lng)
+  - `POST /api/hangouts/:id/review` — отзыв после встречи (rating 1–5, comment, tags JSON)
+- **Backend — обновлённые существующие**: feed с фильтром `type` (date/company/all), create с `hangout_type` в body, detail v2 (массивы likes/participants/checkins + my_like/my_participant)
+- **Rate limiters**: like 30/min, join 20/min, checkin 5/min, review 10/5min
+- **Frontend**: хедер-тоглл «Все / Свидания / Компания», бейджи Heart / UserPlus, карточки с like_count / participant_count; detail: date → like/skip, company → join/leave/checkin/participants; create — селектор типа hangout_type (date/company)
+- **i18n**: 26 ключей RU/EN (`hangout.type.date`, `hangout.type.company`, `hangout.action.like/skip/join/leave/checkin`, `hangout.toast.*`, `hangout.label.likes/participants/organizer`, `hangout.form.type*`)
+- **Тесты**: 388/388 ✅, Vite build ✅
+- Коммит: e70ee77 (feat, пуш на part)
+
 ## Этап 53: отели в passport-mode + Redis-кэш (25.08.2026)
 
 - **Отели — GET /api/partners/offers/hotel?city=**: Redis-кэш (TTL 1ч, ключ `partner:offers:hotel:{city}`) через `getCached`/`setCached` из `server/src/cache.js`; при отсутствии в кэше — выборка из БД (DISTINCT city, JOIN partner_offers+partners, placement=passport, active=1, valid_from/to, type=hotel); кэш сбрасывается при создании/обновлении hotel-офферов в админке (`invalidate('partner:offers:hotel:*')`)

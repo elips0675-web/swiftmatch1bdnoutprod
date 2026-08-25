@@ -25,7 +25,7 @@
 - CORS — `*` (для Capacitor)
 
 ---
-## Последние изменения (этапы 13–24, август 2026)
+## Последние изменения (этапы 13–54, август 2026)
 - **13** — `запуск-всего.bat` исправлен (пути C:\swiftmatch1bdnoutprod, порт API 3002, подъём MySQL); `.env.example` проверен байтами — UTF-8, в порядке (кракозябры = консоль CP866)
 - **14** — production-smoke зелёный (`NODE_ENV=production`): /health, auth, админка (401 анониму), features public, icebreakers → fallback БД
 - **15** — `scripts/check-keys.ps1` переписан в ASCII (PS 5.1 не читал UTF-8 без BOM, падал на «—»); REDIS_URL в .env реально задан — очереди работают
@@ -38,6 +38,7 @@
 - **23** — k6: починен дрейф контрактов (`/api/users/search`, `liked_user_id`, динамический chatId, креды user5@mail.ru); лайт-прогон 10 VU: p95 < 250 ms, 5–8 ms/запрос; полный ramp 100 VU — только staging (rate-limit'ы 600/мин глобальный + 30/мин лайки)
 - **24** — product analytics: воронка расширена — login_completed, register_completed, message_sent (+ttl), purchase_completed (+tier/duration/channel); retention/revenue-mix/registrations уже в админке; PostHog не нужен (self-hosted)
 - **25–26** — UI: кнопка «Открыть профиль» в поиске (variant_b) уменьшена до пилюли `h-9 px-8 rounded-full` и отцентрирована по высоте между рядом лайк-кнопок и BottomNav (`mt-8 mb-8` в зазоре `pb-24`)
+- **54** — Hangouts 2.0: миграция 037 (hangout_type ENUM date/company, таблицы hangout_likes/hangout_participants/hangout_checkins/hangouts_reviews); 6 новых эндпоинтов (like/skip/join/leave/checkin/review) с rate-limiter'ами; mutual like → auto-chat; чек-ин через haversine (≤ 500м); фронт — тоглл All/Date/Company в хедере, карточки с лайками/участниками, detail страница с context-aware actions; 26 ключей i18n; 388/388 ✅
 - Тесты после этапов 22–26: E2E 44/44 ✅, фронт 57/57 ✅, сервер 126/126 ✅, tsc ✅, build ✅, lint 0 errors
 
 ---

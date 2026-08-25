@@ -169,13 +169,18 @@ build: { target: 'es2020', minify: 'esbuild', chunkSizeWarningLimit: 600 }
 Загружаются из `GET /api/admin/features`:
 `videoCalls`, `aiIcebreakers`, `aiCompatibility`, `groupsPage`, `contest`, `showAds`, `autosearch`, `ttlMessages`, `dateScheduling`, `profileScore`, `hangoutsEnabled`, `partnerOffers`
 
-## Hangouts (Встречи)
+## Hangouts (Встречи) — v2 (Этап 54)
 
-- Таблицы: `hangouts` (author_id, category, title, event_date, location_text, max_companions, status), `hangout_responses`, `hangout_chats` (линк чата к встрече)
-- Роуты: `/api/hangouts` (GET лента, POST), `/:id` (GET/DELETE), `/:id/respond`, `/:id/responses/:rid` (PUT accept/decline — при accept создаётся чат + запись в hangout_chats + уведомления), `/by-chat/:chatId`
+- Таблицы: `hangouts` (author_id, category, title, event_date, location_text, max_companions, status, **hangout_type ENUM('date','company')**), `hangout_responses`, `hangout_chats`, **`hangout_likes`** (liker_id→liked_id, UNIQUE), **`hangout_participants`** (hangout_id, user_id, role), **`hangout_checkins`** (hangout_id, user_id, lat/lng, geofence_verified), **`hangout_reviews`** (hangout_id, reviewer_id, rating 1–5, comment, tags JSON)
+- Роуты: `/api/hangouts` (GET лента с фильтром type, POST с hangout_type), `/:id` (GET v2 — likes/participants/checkins + my_like/my_participant), `/:id/respond`, `/:id/responses/:rid` (PUT accept/decline), `/by-chat/:chatId`, **`/:id/like`**, **`/:id/skip`**, **`/:id/join`**, **`/:id/leave`**, **`/:id/checkin`**, **`/:id/review`**
+- **Mutual like**: при взаимном лайке → автоматический chat + уведомление `hangout_mutual_like`
+- **Company mode**: join/leave/create group chat; лимит participants
+- **Check-in**: haversine ≤ 500м от hangout lat/lng, rate-limiter 5/min
+- Rate limiters: like 30/min, join 20/min, checkin 5/min, review 10/5min
 - Категории: cinema/theater/exhibition/cafe/concert/sport/other (`src/lib/hangouts.ts`)
-- Страницы: `/hangouts`, `/hangouts/my`, `/hangouts/:id`; флаг `hangoutsEnabled`; баннер на Home
-- Уведомления: таблица `notifications` + GET /api/notifications; WS `notification:new`; типы hangout_response/accepted/declined/cancelled, invite, like
+- Страницы: `/hangouts` (тоглл All/Date/Company), `/hangouts/my`, `/hangouts/:id` (date → like/skip, company → join/leave/checkin/participants); флаг `hangoutsEnabled`; баннер на Home
+- Уведомления: таблица `notifications` + GET /api/notifications; WS `notification:new`; типы hangout_response/accepted/declined/cancelled, **hangout_mutual_like**, invite, like
+- **i18n**: 26 ключей RU/EN (`hangout.type.*`, `hangout.action.*`, `hangout.toast.*`, `hangout.label.*`, `hangout.form.type*`)
 
 ## Partners (Партнёрская экосистема, Wave 1 + 2)
 
@@ -319,3 +324,4 @@ UI: зелёный badge ≥80, жёлтый ≥50, красный <50; спис
 - **Этап 51:** POST /api/partners/booking + booking/share, restaurant-booking-dialog.tsx, WS partner:restaurant_shared, 6 новых тестов
 - **Этап 52:** админка выплат партнёрам (миграция 036 partner_payouts), GET/POST payouts, PUT approve/reject, GET stats/daily (30-дневная агрегация), UI с 5 вкладками, i18n (11 ключей RU/EN), 7 новых тестов
 - **Этап 53:** отели в passport-mode + Redis-кэш — GET /api/partners/offers/hotel?city= (Redis TTL 1ч), POST /api/partners/hotel/book, HotelBookingDialog, chat-partner-actions hotel→dialog, settings-privacy карусель отелей, 10 ключей i18n partner.hotel.*, 8 новых тестов (mock cache.js). Route ordering fix (hotel routes выше offers/:id). 388/388
+- **Этап 54:** Hangouts 2.0 — миграция 037 (hangout_type ENUM, hangout_likes/hangout_participants/hangout_checkins/hangout_reviews), 6 новых эндпоинтов (like/skip/join/leave/checkin/review) с rate-limiter'ами, mutual like → auto-chat, чек-ин haversine ≤ 500м, фронт toggle All/Date/Company + context-aware detail, 26 ключей i18n, 388/388
