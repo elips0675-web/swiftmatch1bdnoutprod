@@ -21,6 +21,7 @@ interface AdminPartner {
   name: string;
   type: string;
   commission_rate: string | number;
+  hmac_secret: string | null;
   status: 'active' | 'paused';
   offers_count: number;
   clicks_total: number;
@@ -205,6 +206,7 @@ export default function AdminPartnersPage() {
                   <TableHead>{t('admin.partners.name')}</TableHead>
                   <TableHead className="w-24">{t('admin.partners.type')}</TableHead>
                   <TableHead className="w-20">{t('admin.partners.rate')}</TableHead>
+                  <TableHead className="w-28">HMAC Secret</TableHead>
                   <TableHead className="w-20">{t('admin.partners.offers')}</TableHead>
                   <TableHead className="w-20">{t('admin.partners.clicks')}</TableHead>
                   <TableHead className="w-24">{t('admin.partners.conversions')}</TableHead>
@@ -213,13 +215,14 @@ export default function AdminPartnersPage() {
               </TableHeader>
               <TableBody>
                 {partners.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">—</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">—</TableCell></TableRow>
                 ) : partners.map((p) => (
                   <TableRow key={p.id} data-testid={`admin-partner-${p.id}`}>
                     <TableCell className="font-mono text-xs">{p.id}</TableCell>
                     <TableCell className="text-sm font-medium">{p.name}</TableCell>
                     <TableCell><Badge variant="outline" className="text-[10px]">{p.type}</Badge></TableCell>
                     <TableCell className="text-xs">{Number(p.commission_rate).toFixed(1)}%</TableCell>
+                    <TableCell className="font-mono text-[10px] text-muted-foreground truncate max-w-[120px]" title={p.hmac_secret ?? '—'}>{p.hmac_secret ? `${p.hmac_secret.slice(0, 8)}…` : '—'}</TableCell>
                     <TableCell className="text-sm">{p.offers_count}</TableCell>
                     <TableCell className="text-sm font-bold">{p.clicks_total}</TableCell>
                     <TableCell className="text-sm">{p.conversions_total}</TableCell>

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import crypto from 'crypto'
 import pool from '../db.js'
 import { auth } from '../middleware.js'
 import logger from '../logger.js'
@@ -164,7 +165,6 @@ router.post('/api/partners/postback/:id', async (req, res) => {
   const { id } = req.params
   if (!/^\d+$/.test(id)) return res.status(400).json({ message: 'Invalid id' })
   const body = req.body || {}
-  const token = body.token || req.query.token || (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   const { external_order_id: externalOrderId, offer_id: offerId } = body
   const type = ['booking', 'purchase', 'lead'].includes(body.conversion_type) ? body.conversion_type : 'purchase'
   const amount = Number(body.amount)
@@ -178,13 +178,27 @@ router.post('/api/partners/postback/:id', async (req, res) => {
 
   try {
     const [[partner]] = await pool.query(
-      `SELECT id, affiliate_token, commission_rate FROM partners
-       WHERE id = ? AND status = 'active' AND affiliate_token IS NOT NULL AND affiliate_token != ''
+      `SELECT id, affiliate_token, hmac_secret, commission_rate FROM partners
+       WHERE id = ? AND status = 'active'
        LIMIT 1`,
       [id],
     )
-    if (!partner || !token || token !== partner.affiliate_token) {
-      return res.status(401).json({ message: 'Unauthorized' })
+    if (!partner) return res.status(401).json({ message: 'Unauthorized' })
+
+    // Верификация: HMAC-подпись (приоритет) или affiliate_token
+    if (partner.hmac_secret) {
+      const signature = req.headers['x-partner-signature']
+      if (!signature) return res.status(401).json({ message: 'Missing X-Partner-Signature' })
+      const raw = typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
+      const expected = crypto.createHmac('sha256', partner.hmac_secret).update(raw).digest('hex')
+      if (!crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'))) {
+        return res.status(401).json({ message: 'Invalid signature' })
+      }
+    } else {
+      const token = body.token || req.query.token || (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+      if (!token || token !== partner.affiliate_token) {
+        return res.status(401).json({ message: 'Unauthorized' })
+      }
     }
 
     const [[dup]] = await pool.query(

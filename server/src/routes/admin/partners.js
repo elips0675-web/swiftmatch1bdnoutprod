@@ -1,4 +1,5 @@
 ﻿import { Router } from 'express'
+import crypto from 'crypto'
 import pool from '../../db.js'
 import logger from '../../logger.js'
 
@@ -19,7 +20,7 @@ const PLACEMENTS = ['hangout', 'chat', 'profile', 'passport', 'attachment_result
 router.get('/partners', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT p.id, p.name, p.type, p.commission_rate, p.status, p.created_at,
+      `SELECT p.id, p.name, p.type, p.commission_rate, p.hmac_secret, p.status, p.created_at,
               (SELECT COUNT(*) FROM partner_offers o WHERE o.partner_id = p.id) AS offers_count,
               (SELECT COUNT(*) FROM partner_conversions c WHERE c.partner_id = p.id AND c.conversion_type = 'click') AS clicks_total,
               (SELECT COUNT(*) FROM partner_conversions c WHERE c.partner_id = p.id AND c.conversion_type != 'click') AS conversions_total,
@@ -50,12 +51,13 @@ router.post('/partners', async (req, res) => {
     return res.status(400).json({ message: "type must be 'api' | 'deeplink' | 'saas'" })
   }
   try {
+    const hmacSecret = `wh_${crypto.randomBytes(16).toString('hex')}`
     const [result] = await pool.query(
-      `INSERT INTO partners (name, type, affiliate_token, commission_rate)
-       VALUES (?, ?, ?, ?)`,
-      [name.trim(), type || 'deeplink', affiliateToken || null, Number(commissionRate) > 0 ? Number(commissionRate) : 10],
+      `INSERT INTO partners (name, type, affiliate_token, hmac_secret, commission_rate)
+       VALUES (?, ?, ?, ?, ?)`,
+      [name.trim(), type || 'deeplink', affiliateToken || null, hmacSecret, Number(commissionRate) > 0 ? Number(commissionRate) : 10],
     )
-    res.status(201).json({ id: result.insertId })
+    res.status(201).json({ id: result.insertId, hmac_secret: hmacSecret })
   } catch (err) {
     if (err && err.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ message: 'Partner with this name already exists' })

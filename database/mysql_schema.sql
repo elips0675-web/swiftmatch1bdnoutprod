@@ -948,10 +948,11 @@ CREATE TABLE IF NOT EXISTS hangout_chats (
 -- Партнёрская экосистема (Wave 1, Mesta.txt) — миграция 030
 CREATE TABLE IF NOT EXISTS partners (
   id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name            VARCHAR(100) NOT NULL,
-  type            ENUM('api','deeplink','saas') NOT NULL DEFAULT 'deeplink',
-  affiliate_token VARCHAR(255),
-  commission_rate DECIMAL(5,2) NOT NULL DEFAULT 10.00,
+  name              VARCHAR(100) NOT NULL,
+  type              ENUM('api','deeplink','saas') NOT NULL DEFAULT 'deeplink',
+  affiliate_token   VARCHAR(255),
+  hmac_secret       VARCHAR(64),
+  commission_rate   DECIMAL(5,2) NOT NULL DEFAULT 10.00,
   api_base_url    VARCHAR(255),
   status          ENUM('active','paused') NOT NULL DEFAULT 'active',
   created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

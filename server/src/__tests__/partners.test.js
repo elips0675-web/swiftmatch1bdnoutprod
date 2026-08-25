@@ -195,7 +195,7 @@ describe('POST /api/partners/postback/:id', () => {
   })
 
   it('rejects missing external_order_id', async () => {
-    pool.query.mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, commission_rate: 8 }], []])
+    pool.query.mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, hmac_secret: null, commission_rate: 8 }], []])
     const res = await request(userApp)
       .post('/api/partners/postback/1')
       .send({ token: AFFILIATE_TOKEN, amount: 100 })
@@ -203,7 +203,7 @@ describe('POST /api/partners/postback/:id', () => {
   })
 
   it('rejects invalid amount', async () => {
-    pool.query.mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, commission_rate: 8 }], []])
+    pool.query.mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, hmac_secret: null, commission_rate: 8 }], []])
     const res = await request(userApp)
       .post('/api/partners/postback/1')
       .send({ token: AFFILIATE_TOKEN, external_order_id: 'ext1', amount: -1 })
@@ -211,7 +211,7 @@ describe('POST /api/partners/postback/:id', () => {
   })
 
   it('rejects wrong token', async () => {
-    pool.query.mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, commission_rate: 8 }], []])
+    pool.query.mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, hmac_secret: null, commission_rate: 8 }], []])
     const res = await request(userApp)
       .post('/api/partners/postback/1')
       .send({ token: 'wrong', external_order_id: 'ext1', amount: 100 })
@@ -228,7 +228,7 @@ describe('POST /api/partners/postback/:id', () => {
 
   it('creates conversion with commission and returns id + commission', async () => {
     pool.query
-      .mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, commission_rate: 8 }], []])
+      .mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, hmac_secret: null, commission_rate: 8 }], []])
       .mockResolvedValueOnce([[], []])
       .mockResolvedValueOnce([{ insertId: 101 }, []])
 
@@ -248,7 +248,7 @@ describe('POST /api/partners/postback/:id', () => {
 
   it('returns duplicate response when external_order_id already exists', async () => {
     pool.query
-      .mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, commission_rate: 8 }], []])
+      .mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, hmac_secret: null, commission_rate: 8 }], []])
       .mockResolvedValueOnce([[{ id: 77 }], []])
 
     const res = await request(userApp)
@@ -262,7 +262,7 @@ describe('POST /api/partners/postback/:id', () => {
 
   it('accepts token via Authorization header', async () => {
     pool.query
-      .mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, commission_rate: 10 }], []])
+      .mockResolvedValueOnce([[{ id: 1, affiliate_token: AFFILIATE_TOKEN, hmac_secret: null, commission_rate: 10 }], []])
       .mockResolvedValueOnce([[], []])
       .mockResolvedValueOnce([{ insertId: 200 }, []])
 
@@ -273,6 +273,60 @@ describe('POST /api/partners/postback/:id', () => {
 
     expect(res.status).toBe(200)
     expect(res.body.commission).toBe(100)
+  })
+
+  it('accepts valid HMAC signature when hmac_secret is set', async () => {
+    const HMAC_SECRET = 'test_hmac_secret_abc'
+    const body = { external_order_id: 'hmac_1', amount: 2000, conversion_type: 'purchase' }
+    const raw = JSON.stringify(body)
+    const { createHmac } = await import('crypto')
+    const signature = createHmac('sha256', HMAC_SECRET).update(raw).digest('hex')
+
+    pool.query
+      .mockResolvedValueOnce([[{ id: 2, hmac_secret: HMAC_SECRET, affiliate_token: null, commission_rate: 10 }], []])
+      .mockResolvedValueOnce([[], []])
+      .mockResolvedValueOnce([{ insertId: 200 }, []])
+
+    const res = await request(userApp)
+      .post('/api/partners/postback/2')
+      .set('X-Partner-Signature', signature)
+      .send(body)
+
+    expect(res.status).toBe(200)
+    expect(res.body.id).toBe(200)
+    expect(res.body.commission).toBe(200)
+  })
+
+  it('rejects missing X-Partner-Signature when hmac_secret is set', async () => {
+    pool.query.mockResolvedValueOnce([[{ id: 2, hmac_secret: 'secret', affiliate_token: null, commission_rate: 10 }], []])
+    const res = await request(userApp)
+      .post('/api/partners/postback/2')
+      .send({ external_order_id: 'hmac_2', amount: 100 })
+    expect(res.status).toBe(401)
+    expect(res.body.message).toContain('Missing')
+  })
+
+  it('rejects invalid HMAC signature', async () => {
+    pool.query.mockResolvedValueOnce([[{ id: 2, hmac_secret: 'secret', affiliate_token: null, commission_rate: 10 }], []])
+    const res = await request(userApp)
+      .post('/api/partners/postback/2')
+      .set('X-Partner-Signature', 'deadbeef'.repeat(8))
+      .send({ external_order_id: 'hmac_3', amount: 100 })
+    expect(res.status).toBe(401)
+  })
+
+  it('falls back to token auth when hmac_secret is null', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ id: 3, hmac_secret: null, affiliate_token: AFFILIATE_TOKEN, commission_rate: 5 }], []])
+      .mockResolvedValueOnce([[], []])
+      .mockResolvedValueOnce([{ insertId: 300 }, []])
+
+    const res = await request(userApp)
+      .post('/api/partners/postback/3')
+      .send({ token: AFFILIATE_TOKEN, external_order_id: 'tok_1', amount: 1000 })
+
+    expect(res.status).toBe(200)
+    expect(res.body.id).toBe(300)
   })
 })
 
