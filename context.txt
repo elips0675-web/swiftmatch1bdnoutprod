@@ -44,7 +44,7 @@
 - **58** — B2B-маркетплейс (Wave 4): миграция 040 (user_id в partners, partner_subscriptions, b2b_marketplace_enabled), 8 эндпоинтов (register, dashboard, offers CRUD, conversions, subscribe), PartnerGuard, PartnerRegister, PartnerDashboard (4 вкладки: stats, offers, conversions, subscription), 80 ключей i18n; 388/388 ✅
 - **59** — Анти-кот верификация: миграция 041 (user_verifications + photo_verified в user_profiles), 4 эндпоинта (GET/POST /api/profile/verification + GET/PUT /api/admin/verifications), VerificationBadge + VerificationDialog, интеграция в profile.tsx + profile-edit.tsx, 17 ключей i18n; 388/388 ✅
 - **Хотфикс** — admin-content delete handlers: `handleSave()` вызывался внутри `setState` updater'а (5 хендлеров: interests/dating_goals/education/cities/banned_words) → устаревший state, данные не сохранялись. Вынесен наружу (коммит `8e0eeaf`). Banned words обновлены в БД: 109 слов (18 анти-фрод + 91 мат/оскорбления), «развод» исключён (AGENTS.md #6)
-- Тесты после этапов 22–26: E2E 44/44 ✅, фронт 57/57 ✅, сервер 126/126 ✅, tsc ✅, build ✅, lint 0 errors
+- **Хотфикс (26.08)** — hangout-detail.tsx: `cn()` использовался без импорта `@/lib/utils` → страница `/hangouts/:id` не рендерилась (ReferenceError). Фикс: добавлен `import { cn } from "@/lib/utils"`. Тесты: 388/388 ✅, Vite build ✅
 
 ---
 ## Что сделано

@@ -2,6 +2,12 @@
 
 > Актуально на август 2026. Все тесты: **388/388** — сервер 307/307 ✅, фронт 81/81 ✅. Vite build: ✅. Lint: 0 errors.
 
+## Хотфикс (26.08.2026): hangout-detail.tsx — не хватало импорта `cn`
+
+- `hangout-detail.tsx` использовал `cn()` на строке 291 (Badge для type badge), но импорт `cn` из `@/lib/utils` отсутствовал → страница `/hangouts/:id` не рендерилась (ReferenceError)
+- **Фикс:** добавлен `import { cn } from "@/lib/utils"`
+- Тесты: 388/388 ✅, Vite build ✅
+
 ## Этап 54: Hangouts 2.0 — Date vs Company режимы (25.08.2026)
 
 - **Миграция 037** (`037_hangouts_v2.sql`): `ALTER TABLE hangouts ADD hangout_type ENUM('date','company') DEFAULT 'date'`; таблицы `hangout_likes` (liker_id→liked_id, UNIQUE для mutual like), `hangout_participants` (hangout_id + user_id + role organizer/member), `hangout_checkins` (hangout_id + user_id + lat/lng + geofence_verified), `hangout_reviews` (hangout_id + reviewer_id + rating 1–5 + comment + tags JSON)

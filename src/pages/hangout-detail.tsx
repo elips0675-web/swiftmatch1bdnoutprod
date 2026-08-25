@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/language-context";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { getToken } from "@/lib/token";
