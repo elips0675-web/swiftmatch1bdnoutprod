@@ -9,6 +9,7 @@ import { getToken } from "@/lib/token";
 import { FlowerOrderDialog } from "./flower-order-dialog";
 import { RestaurantBookingDialog } from "./restaurant-booking-dialog";
 import { HotelBookingDialog } from "./hotel-booking-dialog";
+import { SpaBookingDialog } from "./spa-booking-dialog";
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ size?: number | string; className?: string }>> = {
   taxi: Car,
@@ -42,6 +43,7 @@ export function ChatPartnerActions({ placement = "chat" }: { placement?: string 
   const [flowerOffer, setFlowerOffer] = useState<PartnerOffer | null>(null);
   const [restaurantOffer, setRestaurantOffer] = useState<PartnerOffer | null>(null);
   const [hotelOffer, setHotelOffer] = useState<PartnerOffer | null>(null);
+  const [spaOffer, setSpaOffer] = useState<PartnerOffer | null>(null);
 
   const handleAction = async (offer: PartnerOffer) => {
     if (offer.category === "flowers" || offer.category === "gift") {
@@ -54,6 +56,10 @@ export function ChatPartnerActions({ placement = "chat" }: { placement?: string 
     }
     if (offer.category === "hotel") {
       setHotelOffer(offer);
+      return;
+    }
+    if (offer.category === "spa" || offer.category === "experience") {
+      setSpaOffer(offer);
       return;
     }
     setPendingId(offer.id);
@@ -169,6 +175,14 @@ export function ChatPartnerActions({ placement = "chat" }: { placement?: string 
           offer={hotelOffer}
           open={!!hotelOffer}
           onOpenChange={(open) => { if (!open) setHotelOffer(null); }}
+        />
+      )}
+
+      {spaOffer && (
+        <SpaBookingDialog
+          offer={spaOffer}
+          open={!!spaOffer}
+          onOpenChange={(open) => { if (!open) setSpaOffer(null); }}
         />
       )}
     </div>

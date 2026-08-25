@@ -39,6 +39,7 @@
 - **24** — product analytics: воронка расширена — login_completed, register_completed, message_sent (+ttl), purchase_completed (+tier/duration/channel); retention/revenue-mix/registrations уже в админке; PostHog не нужен (self-hosted)
 - **25–26** — UI: кнопка «Открыть профиль» в поиске (variant_b) уменьшена до пилюли `h-9 px-8 rounded-full` и отцентрирована по высоте между рядом лайк-кнопок и BottomNav (`mt-8 mb-8` в зазоре `pb-24`)
 - **54** — Hangouts 2.0: миграция 037 (hangout_type ENUM date/company, таблицы hangout_likes/hangout_participants/hangout_checkins/hangouts_reviews); 6 новых эндпоинтов (like/skip/join/leave/checkin/review) с rate-limiter'ами; mutual like → auto-chat; чек-ин через haversine (≤ 500м); фронт — тоглл All/Date/Company в хедере, карточки с лайками/участниками, detail страница с context-aware actions; 26 ключей i18n; 388/388 ✅
+- **56** — Wave 3 часть 2 (спа/фитнес): миграция 038 (сид LoveSpa + FitBro, 4 оффера spa/experience), POST /api/partners/spa/book, SpaBookingDialog, интеграция в chat-partner-actions, 10 ключей i18n partner.spa.*; 388/388 ✅
 - Тесты после этапов 22–26: E2E 44/44 ✅, фронт 57/57 ✅, сервер 126/126 ✅, tsc ✅, build ✅, lint 0 errors
 
 ---

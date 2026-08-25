@@ -319,6 +319,53 @@ router.post('/api/partners/hotel/book', auth, async (req, res) => {
   }
 })
 
+router.post('/api/partners/spa/book', auth, async (req, res) => {
+  const { offer_id: offerId, date, time, service } = req.body || {}
+  if (!offerId || !/^\d+$/.test(String(offerId))) {
+    return res.status(400).json({ message: 'offer_id is required' })
+  }
+  if (!date || !time) {
+    return res.status(400).json({ message: 'date and time are required' })
+  }
+  try {
+    const [[offer]] = await pool.query(
+      `SELECT o.id, o.partner_id, o.title, o.deeplink, o.city, o.price,
+              p.name AS partner_name, p.commission_rate, p.status AS partner_status
+       FROM partner_offers o JOIN partners p ON p.id = o.partner_id
+       WHERE o.id = ? AND o.category IN ('spa','experience') AND o.status = 'active' AND p.status = 'active' LIMIT 1`,
+      [offerId],
+    )
+    if (!offer) return res.status(404).json({ message: 'Spa/fitness offer not found' })
+
+    const [result] = await pool.query(
+      `INSERT INTO partner_conversions (partner_id, offer_id, user_id, conversion_type, amount, commission, status)
+       VALUES (?, ?, ?, 'booking', 0, 0, 'pending')`,
+      [offer.partner_id, offer.id, req.userId],
+    )
+
+    let deeplink = String(offer.deeplink || '')
+    if (deeplink) {
+      const sep = deeplink.includes('?') ? '&' : '?'
+      deeplink += `${sep}date=${encodeURIComponent(date)}&time=${encodeURIComponent(time)}${service ? `&service=${encodeURIComponent(service)}` : ''}`
+    }
+
+    res.status(201).json({
+      conversion_id: result.insertId,
+      offer_id: offer.id,
+      title: offer.title,
+      partner_name: offer.partner_name,
+      date,
+      time,
+      service: service || null,
+      price: offer.price,
+      deeplink,
+    })
+  } catch (err) {
+    logger.error('Spa booking error:', err)
+    res.status(500).json({ message: 'Failed to create spa booking' })
+  }
+})
+
 /**
  * @openapi
  * /api/partners/offers/{id}:

@@ -19,6 +19,15 @@
 - **Тесты**: 388/388 ✅, Vite build ✅
 - Коммит: e70ee77 (feat, пуш на part)
 
+## Этап 56: Wave 3 часть 2 — спа/фитнес-офферы (25.08.2026)
+
+- **Миграция 038** (`038_spa_fitness_offers.sql`): сид 2 партнёров (LoveSpa 12%, FitBro 10%) + 4 оффера (Массаж для двоих, СПА-процедуры, Абонемент фитнес, Групповые занятия); категории spa/experience уже в ENUM
+- **Backend** — `POST /api/partners/spa/book` в `partners.js`: валидация offer_id + date + time; категория IN ('spa','experience'); INSERT в partner_conversions (booking/pending); deeplink + date/time/service params
+- **Frontend** — `SpaBookingDialog` (`src/components/chat/spa-booking-dialog.tsx`): date/time inputs, валидация, fetch POST /api/partners/spa/book, share в чат (POST /api/partners/booking/share), открытие deeplink
+- **Интеграция** — `chat-partner-actions.tsx`: категории spa/experience → SpaBookingDialog (вместо прямого deeplink)
+- **i18n** — 10 ключей RU/EN (`partner.spa.title/date/time/price/book/fill_required/error/shared/close`)
+- **Тесты**: 388/388 ✅, Vite build ✅
+
 ## Этап 53: отели в passport-mode + Redis-кэш (25.08.2026)
 
 - **Отели — GET /api/partners/offers/hotel?city=**: Redis-кэш (TTL 1ч, ключ `partner:offers:hotel:{city}`) через `getCached`/`setCached` из `server/src/cache.js`; при отсутствии в кэше — выборка из БД (DISTINCT city, JOIN partner_offers+partners, placement=passport, active=1, valid_from/to, type=hotel); кэш сбрасывается при создании/обновлении hotel-офферов в админке (`invalidate('partner:offers:hotel:*')`)
