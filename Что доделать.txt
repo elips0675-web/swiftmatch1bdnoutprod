@@ -321,9 +321,38 @@
 - [x] partner_offer_id в hangouts (связь встречи с оффером афиши) (этап 48б)
 
 ### Волны 2–4 (следующие, по Mesta.txt)
-- [ ] Wave 2: рестораны/цветы — Stripe + webhook партнёра, первая реальная комиссия
+- [x] Wave 2: рестораны/цветы — Stripe + webhook партнёра, первая реальная комиссия **(этапы 49–52: HMAC-подпись, Stripe Checkout, бронирование, выплаты)**
 - [ ] Wave 3: отели в passport-mode (Redis-кэш офферов TTL 1ч), спа/фитнес
 - [ ] Wave 4: B2B-маркетплейс услуг (роль partner, ЛК, подписка через Stripe)
+
+### Этап 49 (25.08.2026): HMAC-подпись postback + сиды цветочных партнёров — ЗАКРЫТО
+- HMAC-SHA256 подпись postback: X-Partner-Signature header, timingSafeEqual, fallback на token если hmac_secret=null
+- Миграция 034: hmac_secret в partners
+- Сиды 7 партнёров: Yandex Go (5%), KinoPoisk (8%), Restoclub (10%), Ostrovok (7%), **Flowwow (15%)**, **Bouquet.ru (12%)**, **Yandex Lavka (10%)**
+- 11 офферов (5 цветочных, 3 рестор, 2 кино, 1 такси, 1 отель)
+- hmac_secret в админке (таблица + генерация при создании)
+- 4 HMAC-теста
+
+### Этап 50 (25.08.2026): Stripe Checkout для цветов — ЗАКРЫТО
+- Миграция 035: partner_orders + stripe_session_id в conversions
+- POST /api/partners/order (Stripe Checkout или mock), POST /api/partners/order/webhook (идемпотентность через webhook_events)
+- GET /api/partners/offers/:id, GET /api/partners/orders/my
+- flower-order-dialog.tsx (2-step: details→confirm→Stripe redirect)
+- partner-order-success.tsx + partner-order-cancel.tsx
+
+### Этап 51 (25.08.2026): Бронирование ресторанов в чате — ЗАКРЫТО
+- POST /api/partners/booking (создание брони + deeplink с date/time/guests)
+- POST /api/partners/booking/share (WS `partner:restaurant_shared` через getIO())
+- restaurant-booking-dialog.tsx (дата/время/гости/сообщение, share in chat)
+- Интеграция в chat-partner-actions.tsx для restaurant
+- 6 новых тестов
+
+### Этап 52 (25.08.2026): Админка выплат партнёрам — ЗАКРЫТО
+- Миграция 036: partner_payouts (amount, currency, method, status, admin_note, processed_at)
+- API: GET/POST /payouts, PUT /payouts/:id, GET /stats/daily (30-дневная агрегация)
+- UI: 5 вкладок (Partners/Offers/Conversions/Payouts/Stats), таблица выплат с approve/reject, диалог создания, дневная статистика
+- 7 новых тестов (57 total partners.test.js)
+- **Итого: 299/299 сервер, 81/81 фронт = 380/380**
 
 ХОТФИКС 24.08 (сессия «пропали интересы / 403 в админке») — ВЫПОЛНЕНО
 - Причина 403 на PUT /api/admin/content/* и «пропавших» данных: легаси JWT из localStorage (обычный юзер) был ВАЛИДЕН и перебивал админскую httpOnly cookie (decodeAny предпочитал Bearer).

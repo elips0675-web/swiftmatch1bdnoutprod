@@ -1,6 +1,14 @@
 # Что сделано
 
-> Актуально на август 2026. Все тесты: **369/369** — E2E 55/55 ✅, фронт 68/68 ✅, сервер 246/246 ✅. Vite build: ✅. Lint: 0 errors. Swagger: ✅.
+> Актуально на август 2026. Все тесты: **380/380** — сервер 299/299 ✅, фронт 81/81 ✅. Vite build: ✅. Lint: 0 errors.
+
+## Этап 52: админка выплат партнёрам + дневная статистика (25.08.2026)
+
+- **Миграция 036** (`036_partner_payouts.sql`): таблица `partner_payouts` (partner_id FK, amount, currency, method [bank/card/crypto/manual], details, status [pending/processing/completed/rejected], admin_note, processed_at); + в `mysql_schema.sql`
+- **API** в `server/src/routes/admin/partners.js`: GET /payouts (JOIN partners, ORDER BY created_at DESC, LIMIT 200), POST /payouts (валидация partner_id + amount + method), PUT /payouts/:id (статус processing/completed/rejected + admin_note, processed_at при completed), GET /stats/daily (30-дневная агрегация кликов/конверсий/дохода/комиссии по DATE(conversion_at))
+- **UI** в `admin-partners.tsx`: 5 вкладок (Partners / Offers / Conversions / Payouts / Stats), таблица выплат с approve/reject кнопками, диалог создания выплаты (partner + amount + method + details), таблица дневной статистики, badge-счётчик ожидающих выплат
+- **i18n** — 11 ключей RU/EN: admin.partners.payouts, payouts_list, add_payout, approve, reject, stats, daily_stats, total_commission, amount, details
+- **Тесты**: +7 в partners.test.js (GET/POST payouts, PUT payout, GET stats/daily + error fallback); **299/299 сервер, 81/81 фронт = 380/380**
 
 ## Этап 47: партнёрская экосистема Wave 1 (Mesta.txt) (23.08.2026)
 
