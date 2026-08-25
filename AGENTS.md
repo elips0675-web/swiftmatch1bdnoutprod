@@ -709,7 +709,7 @@ const stripe = process.env.STRIPE_SECRET_KEY
 
 ### Контекст проекта (текущее состояние — проверь перед аудитом):
 
-- Все 299 server + 81 frontend тестов проходят (380/380, 0 failures)
+- Все 307 server + 81 frontend тестов проходят (388/388, 0 failures)
 - Stripe: mock заблокирован в production (NODE_ENV guard), idempotency-key middleware
 - SMTP: Nodemailer + retry (3 попытки), ждёт SMTP_USER/PASS в .env
 - WebSocket: pingInterval 10s, pingTimeout 5s, reconnect max 30s

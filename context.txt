@@ -561,6 +561,22 @@
 - **Тесты**: server 250/250 (+4: free второй за день → 403, premium без COUNT, create-моки получили 2 запроса до INSERT), front 74/74 (+6: prefills/PUT+навигация/not-author/cancelled; дата-чипсы шлют date_from/to; load-more → page=2). В renderPage для useParams нужен <Routes> с реальным path — без него id=undefined
 - **Грабли**: textContent — строка, оборачивать String() для toContain; у DocumentTitle PAGE_TITLES матч по точному pathname — динамические роуты дают дефолт "SwiftMatch"
 - **Живой прогон**: verify-stage48.mjs через localhost:3002 (login admin@mail.ru → create/create → track) — все PASS, тестовые записи удалены из БД
+## Этап 53 (25 августа 2026): отели в passport-mode + Redis-кэш
+
+> Отели в passport-mode с Redis-кэшированием и бронированием (Mesta.txt, Wave 3 часть 1).
+
+- **Счётчик тестов: 388/388** — сервер 307/307 ✅, фронт 81/81 ✅; vite build ✅
+- **Отели — API** (`server/src/routes/partners.js`): GET /api/partners/offers/hotel?city= — Redis-кэш (TTL 1ч, ключ `partner:offers:hotel:{city}`) через `getCached`/`setCached` из `server/src/cache.js`; при отсутствии в кэше — выборка из БД (DISTINCT city, JOIN partners+partner_offers, placement=passport, active=1, valid_from/to, type=hotel); кэш сбрасывается при создании/обновлении hotel-офферов в админке (`invalidate('partner:offers:hotel:*')`)
+- **Отели — бронирование**: POST /api/partners/hotel/book `{offer_id, check_in, check_out, guests}` — валидация (required, checkout > checkin, guests 1–10), INSERT в partner_conversions (conversion_type=booking), формирование deeplink с utm; идемпотентность по offer_id+check_in+check_out
+- **Исправлен порядок маршрутов**: hotel routes перемещены выше `offers/:id` — иначе `:id` ловил строку `hotel` как offer_id → 400
+- **Админка — инвалидация кэша**: `await invalidate('partner:offers:hotel:*')` в POST/PUT offers (admin/partners.js)
+- **Фронт — HotelBookingDialog** (`src/components/chat/hotel-booking-dialog.tsx`): модалка бронирования отеля (check-in/check-out, guests 1–10, валидация, fetch POST /api/partners/hotel/book)
+- **Фронт — chat-partner-actions.tsx**: hotel → HotelBookingDialog (импорт, state, conditional render)
+- **Фронт — settings-privacy.tsx**: карусель отелей из GET /api/partners/offers/hotel?city= вместо ChatPartnerActions
+- **i18n**: 10 ключей RU/EN `partner.hotel.*` (title, check_in, check_out, guests, book, fill_required, checkout_after_checkin, error, no_offers, booking_confirmed)
+- **Тесты**: +8 в partners.test.js (hotel cached/DB-fallback, hotel book validation/404/success), mock `../cache.js` (getCached/setCached/invalidate); **307/307 сервер, 81/81 фронт = 388/388**
+- Коммит: a65b712 (feat, пуш на part)
+
 ## Хотфикс (24 августа 2026): /admin/content — «ошибка сохранения» при валидной сессии
 
 - **Корень**: extractToken (cookies.js) отдаёт Authorization-заголовок ПРИОРИТЕТНЕЕ cookie, а getToken() (token.ts:15) на вебе до сих пор подхватывает легаси localStorage.getItem('token') («существующие сессии»). В браузере оставался старый JWT (подписан случайным секретом до появления server/.env) → каждый запрос админки нёс невалидный Bearer → 401, хотя свежая httpOnly cookie sm_token была валидна. Релогин НЕ помогал: setToken на вебе пишет только memoryToken, localStorage не очищается

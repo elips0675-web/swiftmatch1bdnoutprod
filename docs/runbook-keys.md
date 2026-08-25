@@ -83,6 +83,6 @@
 1. Сменить ВСЕ внешние ключи (Stripe/Twilio/OpenAI/S3/SMTP/FCM/RevenueCat/Sentry).
 2. Новый JWT_SECRET + рестарт.
 3. Сменить пароль БД MySQL: `ALTER USER 'swiftmatch'@'%' IDENTIFIED BY '<new>';` + DB_PASSWORD.
-4. `npm test` (server 299) + front 81 + ручной смоук логина/чата/загрузки/чекаута.
+4. `npm test` (server 307) + front 81 + ручной смоук логина/чата/загрузки/чекаута.
 5. Проверить `git log -p --all -- server/.env` — убедиться, что .env никогда не коммитился.
 6. Инцидент-лог: что утекло, когда отозвано, кто уведомлён.

@@ -293,9 +293,9 @@ UI: зелёный badge ≥80, жёлтый ≥50, красный <50; спис
 
 ## Актуальный статус (август 2026, этапы 27–52)
 
-> Детали: «Что сделано.txt» (этапы 30–52), «Что доделать.txt», AGENTS.md (грабли #27–53).
+> Детали: «Что сделано.txt» (этапы 30–53), «Что доделать.txt», AGENTS.md (грабли #27–53).
 
-- **Тесты: 380/380** — сервер 299/299, фронт 81/81; vite build ✅, lint 0 errors, schema-validate 54 таблиц
+- **Тесты: 388/388** — сервер 307/307, фронт 81/81; vite build ✅, lint 0 errors, schema-validate 54 таблиц
 - **CI/CD:** миграции БД выполняются на сервере перед pm2 restart (секреты DB_* не нужны)
 - **Redis:** подключен локально (127.0.0.1:6379), graceful fallback
 - **Этапы 30–31:** починены скрытые 500 (invites-дрейф колонок, iap.js updated_at, location.js user_id→id); все SQL сверены EXPLAIN'ом со схемой
@@ -318,3 +318,4 @@ UI: зелёный badge ≥80, жёлтый ≥50, красный <50; спис
 - **Этап 50:** Stripe Checkout для цветов (миграция 035 partner_orders), webhook, offers/:id, orders/my, flower-order-dialog.tsx, success/cancel pages
 - **Этап 51:** POST /api/partners/booking + booking/share, restaurant-booking-dialog.tsx, WS partner:restaurant_shared, 6 новых тестов
 - **Этап 52:** админка выплат партнёрам (миграция 036 partner_payouts), GET/POST payouts, PUT approve/reject, GET stats/daily (30-дневная агрегация), UI с 5 вкладками, i18n (11 ключей RU/EN), 7 новых тестов
+- **Этап 53:** отели в passport-mode + Redis-кэш — GET /api/partners/offers/hotel?city= (Redis TTL 1ч), POST /api/partners/hotel/book, HotelBookingDialog, chat-partner-actions hotel→dialog, settings-privacy карусель отелей, 10 ключей i18n partner.hotel.*, 8 новых тестов (mock cache.js). Route ordering fix (hotel routes выше offers/:id). 388/388

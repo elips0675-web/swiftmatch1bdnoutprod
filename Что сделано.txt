@@ -1,6 +1,19 @@
 # Что сделано
 
-> Актуально на август 2026. Все тесты: **380/380** — сервер 299/299 ✅, фронт 81/81 ✅. Vite build: ✅. Lint: 0 errors.
+> Актуально на август 2026. Все тесты: **388/388** — сервер 307/307 ✅, фронт 81/81 ✅. Vite build: ✅. Lint: 0 errors.
+
+## Этап 53: отели в passport-mode + Redis-кэш (25.08.2026)
+
+- **Отели — GET /api/partners/offers/hotel?city=**: Redis-кэш (TTL 1ч, ключ `partner:offers:hotel:{city}`) через `getCached`/`setCached` из `server/src/cache.js`; при отсутствии в кэше — выборка из БД (DISTINCT city, JOIN partner_offers+partners, placement=passport, active=1, valid_from/to, type=hotel); кэш сбрасывается при создании/обновлении hotel-офферов в админке (`invalidate('partner:offers:hotel:*')`)
+- **Отели — POST /api/partners/hotel/book**: body `{offer_id, check_in, check_out, guests}`; валидация (required fields, дата checkout > checkin, гости 1–10); INSERT в partner_conversions (conversion_type=booking); формирование deeplink с utm; идемпотентность по offer_id+check_in+check_out
+- **Исправлен порядок маршрутов**: hotel routes перемещены **выше** `offers/:id` в `partners.js` — иначе `:id` ловил строку `hotel` как offer_id → 400
+- **Админка — инвалидация кэша**: `await invalidate('partner:offers:hotel:*')` в POST/PUT offers (admin/partners.js)
+- **Фронт — HotelBookingDialog** (`src/components/chat/hotel-booking-dialog.tsx`): модалка бронирования отеля (check-in/check-out date inputs, guests select 1–10, валидация, fetch POST /api/partners/hotel/book, тосты успеха/ошибки)
+- **Фронт — chat-partner-actions.tsx**: hotel-действие → HotelBookingDialog вместо window.open
+- **Фронт — settings-privacy.tsx**: карусель отелей из GET /api/partners/offers/hotel?city= (вместо прямого ChatPartnerActions),HotelBookingDialog
+- **i18n**: 10 ключей RU/EN (`partner.hotel.*`: title, check_in, check_out, guests, book, fill_required, checkout_after_checkin, error, no_offers, booking_confirmed)
+- **Тесты**: +8 в partners.test.js (GET hotel cached/DB-fallback, POST hotel book validation/404/success), mock `../cache.js` (getCached/setCached/invalidate); **307/307 сервер, 81/81 фронт = 388/388**
+- Коммит: a65b712 (feat, пуш на part)
 
 ## Этап 52: админка выплат партнёрам + дневная статистика (25.08.2026)
 
@@ -300,7 +313,7 @@
 | console.log на фронте → import.meta.env.DEV | ✅ Готово |
 | Per-page ErrorBoundary через SuspenseWrapper | ✅ Готово |
 | Stripe mock blocked for NODE_ENV=production | ✅ Готово |
-| Тесты (209/209) | ✅ Все проходят |
+| Тесты (388/388) | ✅ Все проходят |
 | SEO/PWA (sitemap, robots, manifest) | ✅ Готово |
 | Swagger/OpenAPI (JSDoc + swagger-jsdoc) | ✅ Готово |
 | Docker (healthcheck, jwt из env) | ✅ Готово |
