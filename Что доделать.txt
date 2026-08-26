@@ -421,3 +421,38 @@
 - [x] Пагинация page/limit в ленте — **ЗАКРЫТО этапом 48** (API: hangouts.js:90-92, 137-138)
 - [x] Лимит 1 объявление/день для free (premium без лимита) — **ЗАКРЫТО этапом 48**
 - [x] Псевдонимы/псевдоним (как в Telegram) — CRUD для альтернативных имён, видимых в профиле — **ЗАКРЫТО этапом 57**
+
+## 🧪 Этап 60+ (26.08.2026): E2E тесты всего функционала
+
+### Готово (этап 60)
+
+| Что | Файл | Тестов | Статус |
+|---|---|---|---|
+| Interests flow: admin→profile/edit→profile | `e2e/interests.spec.ts` | 10/10 | ✅ |
+| - API: GET /api/content valid slugs | | | ✅ |
+| - API: admin save round-trip | | | ✅ |
+| - API: add interest → public content | | | ✅ |
+| - UI: admin/content interests tab + count | | | ✅ |
+| - UI: profile/edit 20+ interest chips (Badge div) | | | ✅ |
+| - UI: toggle interests + save | | | ✅ |
+| - UI: profile displays translated badges, no raw slugs | | | ✅ |
+| - API: INTEREST_KEY_TO_ID map correctness | | | ✅ |
+| - E2E: admin adds → user sees in profile/edit | | | ✅ |
+| - Negative: banned word interest not shown | | | ✅ |
+
+### План (этапы 61–66, по ~10 тестов каждый)
+
+| Этап | Файл | Что тестировать | Селекторы |
+|---|---|---|---|
+| **61** | `e2e/admin-content.spec.ts` | admin-content CRUD: add/delete interests, goals, education, banned_words, cities; save per tab; round-trip через public API | text-based (TabsTrigger text, EditableList items) |
+| **62** | `e2e/admin-features.spec.ts` | admin-features: toggle flag → GET → verify; save/reset buttons | `[data-testid="save-features"]`, `[data-testid="reset-features"]` |
+| **63** | `e2e/admin-users.spec.ts` | admin-users: search by name; ban/unban user → verify is_banned in API | `[data-testid="search-users"]` |
+| **64** | `e2e/admin-messaging.spec.ts` | admin-messaging: fill title/body → send campaign → verify 201 | `[data-testid="messaging-title"]`, `[data-testid="messaging-body"]`, `[data-testid="send-campaign"]` |
+| **65** | `e2e/auth.spec.ts` | login + register + forgot-password: login flow, wrong password, empty email, register with consent, duplicate email | `[data-testid="email"]`, `[data-testid="password"]`, `[data-testid="submit-login"]`, `[data-testid="submit-register"]`, `[data-testid="submit-forgot-password"]` |
+| **66** | `e2e/chats-groups.spec.ts` | chats: open chat, send message, verify in API; groups: create group, verify in list | `[data-testid="message-input"]`, `[data-techid="send-button"]`, `[data-testid="group-name"]`, `[data-testid="submit-create-group"]` |
+
+### Итого после плана
+- Сейчас: 65 E2E (10 interests + 55 pre-existing)
+- После: ~125 E2E (+60 новых)
+- Unit: 388不变
+- **Цель: 100% покрытие критических user flows**
