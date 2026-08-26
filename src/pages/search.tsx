@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { AttachmentStyle } from "@/lib/attachment-styles";
 import { POPULAR_CITIES } from "@/lib/constants";
-import { useExperiment, useTrackEvent } from "@/hooks/useExperiment";
+import { useTrackEvent } from "@/hooks/useExperiment";
 
 const MatchDialog = dynamic(() => import('@/components/dialogs/match-dialog').then(mod => mod.MatchDialog), { ssr: false });
 const FiltersDialog = dynamic(() => import('@/components/dialogs/filters-dialog').then(mod => mod.FiltersDialog), { ssr: false });
@@ -135,7 +135,6 @@ function SearchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, language } = useLanguage();
-  const { variant: ctaVariant } = useExperiment('card_cta');
   const trackEvent = useTrackEvent();
   const [userList, setUserList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -448,17 +447,7 @@ function SearchContent() {
                     </Link>
                 </Button>
             </div>
-            {ctaVariant === 'variant_b' && (
-              <Button
-                asChild
-                variant="outline"
-                className="mt-3 mb-3 h-9 px-8 rounded-full bg-white shadow-lg border-0 text-primary font-bold active:scale-95 transition-all text-sm"
-              >
-                <Link href={`/user?id=${user.id}`} prefetch={true}>
-                  {t('search.open_profile')}
-                </Link>
-              </Button>
-            )}
+
           </>
         )}
       </main>
