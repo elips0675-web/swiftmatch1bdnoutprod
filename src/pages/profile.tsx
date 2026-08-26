@@ -46,7 +46,9 @@ import { ATTACHMENT_STYLE_INFO } from "@/lib/attachment-styles";
 
 const interestIconsMap: Record<string, any> = {
   "Photography": Camera, "Travel": Globe, "Sports": Dumbbell, "Art": Palette, "Movies": Film, "Yoga": Flower2, "Business": Briefcase, "Gaming": Gamepad2, "Cats": Dog,
-  "interest.photography": Camera, "interest.travel": Globe, "interest.coffee": Coffee, "interest.music": Music, "interest.sport": Dumbbell, "interest.art": Palette, "interest.movies": Film, "interest.yoga": Flower2, "interest.games": Gamepad2, "interest.animals": Dog, "interest.books": Heart, "interest.cooking": Coffee, "interest.design": Palette, "interest.nature": Flower2, "interest.fashion": Briefcase, "interest.dance": Music, "interest.tech": Briefcase, "interest.volunteering": Heart, "interest.politics": Briefcase, "interest.psychology": Heart, "interest.philosophy": Heart, "interest.meditation": Flower2, "interest.gardening": Flower2, "interest.cars": Briefcase, "interest.science": Briefcase, "interest.history": Heart, "interest.architecture": Briefcase
+  "interest.photography": Camera, "interest.travel": Globe, "interest.coffee": Coffee, "interest.music": Music, "interest.sport": Dumbbell, "interest.art": Palette, "interest.movies": Film, "interest.yoga": Flower2, "interest.games": Gamepad2, "interest.animals": Dog, "interest.books": Heart, "interest.cooking": Coffee, "interest.design": Palette, "interest.nature": Flower2, "interest.fashion": Briefcase, "interest.dance": Music, "interest.tech": Briefcase, "interest.volunteering": Heart, "interest.politics": Briefcase, "interest.psychology": Heart, "interest.philosophy": Heart, "interest.meditation": Flower2, "interest.gardening": Flower2, "interest.cars": Briefcase, "interest.science": Briefcase, "interest.history": Heart, "interest.architecture": Briefcase,
+  "interest.coffee": Coffee, "interest.diy": Dumbbell, "interest.extreme": Rocket, "interest.films": Film, "interest.food": Coffee, "interest.hiking": Globe, "interest.martial_arts": Dumbbell, "interest.podcasts": Video,
+  "interest.gaming": Gamepad2, "interest.dancing": Music, "interest.reading": Heart, "interest.technology": Briefcase, "interest.astronomy": Star, "interest.board_games": Gamepad2,
 };
 
 export default function ProfilePage() {
@@ -90,11 +92,13 @@ function normalizeInterests(interests: InterestInput[]): string[] {
     'Кино': 'interest.movies', 'Йога': 'interest.yoga', 'Бизнес': 'interest.business',
     'Игры': 'interest.games', 'Кошки': 'interest.animals', 'Чтение': 'interest.books',
     'Кулинария': 'interest.cooking', 'Творчество': 'interest.art', 'Природа': 'interest.nature',
-    'Рукоделие': 'interest.art', 'Дизайн': 'interest.design', 'Мода': 'interest.fashion',
+    'Рукоделие': 'interest.diy', 'Дизайн': 'interest.design', 'Мода': 'interest.fashion',
     'Танцы': 'interest.dance', 'Технологии': 'interest.tech', 'Волонтерство': 'interest.volunteering',
     'Политика': 'interest.politics', 'Психология': 'interest.psychology', 'Философия': 'interest.philosophy',
     'Медитация': 'interest.meditation', 'Садоводство': 'interest.gardening', 'Автомобили': 'interest.cars',
     'Наука': 'interest.science', 'История': 'interest.history', 'Архитектура': 'interest.architecture',
+    'Экстрим': 'interest.extreme', 'Фильмы': 'interest.films', 'Еда': 'interest.food',
+    'Походы': 'interest.hiking', 'Единоборства': 'interest.martial_arts', 'Подкасты': 'interest.podcasts',
     'Sports': 'interest.sport', 'Music': 'interest.music', 'Photography': 'interest.photography',
     'Travel': 'interest.travel', 'Coffee': 'interest.coffee', 'Art': 'interest.art',
     'Movies': 'interest.movies', 'Yoga': 'interest.yoga', 'Business': 'interest.business',
@@ -105,6 +109,9 @@ function normalizeInterests(interests: InterestInput[]): string[] {
     'Politics': 'interest.politics', 'Psychology': 'interest.psychology', 'Philosophy': 'interest.philosophy',
     'Meditation': 'interest.meditation', 'Gardening': 'interest.gardening', 'Cars': 'interest.cars',
     'Science': 'interest.science', 'History': 'interest.history', 'Architecture': 'interest.architecture',
+    'DIY': 'interest.diy', 'Extreme': 'interest.extreme', 'Films': 'interest.films',
+    'Food': 'interest.food', 'Hiking': 'interest.hiking', 'Martial Arts': 'interest.martial_arts',
+    'Podcasts': 'interest.podcasts',
     'Sport': 'interest.sport', 'Животные': 'interest.animals',
     'Питомцы': 'interest.pets', 'Pets': 'interest.pets',
   }

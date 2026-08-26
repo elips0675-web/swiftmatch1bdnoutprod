@@ -37,6 +37,11 @@ const INTEREST_KEY_TO_ID: Record<string, number> = {
   'interest.meditation': 19, 'interest.gardening': 20, 'interest.cars': 21,
   'interest.science': 22, 'interest.history': 23, 'interest.architecture': 24,
   'interest.pets': 25,
+  'interest.coffee': 26, 'interest.diy': 27, 'interest.extreme': 28,
+  'interest.films': 29, 'interest.food': 30, 'interest.hiking': 31,
+  'interest.martial_arts': 32, 'interest.podcasts': 33,
+  'interest.gaming': 7, 'interest.dancing': 12, 'interest.reading': 4, 'interest.technology': 10,
+  'interest.astronomy': 34, 'interest.board_games': 35, 'interest.nature': 36,
 };
 
 const PROFILE_API = '/api/profile'
@@ -68,12 +73,14 @@ const NAME_TO_KEY: Record<string, string> = {
   'Кино': 'interest.movies', 'Йога': 'interest.yoga', 'Бизнес': 'interest.business',
   'Игры': 'interest.games', 'Кошки': 'interest.animals', 'Чтение': 'interest.books',
   'Кулинария': 'interest.cooking', 'Творчество': 'interest.art', 'Природа': 'interest.nature',
-  'Рукоделие': 'interest.art', 'Дизайн': 'interest.design', 'Мода': 'interest.fashion',
+  'Рукоделие': 'interest.diy', 'Дизайн': 'interest.design', 'Мода': 'interest.fashion',
   'Танцы': 'interest.dance', 'Технологии': 'interest.tech', 'Волонтерство': 'interest.volunteering',
   'Политика': 'interest.politics', 'Психология': 'interest.psychology', 'Философия': 'interest.philosophy',
   'Медитация': 'interest.meditation', 'Садоводство': 'interest.gardening', 'Автомобили': 'interest.cars',
   'Наука': 'interest.science', 'История': 'interest.history', 'Архитектура': 'interest.architecture',
-  'Животные': 'interest.animals',
+  'Животные': 'interest.animals', 'Экстрим': 'interest.extreme', 'Фильмы': 'interest.films',
+  'Еда': 'interest.food', 'Походы': 'interest.hiking', 'Единоборства': 'interest.martial_arts',
+  'Подкасты': 'interest.podcasts', 'Питомцы': 'interest.pets',
   'Sports': 'interest.sport', 'Music': 'interest.music', 'Photography': 'interest.photography',
   'Travel': 'interest.travel', 'Coffee': 'interest.coffee', 'Art': 'interest.art',
   'Movies': 'interest.movies', 'Yoga': 'interest.yoga', 'Business': 'interest.business',
@@ -84,7 +91,10 @@ const NAME_TO_KEY: Record<string, string> = {
   'Politics': 'interest.politics', 'Psychology': 'interest.psychology', 'Philosophy': 'interest.philosophy',
   'Meditation': 'interest.meditation', 'Gardening': 'interest.gardening', 'Cars': 'interest.cars',
   'Science': 'interest.science', 'History': 'interest.history', 'Architecture': 'interest.architecture',
-  'Sport': 'interest.sport', 'Питомцы': 'interest.pets', 'Pets': 'interest.pets',
+  'Sport': 'interest.sport', 'Pets': 'interest.pets',
+  'DIY': 'interest.diy', 'Extreme': 'interest.extreme', 'Films': 'interest.films',
+  'Food': 'interest.food', 'Hiking': 'interest.hiking', 'Martial Arts': 'interest.martial_arts',
+  'Podcasts': 'interest.podcasts',
 }
 
 function normalizeObjectInterests(interests: any): string[] {
