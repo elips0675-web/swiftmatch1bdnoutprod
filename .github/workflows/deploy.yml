@@ -82,6 +82,13 @@ jobs:
           DB_USER: root
           DB_PASSWORD: swiftmatch_test
           DB_NAME: swiftmatch_test
+      - name: Backup restore smoke test
+        run: node scripts/verify-backup.mjs
+        env:
+          DB_HOST: 127.0.0.1
+          DB_USER: root
+          DB_PASSWORD: swiftmatch_test
+          DB_NAME: swiftmatch_test
       - run: npm test -- --reporter=verbose
         working-directory: server
         env:
@@ -149,6 +156,16 @@ jobs:
           kill $VITE_PID 2>/dev/null || true
           kill $SERVER_PID 2>/dev/null || true
 
+  docker-config-check:
+    name: Docker Compose Config Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet
+      - name: Build Docker image (dry run)
+        run: docker build --target server -t swiftmatch-check . 2>&1 | tail -5
+
   deploy:
     name: Deploy to Production
     needs: [lint-and-typecheck, frontend-test, server-test, e2e-test]
@@ -171,7 +188,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "dist/,server/,database/,scripts/schema-validate.mjs,scripts/sql-explain-audit.mjs,package.json,package-lock.json"
+          source: "dist/,server/,database/,scripts/schema-validate.mjs,scripts/sql-explain-audit.mjs,scripts/verify-backup.mjs,package.json,package-lock.json"
           target: "/app/swiftmatch"
           strip_components: 0
       - name: Migrate + restart backend
