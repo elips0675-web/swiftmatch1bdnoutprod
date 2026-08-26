@@ -137,9 +137,9 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ message: 'Email and password required' })
   }
 
-  // Account lockout: 5 неудач подряд -> блок на 15 мин (этап 34, аудит kimi)
+  // Account lockout: 5 неудач подряд -> блок на 15 мин (этап 34, аудит kimi; этап 48 — Redis-backed)
   const lockKey = String(email).toLowerCase()
-  const lockedForMin = isLocked(lockKey)
+  const lockedForMin = await isLocked(lockKey)
   if (lockedForMin !== null) {
     rootLogger.warn(`Login locked for ${lockKey} (${lockedForMin} min left)`)
     return res.status(429).json({ message: `Too many failed attempts. Try again in ${lockedForMin} min` })
@@ -151,7 +151,7 @@ app.post('/api/auth/login', async (req, res) => {
       [email],
     )
     if (rows.length === 0) {
-      recordFailure(lockKey)
+      await recordFailure(lockKey)
       return res.status(401).json({ message: 'Invalid credentials' })
     }
 
@@ -159,7 +159,7 @@ app.post('/api/auth/login', async (req, res) => {
     const { default: bcrypt } = await import('bcryptjs')
     const valid = await bcrypt.compare(password, user.password_hash)
     if (!valid) {
-      recordFailure(lockKey)
+      await recordFailure(lockKey)
       return res.status(401).json({ message: 'Invalid credentials' })
     }
 
@@ -170,14 +170,15 @@ app.post('/api/auth/login', async (req, res) => {
         return res.status(401).json({ message: 'TOTP_REQUIRED' })
       }
       if (!verifyTotpToken(user.totp_secret, code)) {
-        recordFailure(lockKey)
+        await recordFailure(lockKey)
         return res.status(401).json({ message: 'TOTP_INVALID' })
       }
     }
-    recordSuccess(lockKey)
+    await recordSuccess(lockKey)
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET(), { expiresIn: '24h' })
-    const refresh_token = await createRefreshToken(user.id)
+    const fp = crypto.createHash('sha256').update((req.ip || '') + '|' + (req.headers['user-agent'] || '')).digest('hex').slice(0, 32)
+    const refresh_token = await createRefreshToken(user.id, undefined, fp)
     setAuthCookies(res, token, refresh_token)
     res.json({ token, refresh_token, role: user.role })
   } catch (err) {

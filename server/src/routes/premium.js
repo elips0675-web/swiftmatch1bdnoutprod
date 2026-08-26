@@ -3,6 +3,7 @@ import pool from '../db.js'
 import { auth } from '../middleware.js'
 import logger from '../logger.js'
 import { trackEvent } from './experiments.js'
+import { createBreaker } from '../circuit-breaker.js'
 
 const router = Router()
 
@@ -108,7 +109,11 @@ router.post('/api/premium/create-checkout', auth, async (req, res) => {
       const stripe = new Stripe(stripeKey)
 
       const unitAmount = Math.round(tierConfig.price * duration_months * 100)
-      const session = await stripe.checkout.sessions.create({
+      const session = await createBreaker(
+        (params) => stripe.checkout.sessions.create(params),
+        'stripe-checkout',
+        { timeout: 15_000 },
+      ).fire({
         payment_method_types: ['card'],
         line_items: [{
           price_data: {

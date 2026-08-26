@@ -11,6 +11,12 @@ import { stripHtml } from '../sanitize.js'
 
 const router = Router()
 
+function makeFingerprint(req) {
+  const ip = req.ip || req.connection?.remoteAddress || ''
+  const ua = req.headers['user-agent'] || ''
+  return crypto.createHash('sha256').update(ip + '|' + ua).digest('hex').slice(0, 32)
+}
+
 /**
  * @openapi
  * /api/auth/register:
@@ -123,12 +129,12 @@ const REFRESH_EXPIRY_DAYS = 30
 
 // familyId: одна «семья» на логин-сессию; refresh ротирует токен внутри семьи,
 // переиспользование ротированного токена отзывает всю семью (этап 34)
-async function createRefreshToken(userId, familyId) {
+async function createRefreshToken(userId, familyId, fingerprint) {
   const token = crypto.randomBytes(40).toString('hex')
   const family = familyId || crypto.randomUUID()
   await pool.query(
-    'INSERT INTO refresh_tokens (user_id, token, family_id, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))',
-    [userId, token, family, REFRESH_EXPIRY_DAYS],
+    'INSERT INTO refresh_tokens (user_id, token, family_id, fingerprint, expires_at) VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))',
+    [userId, token, family, fingerprint || null, REFRESH_EXPIRY_DAYS],
   )
   return token
 }
@@ -167,7 +173,8 @@ router.post('/api/auth/register', async (req, res) => {
     )
 
     const token = jwt.sign({ userId, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
-    const refresh_token = await createRefreshToken(userId)
+    const fp = makeFingerprint(req)
+    const refresh_token = await createRefreshToken(userId, undefined, fp)
     setAuthCookies(res, token, refresh_token)
     if (consent === true) {
       await pool.query(
@@ -294,11 +301,19 @@ router.post('/api/auth/refresh', async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      'SELECT id, user_id, family_id, revoked FROM refresh_tokens WHERE token = ? AND expires_at > NOW()',
+      'SELECT id, user_id, family_id, revoked, fingerprint FROM refresh_tokens WHERE token = ? AND expires_at > NOW()',
       [refresh_token],
     )
     if (rows.length === 0) return res.status(401).json({ message: 'Invalid or expired refresh token' })
     const current = rows[0]
+
+    // Session fingerprinting (аудит дипсик): если fingerprint записан и не совпадает — подозрение на угон
+    if (current.fingerprint) {
+      const newFp = makeFingerprint(req)
+      if (newFp !== current.fingerprint) {
+        logger.warn(`Fingerprint mismatch for user ${current.user_id}: expected ${current.fingerprint}, got ${newFp}`)
+      }
+    }
 
     // Атомарный claim: параллельный второй запрос с тем же токеном получит affectedRows=0
     const [upd] = await pool.query('UPDATE refresh_tokens SET revoked = 1 WHERE id = ? AND revoked = 0', [current.id])
@@ -311,9 +326,10 @@ router.post('/api/auth/refresh', async (req, res) => {
 
     const token = jwt.sign({ userId: current.user_id, role: 'user' }, JWT_SECRET(), { expiresIn: '24h' })
     const new_refresh_token = crypto.randomBytes(40).toString('hex')
+    const newFp = makeFingerprint(req)
     await pool.query(
-      'INSERT INTO refresh_tokens (user_id, token, family_id, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))',
-      [current.user_id, new_refresh_token, current.family_id, REFRESH_EXPIRY_DAYS],
+      'INSERT INTO refresh_tokens (user_id, token, family_id, fingerprint, expires_at) VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))',
+      [current.user_id, new_refresh_token, current.family_id, newFp, REFRESH_EXPIRY_DAYS],
     )
     setAuthCookies(res, token, new_refresh_token)
     res.json({ token, refresh_token: new_refresh_token })
