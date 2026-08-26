@@ -16,9 +16,14 @@ export async function apiCall(request: APIRequestContext, method: string, endpoi
   return { status: res.status(), body: json, ok: res.ok() }
 }
 
+const tokenCache = new Map<string, string>()
+
 export async function loginViaApi(request: APIRequestContext, email: string, password: string) {
+  const cacheKey = `${email}:${password}`
+  if (tokenCache.has(cacheKey)) return tokenCache.get(cacheKey)!
   const res = await apiCall(request, 'POST', '/api/auth/login', { email, password })
   if (res.ok && res.body?.token) {
+    tokenCache.set(cacheKey, res.body.token as string)
     return res.body.token as string
   }
   throw new Error(`Login failed: ${res.status} ${JSON.stringify(res.body)}`)
