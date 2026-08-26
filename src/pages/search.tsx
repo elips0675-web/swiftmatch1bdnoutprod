@@ -97,13 +97,14 @@ function performAutosearch(filters: AutoSearchFilters, allUsers: SearchUser[], c
             }
             
             const matchesAge = user.age >= ageRange[0] && user.age <= ageRange[1];
-            const matchesCity = selectedCity === "all" || user.city === selectedCity;
+            const matchesCity = selectedCity === "all" || selectedCity === "Все" || user.city === selectedCity;
             const matchesCountry = !countryCityList || countryCityList.includes(user.city);
             const matchesDistance = user.distance <= distance[0];
             return matchesAge && matchesCity && matchesCountry && matchesDistance;
         })
         .map(user => {
-            const commonInterests = user.interests.filter((i: string) => selectedInterests.includes(i)).length;
+            const normalizedUserInterests = user.interests.map((i: string) => i.startsWith('interest.') ? i.slice(9) : i);
+            const commonInterests = normalizedUserInterests.filter((i: string) => selectedInterests.includes(i)).length;
             const hasMatchingGoal = selectedDatingGoal !== "all" && user.goal === selectedDatingGoal;
             const hasMatchingCircadian = currentUser.circadian && user.circadian && currentUser.circadian === user.circadian;
             const attachmentCompatibility = calculateAttachmentCompatibility(currentUser.attachmentStyle, user.attachmentStyle);

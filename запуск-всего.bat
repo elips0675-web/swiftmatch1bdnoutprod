@@ -8,7 +8,7 @@ start "MySQL" /min "C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysqld.exe" --de
 timeout /t 4 /nobreak >nul
 
 echo [2/3] API (http://localhost:3002)...
-start "API" cmd /c "cd /d "C:\swiftmatch1bdnoutprod\server" && node src/index.js"
+start "API" cmd /c "cd /d "D:\swiftmatch1bdnoutprodpart\server" && node src/index.js"
 
 echo [3/3] Frontend (http://localhost:8081)...
 start "Frontend" cmd /c "cd /d "D:\swiftmatch1bdnoutprodpart" && npx vite --port 8081 --host"

@@ -24,6 +24,7 @@ import { GROUP_CATEGORIES } from '@/lib/demo-data';
 import { containsForbiddenWords, isGibberish } from "@/lib/word-filter";
 import { useAntiScreenshot } from "@/hooks/useAntiScreenshot";
 import { useWebSocket } from "@/hooks/use-websocket";
+import { useWebRTC } from "@/hooks/use-webrtc";
 import { aiChatIcebreakerSuggestions } from "@/shims/ai-flows";
 
 const VideoCallDialog = dynamic(() => import('@/components/video-call').then(mod => mod.VideoCallDialog), { ssr: false });
@@ -144,6 +145,9 @@ function ChatsContent() {
   const { videoCallsEnabled, aiIcebreakersEnabled } = useFeatureFlags();
   const { token: authToken, user } = useAuth();
   const { socket: wsSocket } = useWebSocket();
+  const webrtc = useWebRTC(wsSocket, user?.id ?? null);
+  const [isCallMuted, setIsCallMuted] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(false);
   const matchId = searchParams.get('matchId');
   const groupId = searchParams.get('groupId');
 
@@ -688,10 +692,10 @@ function ChatsContent() {
             <Button data-testid="send-button" size="icon" onClick={() => handleSendMessage()} disabled={!inputValue.trim()} className="h-11 w-11 rounded-2xl gradient-bg text-white shadow-xl shadow-primary/30 active:scale-95 transition-all shrink-0"><Send size={18} className="ml-0.5" /></Button>
           </div>
         </div>
-        {selectedChat && !selectedChat.isGroup && isVideoCall && <VideoCallDialog open={isVideoCall} onOpenChange={setIsVideoCall} user={selectedChat} />}
-        {selectedChat && !selectedChat.isGroup && isVoiceCall && <VoiceCallDialog open={isVoiceCall} onOpenChange={setIsVoiceCall} user={selectedChat} />}
-        {selectedChat && selectedChat.isGroup && isVideoCall && <VideoCallDialog open={isVideoCall} onOpenChange={setIsVideoCall} user={selectedChat} />}
-        {selectedChat && selectedChat.isGroup && isVoiceCall && <VoiceCallDialog open={isVoiceCall} onOpenChange={setIsVoiceCall} user={selectedChat} />}
+        {selectedChat && !selectedChat.isGroup && isVideoCall && <VideoCallDialog open={isVideoCall} onOpenChange={setIsVideoCall} user={selectedChat} localStream={webrtc.localStream} remoteStream={webrtc.remoteStream} callState={webrtc.callState} endCall={webrtc.endCall} isMuted={isCallMuted} isVideoOff={isVideoOff} onToggleMute={() => setIsCallMuted(p => !p)} onToggleVideo={() => setIsVideoOff(p => !p)} />}
+        {selectedChat && !selectedChat.isGroup && isVoiceCall && <VoiceCallDialog open={isVoiceCall} onOpenChange={setIsVoiceCall} user={selectedChat} localStream={webrtc.localStream} callState={webrtc.callState} endCall={webrtc.endCall} isMuted={isCallMuted} onToggleMute={() => setIsCallMuted(p => !p)} />}
+        {selectedChat && selectedChat.isGroup && isVideoCall && <VideoCallDialog open={isVideoCall} onOpenChange={setIsVideoCall} user={selectedChat} localStream={webrtc.localStream} remoteStream={webrtc.remoteStream} callState={webrtc.callState} endCall={webrtc.endCall} isMuted={isCallMuted} isVideoOff={isVideoOff} onToggleMute={() => setIsCallMuted(p => !p)} onToggleVideo={() => setIsVideoOff(p => !p)} />}
+        {selectedChat && selectedChat.isGroup && isVoiceCall && <VoiceCallDialog open={isVoiceCall} onOpenChange={setIsVoiceCall} user={selectedChat} localStream={webrtc.localStream} callState={webrtc.callState} endCall={webrtc.endCall} isMuted={isCallMuted} onToggleMute={() => setIsCallMuted(p => !p)} />}
 
         <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
           <DialogContent className="max-w-sm rounded-2xl border-0 p-6 bg-white app-shadow">

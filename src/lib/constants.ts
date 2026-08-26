@@ -44,6 +44,19 @@ export const INTEREST_OPTIONS: readonly string[] = [
     "interest.nature",
     "interest.design",
     "interest.pets",
+    "interest.astronomy",
+    "interest.board_games",
+    "interest.dancing",
+    "interest.diy",
+    "interest.extreme",
+    "interest.films",
+    "interest.food",
+    "interest.gaming",
+    "interest.hiking",
+    "interest.martial_arts",
+    "interest.podcasts",
+    "interest.reading",
+    "interest.technology",
 ];
 
 export const ZODIAC_SIGNS: readonly string[] = [
