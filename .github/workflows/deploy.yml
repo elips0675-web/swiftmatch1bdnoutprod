@@ -75,6 +75,13 @@ jobs:
           DB_USER: root
           DB_PASSWORD: swiftmatch_test
           DB_NAME: swiftmatch_test
+      - name: EXPLAIN audit all SQL queries
+        run: node scripts/sql-explain-audit.mjs
+        env:
+          DB_HOST: 127.0.0.1
+          DB_USER: root
+          DB_PASSWORD: swiftmatch_test
+          DB_NAME: swiftmatch_test
       - run: npm test -- --reporter=verbose
         working-directory: server
         env:
@@ -164,7 +171,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "dist/,server/,database/,scripts/schema-validate.mjs,package.json,package-lock.json"
+          source: "dist/,server/,database/,scripts/schema-validate.mjs,scripts/sql-explain-audit.mjs,package.json,package-lock.json"
           target: "/app/swiftmatch"
           strip_components: 0
       - name: Migrate + restart backend
@@ -179,6 +186,7 @@ jobs:
             . ./server/.env
             set +a
             node scripts/schema-validate.mjs
+            node scripts/sql-explain-audit.mjs
             node database/migrations/migrate.js
             cd server
             npm ci --omit=dev
