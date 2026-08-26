@@ -45,6 +45,7 @@
 - **59** — Анти-кот верификация: миграция 041 (user_verifications + photo_verified в user_profiles), 4 эндпоинта (GET/POST /api/profile/verification + GET/PUT /api/admin/verifications), VerificationBadge + VerificationDialog, интеграция в profile.tsx + profile-edit.tsx, 17 ключей i18n; 388/388 ✅
 - **Хотфикс** — admin-content delete handlers: `handleSave()` вызывался внутри `setState` updater'а (5 хендлеров: interests/dating_goals/education/cities/banned_words) → устаревший state, данные не сохранялись. Вынесен наружу (коммит `8e0eeaf`). Banned words обновлены в БД: 109 слов (18 анти-фрод + 91 мат/оскорбления), «развод» исключён (AGENTS.md #6)
 - **Хотфикс (26.08)** — hangout-detail.tsx: `cn()` использовался без импорта `@/lib/utils` → страница `/hangouts/:id` не рендерилась (ReferenceError). Фикс: добавлен `import { cn } from "@/lib/utils"`. Тесты: 388/388 ✅, Vite build ✅
+- **Хотфикс (26.08第二批)** — admin/content → profile/edit: полный список интересов (28) восстановлен в БД (был уменьшен до 4 при тестировании); удалена кнопка «Открыть профиль» из search.tsx (variant_b CTA + useExperiment импорт); добавлен `<BottomNav />` в profile-edit.tsx (loading + main state); кнопка «Верифицировать» сделана крупнее (`h-11 rounded-xl border-2`) с `mb-3` отступом от «Сохранить». Коммиты: a740b65, 05d0857, a3d428b, 3eb9464 — push part
 
 ---
 ## Что сделано

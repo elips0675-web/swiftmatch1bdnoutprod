@@ -1,6 +1,25 @@
 # Что сделано
 
-> Актуально на август 2026. Все тесты: **388/388** — сервер 307/307 ✅, фронт 81/81 ✅. Vite build: ✅. Lint: 0 errors.
+> Актуально на 26.08.2026. Все тесты: **388/388** — сервер 307/307 ✅, фронт 81/81 ✅. Vite build: ✅. Lint: 0 errors.
+
+## Хотфикс (26.08.2026): admin/content → profile/edit, UI-фиксы, поиск
+
+### Интересы восстановлены в БД
+- При тестировании admin/content сохранение уменьшило список интересов с 28 до 4. Восстановлен полный список (28 шт.) из `constants.ts`: sport, music, movies, books, travel, cooking, games, art, photography, tech, fashion, dance, animals, volunteering, politics, psychology, philosophy, yoga, meditation, gardening, cars, science, history, architecture, coffee, nature, design, pets
+
+### Кнопка «Открыть профиль» удалена из поиска
+- `src/pages/search.tsx`: удалена кнопка `variant_b` (CTA `card_cta` эксперимента) — «Открыть профиль» под карточкой
+- Удалён мёртвый импорт `useExperiment` и переменная `ctaVariant`
+- Ранее эта кнопка была уменьшена до `h-9 px-8 rounded-full` пилюли, теперь убрана целиком
+
+### BottomNav на /profile/edit
+- Добавлен `<BottomNav />` в `src/pages/profile-edit.tsx` (и в loading state, и в основной рендер) — нижнее меню теперь видно на странице редактирования профиля
+
+### Кнопка «Верифицировать» — крупнее и с отступом
+- Кнопка верификации в `profile-edit.tsx`: `h-11 rounded-xl border-2 border-primary/30 font-bold text-sm` + `mb-3` (12px отступ от «Сохранить»)
+
+- Тесты: 388/388 ✅, Vite build ✅
+- Коммиты: a740b65 (search + interests), 05d0857 (BottomNav), a3d428b (verify button), 3eb9464 (mb-3 spacing) — все пуш в part
 
 ## Хотфикс (26.08.2026): hangout-detail.tsx — не хватало импорта `cn`
 
