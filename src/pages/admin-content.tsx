@@ -67,7 +67,7 @@ function EditableList({ items, onAdd, onDelete, nounKey, section, saving }: Edit
         {items.map((item) => (
           <Badge key={item} variant="secondary" className="text-sm py-1 px-3 flex items-center gap-2 border bg-background shadow-sm">
             {itemLabel(item, section, t)}
-            <button onClick={() => onDelete(item)} className="text-muted-foreground hover:text-destructive transition-colors">
+            <button onClick={(e) => { e.stopPropagation(); if (!confirm(t('admin.content.confirm_delete'))) return; onDelete(item); }} className="text-muted-foreground hover:text-destructive transition-colors">
               <Trash2 size={12} />
             </button>
           </Badge>

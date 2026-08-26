@@ -640,9 +640,11 @@ export default function EditProfilePage() {
               </div>
             )
           })()}
-          <Button data-testid="verify-profile" variant="outline" className="w-full h-11 rounded-xl border-2 border-primary/30 text-primary font-bold text-sm hover:bg-primary/5 active:scale-95 transition-all mb-3" onClick={() => setShowVerification(true)}>
-            <ShieldCheck size={18} className="mr-2" />{t('verification.verify_button')}
-          </Button>
+          <div className="py-2">
+            <Button data-testid="verify-profile" variant="outline" className="w-full h-11 rounded-xl border-2 border-primary/30 text-primary font-bold text-sm hover:bg-primary/5 active:scale-95 transition-all" onClick={() => setShowVerification(true)}>
+              <ShieldCheck size={18} className="mr-2" />{t('verification.verify_button')}
+            </Button>
+          </div>
           <VerificationDialog open={showVerification} onClose={() => setShowVerification(false)} />
           <Button data-testid="save-profile" onClick={handleSave} disabled={isSaving} className="w-full h-14 rounded-2xl gradient-bg text-white font-black uppercase tracking-widest shadow-xl shadow-primary/30 border-0 hover:brightness-110 active:scale-95 transition-all">
             {isSaving ? <Loader2 className="animate-spin mr-2" /> : null}

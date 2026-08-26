@@ -10,7 +10,7 @@ const defaultOptions = {
   volumeThreshold: 5,
 }
 
-function createBreaker(fn, name, opts = {}) {
+export function createBreaker(fn, name, opts = {}) {
   const breaker = new CircuitBreaker(fn, { ...defaultOptions, ...opts })
 
   breaker.on('open', () => {
