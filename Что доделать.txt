@@ -440,19 +440,69 @@
 | - E2E: admin adds → user sees in profile/edit | | | ✅ |
 | - Negative: banned word interest not shown | | | ✅ |
 
-### План (этапы 61–66, по ~10 тестов каждый)
+### Готово (этапы 61–66) — коммит `dca5513`, 133/133 E2E
 
-| Этап | Файл | Что тестировать | Селекторы |
+| Этап | Файл | Тестов | Статус |
 |---|---|---|---|
-| **61** | `e2e/admin-content.spec.ts` | admin-content CRUD: add/delete interests, goals, education, banned_words, cities; save per tab; round-trip через public API | text-based (TabsTrigger text, EditableList items) |
-| **62** | `e2e/admin-features.spec.ts` | admin-features: toggle flag → GET → verify; save/reset buttons | `[data-testid="save-features"]`, `[data-testid="reset-features"]` |
-| **63** | `e2e/admin-users.spec.ts` | admin-users: search by name; ban/unban user → verify is_banned in API | `[data-testid="search-users"]` |
-| **64** | `e2e/admin-messaging.spec.ts` | admin-messaging: fill title/body → send campaign → verify 201 | `[data-testid="messaging-title"]`, `[data-testid="messaging-body"]`, `[data-testid="send-campaign"]` |
-| **65** | `e2e/auth.spec.ts` | login + register + forgot-password: login flow, wrong password, empty email, register with consent, duplicate email | `[data-testid="email"]`, `[data-testid="password"]`, `[data-testid="submit-login"]`, `[data-testid="submit-register"]`, `[data-testid="submit-forgot-password"]` |
-| **66** | `e2e/chats-groups.spec.ts` | chats: open chat, send message, verify in API; groups: create group, verify in list | `[data-testid="message-input"]`, `[data-techid="send-button"]`, `[data-testid="group-name"]`, `[data-testid="submit-create-group"]` |
+| **61** | `e2e/admin-content.spec.ts` | 15/15 | ✅ |
+| - API round-trip 5 секций (interests, goals, education, banned_words, cities) | | 5 | ✅ |
+| - API: add + remove interest/banned word persists | | 2 | ✅ |
+| - UI: 5 tabs visible with correct counts | | 1 | ✅ |
+| - UI: tab content shows items (interests, goals, education, banned_words) | | 4 | ✅ |
+| - UI: add interest → appears in panel text | | 1 | ✅ |
+| - Negative: unauth 401, empty items works | | 2 | ✅ |
+| **62** | `e2e/admin-features.spec.ts` | 8/8 | ✅ |
+| - API: GET returns flag object | | 1 | ✅ |
+| - API: PUT round-trip + toggle verify | | 2 | ✅ |
+| - UI: page loads with switches | | 1 | ✅ |
+| - UI: toggle → save → persists | | 1 | ✅ |
+| - UI: reset reverts unsaved changes | | 1 | ✅ |
+| - API: public GET no auth required | | 1 | ✅ |
+| - Negative: PUT without auth 401 | | 1 | ✅ |
+| **63** | `e2e/admin-users.spec.ts` | 8/8 | ✅ |
+| - API: list returns users | | 1 | ✅ |
+| - API: search filter | | 1 | ✅ |
+| - API: ban + unban | | 1 | ✅ |
+| - UI: table loads + search filters | | 2 | ✅ |
+| - API: user detail by id | | 1 | ✅ |
+| - Negative: unauth 401, non-admin ban 403 | | 2 | ✅ |
+| **64** | `e2e/admin-messaging.spec.ts` | 8/8 | ✅ |
+| - API: GET campaigns array | | 1 | ✅ |
+| - API: POST creates campaign | | 1 | ✅ |
+| - API: POST without title error | | 1 | ✅ |
+| - UI: page loads with form | | 1 | ✅ |
+| - UI: fill form → send enables | | 1 | ✅ |
+| - UI: send → form clears → appears in history | | 1 | ✅ |
+| - Negative: unauth 401, non-admin 403 | | 2 | ✅ |
+| **65** | `e2e/auth.spec.ts` | 20/20 | ✅ |
+| - UI login: page loads, valid redirect, wrong pw, empty email | | 4 | ✅ |
+| - API login: JWT, wrong pw 401, non-existent 401 | | 3 | ✅ |
+| - API /me: authenticated + unauthenticated | | 2 | ✅ |
+| - UI register: page loads | | 1 | ✅ |
+| - API register: creates user, duplicate error, short pw | | 3 | ✅ |
+| - UI forgot-password: page loads | | 1 | ✅ |
+| - API forgot-password: valid + non-existent both 200 | | 2 | ✅ |
+| - UI forgot-password: submit shows success | | 1 | ✅ |
+| - API logout + UI logout redirect | | 2 | ✅ |
+| - API lockout: failed logins trigger 429 | | 1 | ✅ |
+| **66** | `e2e/chats-groups.spec.ts` | 9/9 | ✅ |
+| - API: chat list, messages, send message | | 3 | ✅ |
+| - UI: /chats loads, open chat renders, message input visible | | 3 | ✅ |
+| - UI: /groups loads, create form opens, submit works | | 3 | ✅ |
 
-### Итого после плана
-- Сейчас: 65 E2E (10 interests + 55 pre-existing)
-- После: ~125 E2E (+60 новых)
-- Unit: 388不变
-- **Цель: 100% покрытие критических user flows**
+### Ключевые селекторы (из опыта)
+
+| Компонент | Селектор | Примечание |
+|---|---|---|
+| Admin content tabs | `getByRole('tab', { name: /Интересы|Interests/i })` | Русские названия: Интересы (N), Цели (N), Образование (N), Города (N), Запрещенные слова (N) |
+| Admin content panel | `getByRole('tabpanel')` | Проверка `textContent().length > 20` |
+| Badge (interest chip) | `div` с `Badge` shadcn | НЕ button! |
+| Chat rows | `data-testid="chat-row-{id}"` | НЕ `chat-item` |
+| Groups category | `Select` dropdown | `handleCreateGroup` проверяет `!newGroupCategory` |
+| Admin users table | `data-testid="search-users"` на input | Table: `thead`/`tbody` |
+| Admin features switches | `role="switch"` | `data-testid="save-features"` / `"reset-features"` |
+| Admin messaging form | `data-testid="messaging-title"`, `"messaging-body"`, `"send-campaign"` | |
+| Auth inputs | `data-testid="email"`, `"password"`, `"submit-login"`, `"submit-register"` | |
+| Empty state | `Ничего не найдено` / `Nothing found` | |
+| Rate limit lockout | flexible threshold loop | Порог не фиксирован |
+| Token cache | `e2e/helpers/api.ts` `tokenCache` | Избегает 429 при 133+ тестах |
