@@ -26,6 +26,7 @@ import { useLanguage } from "@/context/language-context";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { BANNED_WORDS } from "@/lib/constants";
 import { VerificationDialog } from "@/components/shared/verification";
+import { BottomNav } from "@/components/navigation/bottom-nav";
 
 const INTEREST_KEY_TO_ID: Record<string, number> = {
   'interest.sport': 1, 'interest.music': 2, 'interest.movies': 3, 'interest.books': 4,
@@ -391,6 +392,7 @@ export default function EditProfilePage() {
             <Skeleton className="h-12 w-full" />
           </div>
         </main>
+        <BottomNav />
       </div>
     );
   }
@@ -648,6 +650,7 @@ export default function EditProfilePage() {
           </Button>
         </div>
       </main>
+      <BottomNav />
     </div>
   );
 }
