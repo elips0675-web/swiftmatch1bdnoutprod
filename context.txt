@@ -52,6 +52,16 @@
   3. Video call в `chats.tsx`: `VideoCallDialog`/`VoiceCallDialog` не получали пропсы `endCall`, `callState`, `localStream`, `remoteStream`, `isMuted`, `isVideoOff`, `onToggleMute`, `onToggleVideo` → кнопка PhoneOff падала. Подключён `useWebRTC` хук + полная передача пропсов.
   4. `запуск-всего.bat`: API стартовал из несуществующего `C:\swiftmatch1bdnoutprod\server` → исправлен на `D:\swiftmatch1bdnoutprodpart\server`.
 
+### Этап 54 — CI/infra improvements (26.08.2026)
+
+| Что | Чем закрыто |
+|---|---|
+| EXPLAIN-аудит SQL в CI | `scripts/sql-explain-audit.mjs` — парсит SQL из server/src/*.js (161 запрос), прогоняет EXPLAIN через MySQL. 112 проверены, 0 ошибок. Шаг в deploy.yml server-test + deploy. Предотвращает 500 от дрейфа схемы (invites, iap.js, location.js — повторение этих багов) |
+| Backup restore smoke test | `scripts/verify-backup.mjs` — кросс-платформенный (Node.js), mysqldump или SQL-fallback, scratch DB + sanity checks (6 таблиц). Шаг в deploy.yml server-test |
+| Docker Compose config check | Шаг `docker-config-check` в deploy.yml — `docker compose config --quiet` + `docker build --target server` |
+| AGENTS.md split | 1208 → 389 (core) + 373 (docs/architecture.md) + 175 (docs/past-mistakes.md) = 937 строк. Нет потери контента, нет дублирования |
+| Node 22 vs 25 check | CI/Docker = Node 22, local = v24.16.0, polyfill localStorage в setup.ts на месте. 388/388 ✅ |
+
 ---
 ## Что сделано
 
