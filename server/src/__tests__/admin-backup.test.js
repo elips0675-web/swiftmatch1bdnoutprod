@@ -13,6 +13,7 @@ vi.mock('../logger.js', () => ({
 const backupMocks = vi.hoisted(() => ({
   listBackups: vi.fn(),
   createBackup: vi.fn(),
+  createFileBackup: vi.fn(),
   resolveBackupPath: vi.fn(),
 }))
 
@@ -54,6 +55,27 @@ describe('admin backup route', () => {
 
     expect(res.status).toBe(201)
     expect(res.body).toEqual(sample)
+  })
+
+  it('POST /backup/files creates a file backup and returns 201', async () => {
+    const fileSample = { name: 'swiftmatch_files_2026-08-27T00-00-00-000Z.zip', size: 4321, createdAt: '2026-08-27T00:00:00.000Z' }
+    backupMocks.createFileBackup.mockResolvedValue(fileSample)
+    const res = await request(app)
+      .post('/api/admin/backup/files')
+      .set('Authorization', `Bearer ${adminToken()}`)
+
+    expect(res.status).toBe(201)
+    expect(res.body).toEqual(fileSample)
+  })
+
+  it('POST /backup/files returns 500 on failure', async () => {
+    backupMocks.createFileBackup.mockRejectedValue(new Error('boom'))
+    const res = await request(app)
+      .post('/api/admin/backup/files')
+      .set('Authorization', `Bearer ${adminToken()}`)
+
+    expect(res.status).toBe(500)
+    expect(res.body.message).toBe('Failed to create file backup')
   })
 
   it('POST / returns 500 with BACKUP_MYSQLDUMP_NOT_AVAILABLE when mysqldump is missing', async () => {
@@ -119,5 +141,20 @@ describe('admin backup route', () => {
     expect(res.headers['content-disposition']).toContain('attachment')
     expect(res.text).toContain('CREATE TABLE users')
     expect(existsSync(dir)).toBe(true)
+  })
+
+  it('GET /:name/download serves .zip with application/zip content type', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bkt-'))
+    const file = join(dir, 'swiftmatch_files_2026-08-27T00-00-00-000Z.zip')
+    writeFileSync(file, 'PK\u0003\u0004fakezip')
+    backupMocks.resolveBackupPath.mockReturnValue(file)
+
+    const res = await request(app)
+      .get(`/api/admin/backup/${encodeURIComponent('swiftmatch_files_2026-08-27T00-00-00-000Z.zip')}/download`)
+      .set('Authorization', `Bearer ${adminToken()}`)
+
+    expect(res.status).toBe(200)
+    expect(res.headers['content-type']).toContain('application/zip')
+    expect(res.headers['content-disposition']).toContain('attachment')
   })
 })

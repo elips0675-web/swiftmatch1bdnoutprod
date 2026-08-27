@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { DatabaseBackup, Download, Loader2, RefreshCw } from 'lucide-react';
+import { DatabaseBackup, Download, Loader2, RefreshCw, FileArchive } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/context/language-context';
 import { getToken } from '@/lib/token';
@@ -22,6 +22,7 @@ export default function AdminBackupPage() {
   const [backups, setBackups] = useState<BackupItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [creatingFiles, setCreatingFiles] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -62,6 +63,27 @@ export default function AdminBackupPage() {
       toast.error(t('admin.backup.error_create'));
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleCreateFiles = async () => {
+    setCreatingFiles(true);
+    try {
+      const token = getToken();
+      const res = await fetch('/api/admin/backup/files', {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || 'Failed');
+      }
+      toast.success(t('admin.backup.create_success'));
+      await load();
+    } catch {
+      toast.error(t('admin.backup.error_create'));
+    } finally {
+      setCreatingFiles(false);
     }
   };
 
@@ -106,6 +128,11 @@ export default function AdminBackupPage() {
             {creating ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <DatabaseBackup className="mr-2 h-3 w-3" />}
             {creating ? t('admin.backup.creating') : t('admin.backup.create')}
           </Button>
+          <Button variant="outline" data-testid="create-backup-files" onClick={handleCreateFiles} disabled={creatingFiles}
+            className="rounded-full font-bold h-10 px-6">
+            {creatingFiles ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <FileArchive className="mr-2 h-3 w-3" />}
+            {creatingFiles ? t('admin.backup.creating_files') : t('admin.backup.create_files')}
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -123,6 +150,7 @@ export default function AdminBackupPage() {
                   <p className="truncate text-sm font-semibold">{b.name}</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{new Date(b.createdAt).toLocaleString()}</span>
+                    <Badge variant="secondary" className="text-[9px]">{b.name.endsWith('.zip') ? t('admin.backup.file_label') : t('admin.backup.db_label')}</Badge>
                     <Badge variant="outline" className="text-[9px]">{formatSize(b.size)} MB</Badge>
                   </div>
                 </div>

@@ -70,7 +70,7 @@ export function ChatPartnerActions({ placement = "chat" }: { placement?: string 
         navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
       });
       coords = { lat: Number(pos.coords.latitude.toFixed(6)), lng: Number(pos.coords.longitude.toFixed(6)) };
-    } catch {}
+    } catch { /* geolocation unavailable, track without coords */ }
     try {
       const token = getToken();
       const res = await fetch("/api/partners/track", {
