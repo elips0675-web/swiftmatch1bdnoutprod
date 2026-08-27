@@ -53,6 +53,7 @@ import hangoutsRoutes from './routes/hangouts.js'
 import partnersRoutes from './routes/partners.js'
 import partnerDashboard from './routes/partner-dashboard.js'
 import adminPartners from './routes/admin/partners.js'
+import adminBackup from './routes/admin/backup.js'
 import notificationsRoutes from './routes/notifications.js'
 import { metricsMiddleware, metricsRoute } from './metrics.js'
 import { JWT_SECRET } from './middleware.js'
@@ -278,6 +279,7 @@ app.use('/api/admin', adminMonetization)
 app.use('/api/admin', adminHangouts)
 app.use('/api/admin', adminPartners)
 app.use('/api/admin', adminModerationRoutes)
+app.use('/api/admin', adminBackup)
 app.use(gdprRoutes)
 app.use(referralRoutes)
 app.use('/api/checkin', dateCheckinRoutes)

@@ -1,0 +1,55 @@
+import { Router } from 'express'
+import { createReadStream } from 'fs'
+import { statSync } from 'fs'
+import { basename } from 'path'
+import logger from '../../logger.js'
+import { listBackups, createBackup, resolveBackupPath } from '../../backup.js'
+
+const router = Router()
+
+router.post('/backup', async (req, res) => {
+  try {
+    const backup = await createBackup()
+    res.status(201).json(backup)
+  } catch (err) {
+    logger.error('Backup create error:', err)
+    const msg = err.message || 'Failed to create backup'
+    res.status(500).json({ message: msg.includes('mysqldump') ? 'BACKUP_MYSQLDUMP_NOT_AVAILABLE' : 'Failed to create backup' })
+  }
+})
+
+router.get('/backup', async (req, res) => {
+  try {
+    const backups = await listBackups()
+    res.json(backups)
+  } catch (err) {
+    logger.error('Backup list error:', err)
+    res.status(500).json({ message: 'Failed to list backups' })
+  }
+})
+
+router.get('/backup/:name/download', async (req, res) => {
+  const full = resolveBackupPath(req.params.name)
+  if (!full) {
+    return res.status(400).json({ message: 'Invalid backup name' })
+  }
+  let st
+  try {
+    st = statSync(full)
+  } catch {
+    return res.status(404).json({ message: 'Backup not found' })
+  }
+  const filename = basename(full)
+  res.setHeader('Content-Type', 'application/sql')
+  res.setHeader('Content-Length', st.size)
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+  const stream = createReadStream(full)
+  stream.on('error', (err) => {
+    logger.error('Backup download error:', err.message)
+    if (!res.headersSent) res.status(500).end()
+    else res.end()
+  })
+  stream.pipe(res)
+})
+
+export default router
