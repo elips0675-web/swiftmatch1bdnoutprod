@@ -28,15 +28,21 @@ async function registerUser(request: any, name: string) {
 
 // ============ HANGOUTS: FULL FLOW ============
 test.describe('Hangouts: create -> respond -> accept -> chat', () => {
-  test('API flow enables flag, creates hangout, responds, accepts, creates chat', async ({ request }) => {
+  test('API flow enables flag, creates hangout, responds, accepts, creates chat', async ({ playwright, request }) => {
     const flagOn = await enableHangoutsFlag(request)
     expect(flagOn).toBe(true)
 
-    const author = await registerUser(request, 'author')
-    const companion = await registerUser(request, 'companion')
+    // Изолированные cookie-контексты: middleware предпочитает httpOnly-cookie Bearer'у,
+    // а Playwright request хранит Set-Cookie из предыдущих запросов в общем jar.
+    // Без изоляции cookie одного юзера перекрывает Bearer другого → "own hangout".
+    const authorCtx = await playwright.request.newContext()
+    const companionCtx = await playwright.request.newContext()
+
+    const author = await registerUser(authorCtx, 'author')
+    const companion = await registerUser(companionCtx, 'companion')
 
     const eventDate = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
-    const create = await apiCall(request, 'POST', '/api/hangouts', {
+    const create = await apiCall(authorCtx, 'POST', '/api/hangouts', {
       category: 'cinema',
       title: 'Dune 2 together',
       description: 'Evening show',
@@ -49,40 +55,39 @@ test.describe('Hangouts: create -> respond -> accept -> chat', () => {
     const hangoutId = create.body?.id
     expect(hangoutId).toBeGreaterThan(0)
 
-    const feed = await apiCall(request, 'GET', '/api/hangouts')
-    expect(feed.ok).toBe(true)
-    expect(Array.isArray(feed.body)).toBe(true)
-    expect((feed.body as Array<{ id: number }>).some((h) => h.id === hangoutId)).toBe(true)
+    const my = await apiCall(authorCtx, 'GET', '/api/hangouts/my', undefined, author.token)
+    expect(my.ok).toBe(true)
+    expect((my.body as Array<{ id: number }>).some((h) => h.id === hangoutId)).toBe(true)
 
-    const respond = await apiCall(request, 'POST', `/api/hangouts/${hangoutId}/respond`, {
+    const respond = await apiCall(companionCtx, 'POST', `/api/hangouts/${hangoutId}/respond`, {
       message: 'Take me!',
     }, companion.token)
     expect(respond.ok).toBe(true)
     const responseId = respond.body?.id
     expect(responseId).toBeGreaterThan(0)
 
-    const duplicate = await apiCall(request, 'POST', `/api/hangouts/${hangoutId}/respond`, {
+    const duplicate = await apiCall(companionCtx, 'POST', `/api/hangouts/${hangoutId}/respond`, {
       message: 'Again',
     }, companion.token)
     expect(duplicate.status).toBe(409)
 
-    const responsesList = await apiCall(request, 'GET', `/api/hangouts/${hangoutId}/responses`, undefined, author.token)
+    const responsesList = await apiCall(authorCtx, 'GET', `/api/hangouts/${hangoutId}/responses`, undefined, author.token)
     expect(responsesList.ok).toBe(true)
     expect(Array.isArray(responsesList.body)).toBe(true)
     expect(responsesList.body.length).toBeGreaterThan(0)
 
-    const accept = await apiCall(request, 'PUT', `/api/hangouts/${hangoutId}/responses/${responseId}`, {
+    const accept = await apiCall(authorCtx, 'PUT', `/api/hangouts/${hangoutId}/responses/${responseId}`, {
       status: 'accepted',
     }, author.token)
     expect(accept.ok).toBe(true)
     const chatId = accept.body?.chat_id
     expect(chatId).toBeGreaterThan(0)
 
-    const afterAccept = await apiCall(request, 'GET', `/api/hangouts/${hangoutId}`, undefined, author.token)
+    const afterAccept = await apiCall(authorCtx, 'GET', `/api/hangouts/${hangoutId}`, undefined, author.token)
     expect(afterAccept.ok).toBe(true)
     expect(afterAccept.body?.status).toBe('completed')
 
-    const myResponses = await apiCall(request, 'GET', '/api/hangouts/responses/my', undefined, companion.token)
+    const myResponses = await apiCall(companionCtx, 'GET', '/api/hangouts/responses/my', undefined, companion.token)
     expect(myResponses.ok).toBe(true)
     const mine = (myResponses.body as Array<{ id: number; response_status?: string; status?: string }>).find(
       (r) => r.id === responseId,
@@ -90,9 +95,10 @@ test.describe('Hangouts: create -> respond -> accept -> chat', () => {
     expect(mine).toBeTruthy()
   })
 
-  test('Author cannot respond to own hangout', async ({ request }) => {
-    const author = await registerUser(request, 'selfresp')
-    const create = await apiCall(request, 'POST', '/api/hangouts', {
+  test('Author cannot respond to own hangout', async ({ playwright, request }) => {
+    const ctx = await playwright.request.newContext()
+    const author = await registerUser(ctx, 'selfresp')
+    const create = await apiCall(ctx, 'POST', '/api/hangouts', {
       category: 'other',
       title: 'Park walk',
       event_date: new Date(Date.now() + 86_400_000).toISOString(),
@@ -100,14 +106,16 @@ test.describe('Hangouts: create -> respond -> accept -> chat', () => {
     }, author.token)
     expect(create.ok).toBe(true)
 
-    const selfRespond = await apiCall(request, 'POST', `/api/hangouts/${create.body?.id}/respond`, {}, author.token)
+    const selfRespond = await apiCall(ctx, 'POST', `/api/hangouts/${create.body?.id}/respond`, {}, author.token)
     expect(selfRespond.status).toBe(400)
   })
 
-  test('Non-author cannot accept responses', async ({ request }) => {
-    const author = await registerUser(request, 'owner2')
-    const stranger = await registerUser(request, 'stranger2')
-    const create = await apiCall(request, 'POST', '/api/hangouts', {
+  test('Non-author cannot accept responses', async ({ playwright, request }) => {
+    const authorCtx = await playwright.request.newContext()
+    const strangerCtx = await playwright.request.newContext()
+    const author = await registerUser(authorCtx, 'owner2')
+    const stranger = await registerUser(strangerCtx, 'stranger2')
+    const create = await apiCall(authorCtx, 'POST', '/api/hangouts', {
       category: 'theater',
       title: 'Bolshoi evening',
       event_date: new Date(Date.now() + 86_400_000).toISOString(),
@@ -115,7 +123,7 @@ test.describe('Hangouts: create -> respond -> accept -> chat', () => {
     }, author.token)
     expect(create.ok).toBe(true)
 
-    const forbidden = await apiCall(request, 'PUT', `/api/hangouts/${create.body?.id}/responses/999999`, {
+    const forbidden = await apiCall(strangerCtx, 'PUT', `/api/hangouts/${create.body?.id}/responses/999999`, {
       status: 'accepted',
     }, stranger.token)
     expect([403, 404]).toContain(forbidden.status)

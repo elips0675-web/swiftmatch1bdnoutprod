@@ -4,14 +4,25 @@ import path from 'path'
 
 const API_BASE = process.env.TEST_API_URL || 'http://localhost:3002'
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 export async function apiCall(request: APIRequestContext, method: string, endpoint: string, body?: Record<string, unknown>, token?: string) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (token) headers['Authorization'] = `Bearer ${token}`
-  const res = await request.fetch(`${API_BASE}${endpoint}`, {
+  let res = await request.fetch(`${API_BASE}${endpoint}`, {
     method,
     headers,
     data: body,
   })
+  // rate-limit 429 с одного IP в полном E2E-прогоне — ретраим с паузой
+  for (let attempt = 0; res.status() === 429 && attempt < 5; attempt++) {
+    await sleep(1200)
+    res = await request.fetch(`${API_BASE}${endpoint}`, {
+      method,
+      headers,
+      data: body,
+    })
+  }
   const json = await res.json().catch(() => null)
   return { status: res.status(), body: json, ok: res.ok() }
 }

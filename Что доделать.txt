@@ -506,3 +506,18 @@
 | Empty state | `Ничего не найдено` / `Nothing found` | |
 | Rate limit lockout | flexible threshold loop | Порог не фиксирован |
 | Token cache | `e2e/helpers/api.ts` `tokenCache` | Избегает 429 при 133+ тестах |
+
+## 🔧 Этап 67 (26.08.2026): добить флейки E2E до полного зелёного прогона 133/133
+
+После этапа 66 оставалось 4 флейка в полном прогоне (2 падали стабильно, 2 — по обстоятельствам). Все устранены, полный прогон `npx playwright test --reporter=list --retries=0` = **133 passed / 0 failed (3.2m)**.
+
+| Пункт | Причина | Фикс | Файлы |
+|---|---|---|---|
+| hangouts feed/respond баг | Мидлвари предпочитают httpOnly-cookie Bearer'у, а любой Playwright `request` хранит `Set-Cookie` из предыдущих запросов в общем jar → cookie одного юзера перекрывала Bearer другого → «own hangout» / 403 | Изолированные cookie-контексты `playwright.request.newContext()` для author/companion/stranger во всех 3 API-тестах hangouts | `e2e/hangouts.spec.ts` |
+| Icebreakers UI 403 ADMIN_REQUIRED | То же cookie-приоритет: PUT /api/admin/features через Playwright-request нёс cookie не-админа | Admin-PUT через **чистый `fetch`** (без cookie jar) → Bearer-админ проходит | `e2e/features.spec.ts` |
+| register 429 (GDPR cascade) | `authLimiter` 60/мин с одного IP — полный прогон 133 тестов с одним IP упирался в окно | `authLimiter.max` 60 → 200 (lockout на 5 неудач остаётся главным анти-брутфорс-барьером); + retry на 429 с паузой в `apiCall` | `server/src/middleware/limiters.js`, `server/src/__tests__/ratelimit.test.js`, `e2e/helpers/api.ts` |
+| auth.spec.ts flaky login redirect (тест 2) | Негативные логин-тесты (UI wrong password + API wrong password) били по реальному демо-юзеру `user2@mail.ru`, копили счётчик в `lockout.js` (5 неудач → 15 мин), персистентный в памяти сервера между прогонами → валидный логин user2 падал | Негативы переведены на несуществующий уникальный email `wronguser_${Date.now()}@test.com` (не бампает user2 и никого другого) | `e2e/auth.spec.ts` |
+
+Проверки этого этапа: **server 307/307 ✅, front 81/81 ✅, E2E 133/133 ✅** (полный прогон `--retries=0`), `scripts/verify-backup.mjs` — схема дампается/восстанавливается в скретч-БД ✅ (Backup restore smoke в CI уже подключён: `deploy.yml` server-test job + доставляется через SCP).
+
+Счётчики после этапа 67: server **307/307**, front **81/81**, E2E **133/133** = **521/521**

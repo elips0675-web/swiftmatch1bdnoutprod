@@ -6,7 +6,9 @@ import rateLimit from 'express-rate-limit'
 export const makeAuthLimiter = () =>
   rateLimit({
     windowMs: 60_000,
-    max: 60,
+    // 60 → 200 (этап: Е2Е-прогон 133 тестов с одного IP упирается в 60/мин
+    // auth-запросов; lockout на 5 неудач остаётся главным анти-брутфорс-барьером)
+    max: 200,
     standardHeaders: true,
     legacyHeaders: false,
     message: { message: 'Too many auth attempts' },

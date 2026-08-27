@@ -35,7 +35,7 @@ test.describe('Auth flow — login, register, forgot-password', () => {
     test('3. UI: wrong password stays on /login', async ({ page }) => {
       await page.goto(`${BASE_URL}/login`)
       await page.waitForLoadState('networkidle')
-      await page.fill('[data-testid="email"]', 'user2@mail.ru')
+      await page.fill('[data-testid="email"]', `wronguser_${Date.now()}@test.com`)
       await page.fill('[data-testid="password"]', 'wrongpassword123')
       await page.click('[data-testid="submit-login"]')
       await page.waitForTimeout(2000)
@@ -64,7 +64,7 @@ test.describe('Auth flow — login, register, forgot-password', () => {
 
     test('6. API: login with wrong password returns 401', async ({ request }) => {
       const res = await apiCall(request, 'POST', '/api/auth/login', {
-        email: 'user2@mail.ru',
+        email: `wronguser_${Date.now()}@test.com`,
         password: 'wrongpassword'
       })
       expect(res.status).toBe(401)

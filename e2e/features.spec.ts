@@ -122,10 +122,21 @@ test.describe('14. Icebreakers', () => {
 
       const adminToken = getTokenFromStorage('e2e/.auth/admin.json')
       expect(adminToken).toBeTruthy()
+      // adminAuth приоритезирует httpOnly-cookie над Bearer, а любой Playwright request-контекст
+      // в jar'е несёт sm_token не-админа (от предыдущих регистраций) → PUT /features дал бы 403.
+      // Обходим через чистый fetch (без cookie jar'а), чтобы Bearer-админ прошёл.
+      const adminPut = async (flagsBody: Record<string, unknown>) => {
+        const r = await fetch('http://localhost:3002/api/admin/features', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + adminToken },
+          body: JSON.stringify(flagsBody),
+        })
+        return { status: r.status, ok: r.ok, body: await r.json().catch(() => null) }
+      }
       const flags = await apiCall(request, 'GET', '/api/admin/features', undefined, adminToken)
       expect(flags.ok).toBe(true)
       const originalFlags = { ...flags.body }
-      const enabled = await apiCall(request, 'PUT', '/api/admin/features', { ...originalFlags, aiIcebreakers: true }, adminToken)
+      const enabled = await adminPut({ ...originalFlags, aiIcebreakers: true })
       expect(enabled.ok).toBe(true)
 
       try {
@@ -166,7 +177,7 @@ test.describe('14. Icebreakers', () => {
         await expect(page.locator('[data-testid="message-list"]')).toContainText(chipText, { timeout: 5000 })
         audit.expectClean()
       } finally {
-        await apiCall(request, 'PUT', '/api/admin/features', originalFlags, adminToken)
+        await adminPut(originalFlags)
       }
     })
   })
