@@ -308,7 +308,7 @@ app.use((err, req, res, next) => {
 })
 
 const httpServer = createServer(app)
-initIO(httpServer)
+await initIO(httpServer)
 startMessageCleanup()
 startCheckinCleanup()
 startRefreshTokenCleanup()

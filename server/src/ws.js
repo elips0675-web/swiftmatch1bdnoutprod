@@ -2,7 +2,7 @@ import { Server } from 'socket.io'
 import { createAdapter } from '@socket.io/redis-adapter'
 import jwt from 'jsonwebtoken'
 import { JWT_SECRET } from './middleware.js'
-import { getRedisPub, getRedisSub } from './redis.js'
+import { isRedisReady, getRedisPub, getRedisSub } from './redis.js'
 import { rootLogger } from './logger.js'
 import pool from './db.js'
 import { wsConnectionsGauge, wsRoomsGauge, trackWsMessage } from './metrics.js'
@@ -58,7 +58,7 @@ export function startCheckinCleanup() {
   rootLogger.info('[checkin] Expiry cleanup started every 30s')
 }
 
-export function initIO(httpServer) {
+export async function initIO(httpServer) {
   io = new Server(httpServer, {
     cors: {
       origin: process.env.CORS_ORIGIN || '*',
@@ -68,11 +68,16 @@ export function initIO(httpServer) {
     pingTimeout: 5000,
   })
 
-  const pub = getRedisPub()
-  const sub = getRedisSub()
-  if (pub && sub) {
+  // Redistribute the adapter only when Redis is genuinely reachable. Otherwise
+  // keep the in-memory adapter — a Redis adapter with a closed connection makes
+  // io.to().emit() reject silently and drops events (этап 68, pitfall #16).
+  if (await isRedisReady()) {
+    const pub = getRedisPub()
+    const sub = getRedisSub()
     io.adapter(createAdapter(pub, sub))
     rootLogger.info('[ws] Redis adapter attached — horizontal scaling enabled')
+  } else {
+    rootLogger.warn('[ws] Redis unavailable — using in-memory adapter (single instance)')
   }
 
   io.use((socket, next) => {

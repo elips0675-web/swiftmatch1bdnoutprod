@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken'
 import { auth, optionalAuth, JWT_SECRET } from '../middleware.js'
 
 function mockReqRes() {
-  const req = { headers: {} }
+  const req = { headers: {}, cookies: undefined }
   const res = {
     status: vi.fn(() => res),
     json: vi.fn(() => res),

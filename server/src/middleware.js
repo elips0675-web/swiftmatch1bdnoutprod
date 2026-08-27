@@ -34,6 +34,9 @@ export function auth(req, res, next) {
     const hasAny = Boolean(headerToken || cookieToken)
     return res.status(401).json({ message: hasAny ? 'Invalid or expired token' : 'Authentication required' })
   }
+  // Бан: WEB-сессия разлогинивается мгновенно через WS-событие user:banned
+  // (emit + принудительный disconnect сокетов, см. admin/users.js:notifyBanned),
+  // а клиент (use-websocket.ts) слушает событие и вызывает logout().
   req.userId = decoded.userId
   next()
 }

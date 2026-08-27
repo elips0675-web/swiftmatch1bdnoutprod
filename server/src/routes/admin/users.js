@@ -2,8 +2,24 @@ import { Router } from 'express'
 import pool from '../../db.js'
 import logger from '../../logger.js'
 import { softDelete, softDeleteWhere } from '../../audit.js'
+import { getIO } from '../../ws.js'
 
 const router = Router()
+
+// Мгновенный разлогин забаненного юзера: шлём WS-событие user:banned и, как
+// страховку, обрываем его сокеты (клиент, который не обрабатывает событие,
+// всё равно теряет соединение и поднимется заново — но auth вернёт USER_BANNED).
+function notifyBanned(userId) {
+  if (!userId) return
+  const io = getIO()
+  if (!io) return
+  try {
+    io.to(`user:${userId}`).emit('user:banned', { userId })
+    setTimeout(() => io.in(`user:${userId}`).disconnectSockets(true), 100)
+  } catch (err) {
+    logger.error('notifyBanned WS error:', err)
+  }
+}
 
 router.get('/users', async (req, res) => {
   try {
@@ -99,6 +115,7 @@ router.post('/users/:id/ban', async (req, res) => {
       'INSERT INTO moderation_log (admin_id, target_user_id, action, reason) VALUES (?, ?, ?, ?)',
       [req.admin.id, req.params.id, 'ban', req.body.reason || 'No reason'],
     )
+    notifyBanned(Number(req.params.id))
     res.json({ message: 'User banned' })
   } catch (err) {
     logger.error('Ban error:', err)
@@ -136,10 +153,13 @@ router.post('/users/bulk', async (req, res) => {
     if (action === 'delete') {
       await softDeleteWhere('users', `id IN (?)`, [ids], req.admin?.id, req.ip)
       await pool.query(`UPDATE users SET is_active = 0 WHERE id IN (?)`, [ids])
+      ids.forEach(notifyBanned)
     } else if (action === 'ban') {
       await pool.query(`UPDATE users SET is_active = 0 WHERE id IN (?)`, [ids])
+      ids.forEach(notifyBanned)
     } else if (action === 'suspend') {
       await pool.query(`UPDATE users SET is_active = 0 WHERE id IN (?)`, [ids])
+      ids.forEach(notifyBanned)
     }
     res.json({ message: `Bulk ${action} completed` })
   } catch (err) {

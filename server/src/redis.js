@@ -67,6 +67,25 @@ export function getRedisSub() {
   return subClient
 }
 
+export async function isRedisReady(timeoutMs = 1500) {
+  if (!REDIS_URL) return false
+  const pub = getRedisPub()
+  const sub = getRedisSub()
+  if (pub.status === 'ready' && sub.status === 'ready') return true
+  try {
+    await Promise.race([
+      Promise.all([
+        pub.connect().catch(() => {}),
+        sub.connect().catch(() => {}),
+      ]),
+      new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+    ])
+  } catch {
+    /* ignored — Redis unreachable */
+  }
+  return pub.status === 'ready' && sub.status === 'ready'
+}
+
 export async function withRedis(fn) {
   const r = getRedis()
   if (!r) return null

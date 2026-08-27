@@ -521,3 +521,21 @@
 Проверки этого этапа: **server 307/307 ✅, front 81/81 ✅, E2E 133/133 ✅** (полный прогон `--retries=0`), `scripts/verify-backup.mjs` — схема дампается/восстанавливается в скретч-БД ✅ (Backup restore smoke в CI уже подключён: `deploy.yml` server-test job + доставляется через SCP).
 
 Счётчики после этапа 67: server **307/307**, front **81/81**, E2E **133/133** = **521/521**
+
+## 🔧 Этап 68 (27.08.2026): «Бан → WS user:banned → мгновенный разлогин»
+
+Реализована цепочка: админ банит юзера → сервер шлёт WS-событие `user:banned` + принудительный `disconnectSockets` → клиент (`use-websocket.ts`) слушает событие и зовёт `logout()` → `/api/auth/logout`. По решению пользователя бан закрывается **только** через WS-событие и disconnect сокетов, без DB-проверки `is_active` внутри `auth()` (дыра с 7-дневным JWT остаётся осознанно — мгновенный разлогин онлайн-юзеров, но переживший перезагрузку токен живёт до expiry).
+
+| Пункт | Причина | Фикс | Файлы |
+|---|---|---|---|
+| WS-события не доходили (корневая #1) | `@socket.io/redis-adapter` прикреплялся к НЕподключённому Redis (lazyCreate, `ECONNREFUSED 127.0.0.1:6379`) → все `io.to().emit()` молча отклонялись | `ws.js::initIO` стал async; адаптер прикрепляется только если `await isRedisReady()` (`redis.js`), иначе in-memory (`[ws] Redis unavailable — using in-memory adapter`); `index.js` — `await initIO(httpServer)` | `server/src/ws.js`, `server/src/redis.js`, `server/src/index.js` |
+| Vite слал `ws://localhost:8081` (корневая #2) | Vite не подхватывал `VITE_WS_URL=ws://localhost:3002` без перезапуска | перезапуск Vite; в bundle подтверждено `use-websocket.ts` отдаёт `ws://localhost:3002` | `src/hooks/use-websocket.ts`, `.env` |
+| CSP блокировал socket.io (корневая #3) | `index.html` CSP `connect-src` НЕ включал API-оригин → браузер: «violates the following CSP directive: connect-src» → socket.io вообще не подключался | в `connect-src` добавлены `http://localhost:3002 ws://localhost:3002` | `index.html` |
+| Бан не дёргал WS | `admin/users.js` бан/булк-бан/суспенд/delete не слали WS | `notifyBanned(userId)` → `io.to(\`user:${userId}\`).emit('user:banned')` + `setTimeout(disconnectSockets, 100)` | `server/src/routes/admin/users.js` |
+| Клиент игнорировал событие | `use-websocket.ts` не слушал `user:banned` | добавлен `socket.on('user:banned', () => logout())` (плюс DEV-log для отладки) — `useAuth()` теперь деструктурирует и `logout` | `src/hooks/use-websocket.ts` |
+| Юнит-тесты на бан-цепочку | не было | `server/src/__tests__/admin-users-ban.test.js` (4 теста: notifyBanned эмитит, disconnect, не падает без io, бан в БД) | `server/src/__tests__/admin-users-ban.test.js` |
+| E2E-тест бан-цепочки | не было | `e2e/ban-realtime.spec.ts`: регистрация свежего юзера → login (реальный JWT) → админ-бан → ждём POST `/api/auth/logout`; токен сеется как global-setup (sessionStorage + localStorage + cookie) + reload; unban в finally | `e2e/ban-realtime.spec.ts` |
+
+Проверки этого этапа: **server 311/311 ✅** (+4 `admin-users-ban`), **front 81/81 ✅** + `npx vite build` ✅, **E2E 134/134 ✅** (полный прогон `--retries=0`; `ban-realtime` + существующие WS-тесты real-time не регрессировали).
+
+Счётчики после этапа 68: server **311/311**, front **81/81**, E2E **134/134** = **526/526**

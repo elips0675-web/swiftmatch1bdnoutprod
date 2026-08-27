@@ -14,7 +14,7 @@ if (typeof window !== 'undefined') {
 }
 
 export function useWebSocket() {
-  const { token } = useAuth()
+  const { token, logout } = useAuth()
   const socketRef = useRef<Socket | null>(null)
   const [connected, setConnected] = useState(false)
 
@@ -32,6 +32,10 @@ export function useWebSocket() {
 
     socket.on('connect', () => setConnected(true))
     socket.on('disconnect', () => setConnected(false))
+    socket.on('user:banned', () => {
+      if (import.meta.env.DEV) console.log('[ws] user:banned — server banned this user')
+      logout()
+    })
 
     socketRef.current = socket
 
@@ -40,7 +44,7 @@ export function useWebSocket() {
       socketRef.current = null
       setConnected(false)
     }
-  }, [token])
+  }, [token, logout])
 
   return { socket: socketRef.current, connected }
 }
