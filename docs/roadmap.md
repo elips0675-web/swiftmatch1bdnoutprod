@@ -34,6 +34,26 @@
 - Счётчики: **server 324/324, front 81/81, E2E 150/150**, lint 0 errors.
 - Коммит: `d290828`.
 
+## Этап 77 (29.08.2026) — аудит связки Админка ↔ БД: инцидент «забаненный админ» + открытый баг PUT/POST 500
+
+- **Инцидент (внёс сам при аудите):** мои ранние тесты `POST /api/admin/users/1/ban` (вернувшие 200) **забанили реального админа** `admin@mail.ru` (id=1, `is_active=0`). После бана активных админов не осталось → `dev-login` фолбэчил на не-админа (id=2, user) → ВСЕ админ-запросы давали **403** (роль не admin). Это объясняло «все GET 403» на живом сервере.
+  - **Урок:** аудит `PUT /admin/users/:id/ban` с реальными id мутирует прод-БД. Диагностику бана — только на несуществующем id (`999999`) или в scratch-БД.
+- **Восстановление:** `UPDATE users SET is_active=1 WHERE id IN (1,2)`. Админ id=1 снова активен, все GET-админ-роуты — 200.
+- **Ложный «баг 500 на PUT/POST» — на деле тестовый артефакт PowerShell + curl.exe (бага кода НЕТ).**
+  - Симптом: `PUT/POST` админ-роутов с непустым JSON — 500 "Internal server error"; `GET`-аналоги — 200; `{}` — 400. Устойчиво на живом.
+  - **Диагностика (стек из перенаправленного stdout вторичного инстанса):** `SyntaxError: Expected property name or '}' in JSON at position 1` в `body-parser/json.js:92` — тело приходит в `express.json()` уже битым, ещё до роутера.
+  - **Доказательство артефакта:** (1) полный автономный инстанс того же `index.js`-middleware даёт **200** через node `fetch`; (2) **на живом 3002 те же `PUT` через node `fetch` дают 200** (features → "Feature flags updated", content/interests → "interests updated", pricing → "Pricing saved"); (3) 500 появляется ТОЛЬКО когда тело шлётся `curl.exe` из PowerShell 5.1 — PS ломает embedded double-quotes в argv нативного exe (та же природа, что pitfall №47 «кириллица в API-тестах»: `Invoke-RestMethod`/инлайн-тело искажаются).
+  - **Правило для API-тестов с телом:** слать тело файлом (`curl --data-binary @file.json`) или через node `fetch`/`Invoke-RestMethod -Body (bytes)`, НЕ инлайн-строкой с кавычками в PS.
+  - Заключение: **открытый баг 500 отсутствует** — производственные PUT/POST (features, content, pricing) работают корректно.
+- **Статус аудита (контракты админ-API здоровы):** все GET-админ-роуты — 200 и корректные структуры:
+  - `users` → `{users:[...]}` (фронт `admin-reports` ждёт именно это) ✓
+  - `features` → объект флагов (`admin-features`) ✓; `stats` → объект ✓
+  - `analytics/{overview,retention,revenue-mix,registrations}`, `monetization/{pricing,revenue,ads,funnel}`, `experiments`, `partners`, `reports`, `campaigns`, `photos/pending`, `revenue-by-month` → **чистые массивы** (не `{data:[...]}`) — Recharts/DataTable не ломаются ✓
+  - `GET /api/admin/content/interests` = 404 — **ожидаемо**, у `content.js` только `GET /content` (список секций) и `PUT /content/:section`; фронт зовёт PUT ✓
+  - Пункты чек-листа «`/api/admin/analytics` 404 / `/api/admin/revenue` 404» — **не баги**: фронт не зовёт эти пути, использует `/analytics/overview` и `revenue-by-month`/`monetization/revenue`.
+- **Деградация `mysql_schema.sql` (риск 🔴 при пересоздании БД):** schema.sql = **62 таблицы**, живая БД = **73**. Всё из 62 существует в live (лишних нет), но **29 таблиц созданы ТОЛЬКО миграциями 006–042** и отсутствуют в schema.sql: `_migrations`, `audit_log`, `config`, `consent_log`, `data_erase_requests`, `date_checkins`, `emergency_contacts`, `experiment_assignments`, `experiments`, `fcm_tokens`, `hangout_*` (5), `partner_*` (5), `partners`, `push_subscriptions`, `refresh_tokens`, `sms_verification`, `user_aliases`, `user_verifications`, `webhook_events`.
+  - **Влияние на CI:** `deploy.yml` server-test/e2e инициализируют БД ТОЛЬКО `mysql < mysql_schema.sql` (строки 68/131), миграции в test-шагах НЕ прогоняются. `schema-validate.mjs` сверяет БД только против schema.sql (не читает `migrations/`) → самосверка «62 vs 62», дрейф миграционных таблиц НЕ ловится. `sql-explain-audit.mjs` — частично.
+
 ## Плановые хвосты (не блокируют)
 
 - Внешние блокеры (не код): staging VPS + docker compose up, реальные ключи в `.env`, домен + SSL + Google Play, k6 100 VU на staging, UptimeRobot/Grafana-алерты.

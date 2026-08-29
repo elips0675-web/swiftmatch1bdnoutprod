@@ -97,6 +97,40 @@
 - При необходимости масштабирования ДО этого: перевести оба механизма на rate-limit-redis / Redis-backed lockout (REDIS_URL уже подключён, этап 29)
 - Nginx-уровень (limit_req_zone api 30r/s, auth 5r/s в nginx/swiftmatch.conf) работает независимо от числа инстансов и остаётся первой линией защиты
 
+## N+5. `mysql_schema.sql` деградировал — пересоздание БД даст неполную схему (этап 77, 29.08.2026)
+
+**Факт:** `database/mysql_schema.sql` = **62 таблицы**, живая БД = **73**. Все 62 есть в live, но **29 таблиц созданы только миграциями 006–042** и в schema.sql отсутствуют: `_migrations`, `audit_log`, `config`, `consent_log`, `data_erase_requests`, `date_checkins`, `emergency_contacts`, `experiment_assignments`, `experiments`, `fcm_tokens`, `hangout_*`, `partner_*`, `partners`, `push_subscriptions`, `refresh_tokens`, `sms_verification`, `user_aliases`, `user_verifications`, `webhook_events`.
+
+**Почему «работает»:** server-юнит-тесты мокают `db.js` (`vi.mock('../db.js')`) — им не нужна реальная/полная схема. CI init `mysql < mysql_schema.sql` создаёт тестовую БД из неполной схемы; `schema-validate.mjs` сверяет БД **только против schema.sql** (не читает `migrations/`) → самосверка«62 vs 62» (self-fulfilling), дрейф миграционных таблиц не ловится.
+
+**Риск 🔴:** пересоздание прод-БД строго из `mysql_schema.sql` или на новом хосте (`mysql < schema.sql`, как делает CI) даст **неполную схему** → роуты hangouts/partners/experiments/refresh_tokens/user_verifications/push/sms и др. упадут с «table doesn't exist». Реальный деплой переживает только потому, что работает с существующей БД, поверх которой 45 миграций уже применены (`node database/migrations/migrate.js`).
+
+**Правило:** схему нового окружения создавать не из schema.sql, а **`schema.sql` (базис) + `node database/migrations/migrate.js`** (применяет 006–042). Опционально — регенерировать `mysql_schema.sql` из живой БД (mysqldump --no-data) и закоммитить, чтобы CI-ишница снова была эталоном.
+
+## N+4. Админка 500 на PUT/POST — тестовый артефакт PowerShell+curl (этап 77, 29.08.2026)
+
+**Наблюдаемый симптом:** `GET /api/admin/*` → 200; `PUT/POST /api/admin/*` с непустым JSON → **500 "Internal server error"**; `{}` → 400 ("At least one"). Воспроизводился только при передаче тела через `curl.exe` из PowerShell 5.1.
+
+**Диагностический вывод (этап 77):**
+- Реальный стек из перенаправленного stdout вторичного инстанса: `SyntaxError: Expected property name or '}' in JSON at position 1` в `body-parser/json.js:92` — тело уже битое на входе в `express.json()`.
+- **Причина — PowerShell 5.1 ломает embedded double-quotes в argv нативного `curl.exe`** (та же природа, что pitfall №47 «PowerShell + кириллица в API-тестах»). Код сервера исправен.
+- **Доказательство:** на живом 3002 те же `PUT` через node `fetch` дают **200** (features/content/pricing). GET-админ-роуты — 200.
+
+**Как правильно слать тело в API-тестах на Windows (не curl-инлайн):**
+- Тело в файл (UTF-8 без BOM) → `curl.exe -X PUT --data-binary @file.json -H "Content-Type: application/json" URL`
+- Или программно: node `fetch` (`fetch(url, {method, headers, body: JSON.stringify(obj)})`)
+- Или `Invoke-RestMethod -Body ([byte[]]...)`
+
+**Восстановление бана админа (если аудит забанил его):**
+```sql
+UPDATE users SET is_active=1 WHERE role='admin';   -- вернуть всех админов
+```
+`dev-login` должен вернуть `role: 'admin'`; `GET /api/admin/stats` → 200.
+
+**Правила аудита админки (чтобы не навредить проду):**
+- `PUT /admin/users/:id/ban` — НЕ слать на реальные id; использовать несуществующий (`999999`) или scratch-БД (иначе FK `moderation_log` / реальный бан).
+- Для получения стека — запускать вторичный инстанс того же `index.js` на `PORT=3399` с перенаправлением stdout/stderr в файл, не трогая прод-error-handler.
+
 ## N+3. Circuit breaker для внешних сервисов (этап 76, аудит kimi #6 / дипсик #4)
 
 **Задача:** не копить очередь запросов к внешним API (Stripe/OpenAI/S3) при их недоступности/деградации.
