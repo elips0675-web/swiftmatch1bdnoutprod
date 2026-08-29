@@ -1,137 +1,48 @@
-SwiftMatch — свежий аудит после этапа 37
-Дата: 23.08.2026. Контекст: 258/258 тестов, httpOnly cookie, refresh rotation, schema-validation в CI.
-1. Безопасность: cookie-схема и вокруг неё
-✅ Что держит удар
-Таблица
-Механизм	Вердикт	Почему
-httpOnly cookie sm_token + sm_refresh	✅ Архитектурно верно	XSS не достаёт токен из JS; нативные сборки изолированы в Bearer
-Refresh rotation + reuse detection	✅ Production-ready	Атомарный claim через affectedRows, family_id, replay → revoke всей семьи. Гонка закрыта
-Account lockout	✅ Работает	5×401 → 429/15 мин, in-memory. Для закрытой беты — достаточно
-stripHtml на входе	✅ Defense in depth	<script> не сохраняется, «<3» не ломается. React сам экранирует вывод
-WS auth только handshake.auth.token	✅ Правильно	Query-param убран, не оседает в nginx-логах
-SameSite=Lax + Secure	✅ Базовый CSRF-щит	Для монолита (фронт и API на одном домене) — ок
-🔴 Пробелы и риски
-1.1. Rate-limit и lockout — in-memory (блокер при горизонтальном масштабировании)
-express-rate-limit и lockout.js используют in-memory хранилище. При запуске через PM2 cluster mode или Docker Compose с несколькими репликами лимиты не shared. Злоумышленник может обойти lockout, чередуя запросы между воркерами.
-Фикс: Подключить rate-limit-redis и переписать lockout.js на Redis (или документировать: «prod — strictly single-instance до миграции на Redis store»).
-1.2. Отсутствие __Host- prefix у cookie
-sm_token без префикса. Если в будущем появятся поддомены (например, admin.swiftmatch.app), cookie может быть перезаписана/считана с поддомена.
-Фикс: __Host-sm_token (требует Secure и Path=/, что уже так).
-1.3. Cleanup revoked refresh-токенов
-Сейчас revoked-токены помечаются revoked=1, но не удаляются (это правильно для детекта reuse). Однако через год таблица refresh_tokens разрастётся. Нет cron-джобы для удаления токенов старше N дней.
-Фикс: Ежедневный cleanup: DELETE FROM refresh_tokens WHERE revoked = 1 AND updated_at < NOW() - INTERVAL 30 DAY.
-1.4. WS reconnection — токен в handshake
-При reconnect WebSocket клиент снова проходит handshake. Но что если refresh произошёл между disconnect и reconnect? Старый handshake.auth.token (access) уже invalid, а новый клиент не знает, потому что httpOnly cookie не читается из JS.
-Проверить: Передаёт ли клиент в WS handshake только access-токен? Если да, то после silent refresh на REST клиент должен явно переподключить WS с новым токеном. Это потенциальная race.
-1.5. Admin TOTP — отложено, но админка уже защищена только паролем
-В «Что доделать.txt» сказано «админка не торчит наружу», но это предположение. Достаточно одной утечки admin@mail.ru/demo123456 (или XSS на фронте, или keylogger) — и злоумышленник в админке.
-Рекомендация: Перед staging добавить хотя бы IP-whitelist для /api/admin/* (nginx allow/deny) или базовую HTTP Basic Auth на nginx-уровне как временную меру.
-1.6. CORS для Capacitor vs строгий CORS_ORIGIN
-В README написано cors({ origin: '*' }) для Capacitor, в «Для анализа.txt» — fail-fast без CORS_ORIGIN. Нужно убедиться, что нативный режим определяется по User-Agent/заголовку, а не просто отключает CORS глобально. Иначе в проде будет * для всех.
-2. Риски миграции на прод
-🔴 Высокие риски
-2.1. Docker Compose не прогонялся end-to-end
-«Локально не поднимался — нет Docker на машине». Это значит, что на staging могут всплыть проблемы: сеть между app и nginx, volumes для MySQL, healthcheck тайминги, proxy_read_timeout для WS.
-Действие: Первый деплой на staging должен быть только Docker Compose + healthcheck + smoke-тесты. Не пушить код пользователей в первый же деплой.
-2.2. mysqld RADAR_PRE_LEAK_64 — нехватка памяти
-E2E (3 chromium + node + vite + mysql) убивал mysqld. На VPS с 1-2 GB RAM это повторится при k6 100 VU + реальные пользователи.
-Действие: На staging провести k6 100 VU с мониторингом free -m и SHOW STATUS LIKE 'Threads_connected'. Возможно, DB_POOL_MAX=20 слишком много для малого VPS — уменьшить до 10.
-2.3. Graceful degradation — граничные случаи
-Таблица
-Сервис	Без ключа	Риск
-Stripe webhook	502/503	Пользователь не может оплатить, но знает об ошибке
-RevenueCat webhook	503	IAP не работает — критично для монетизации
-Redis	In-memory fallback	Bull Queue без Redis — падает или теряет задачи? Нужно проверить: если REDIS_URL=invalid, очереди email/push/image — они in-memory или reject?
-2.4. PM2 vs Docker — конфликт стратегий
-В README — pm2, в Docker Compose — docker. Если выбрать PM2 cluster mode — сломаются in-memory rate-limit и lockout. Если Docker — нужен orchestrator (docker-compose на одном хосте ок, но при росте — swarm/k8s).
-Рекомендация: Для старта — Docker Compose single-instance + Redis. PM2 оставить как fallback.
-2.5. Откат миграций — только через бэкап
-Это ок, но rollback-plan.md должен содержать точное время RTO (Recovery Time Objective): сколько минут на restore из бэкапа? Проверено ли restore на чистой БД за последнюю неделю?
-🟠 Средние риски
-2.6. Nginx proxy_read_timeout 86400s
-Если это глобальная директива, а не только для /socket.io/, то обычные HTTP-запросы тоже будут ждать 24 часа. При DDOS или медленных клиентах это исчерпает соединения.
-Фикс: proxy_read_timeout 86400s; только в location /socket.io/.
-2.7. SSL auto-renewal
-Let's Encrypt требует обновления каждые 90 дней. Нет упоминания о certbot в Docker Compose или cron.
-Действие: Добавить certbot контейнер или документировать ручное обновление.
-3. Слепые зоны тестов (приоритезация)
-🔴 Критично — добавить до staging
-Таблица
-#	Что не покрыто	Почему важно	Как покрыть
-1	Redis fallback integration	ECONNREFUSED должен НЕ падать	E2E: запустить с REDIS_URL=redis://invalid:6379, пройти login→like→chat
-2	Refresh race E2E	Два окна одного юзера, быстрый refresh	Playwright: два контекста, одни куки, одновременный POST /refresh
-3	Cookie edge cases	Expired access + valid refresh mid-session	E2E: подменить sm_token на expired, убедиться в silent refresh без 401 в консоли
-4	File upload security	.php.jpg, path traversal, 15MB	E2E: загрузить shell.php.jpg, проверить что сохранён как uuid без .php; 15MB → 413
-5	Rate-limit spec	61-й login → 429	Интеграционный тест: 61 запрос в цикле, проверить 429 и Retry-After
-🟠 Высокий приоритет
-Таблица
-#	Что не покрыто	Как покрыть
-6	WS reconnect + exponential backoff	Эмуляция обрыва (devtools Network → Offline → Online)
-7	GDPR full erasure cascade	Создать юзера → активность → POST /data/erase/confirm → проверить 404 на профиль/чаты
-8	Stripe webhook security	Mock-сервер: invalid signature → 400, replay idempotency-key → 409
-9	Backup/restore smoke в CI	Restore в скретч-БД → npm test + E2E smoke
-10	Security headers regression	security.headers.test.js уже есть (7 тестов) — перенести в CI и запускать на каждый PR
-🟡 Средний приоритет
-Таблица
-#	Что не покрыто	Примечание
-11	i18n completeness	Grep всех t("...") против language-context.tsx — можно автоматизировать
-12	Cross-browser	Playwright config: добавить firefox и webkit в projects
-13	RevenueCat webhook E2E	Мок событий RevenueCat → проверка записи в subscriptions
-14	Admin TOTP enrollment	Когда реализуете — нужен E2E: QR-code сканируется, код принимается
-4. Честная оценка и дорожная карта
-Итоговая оценка: 8.5 / 10 (готов к закрытой бете / staging)
+Оценка SwiftMatch — 8.5 / 10 (технически) | 6.5 / 10 (к продакшену)
+Общий вердикт
+Проект находится в состоянии «готов к staging и закрытой бете, но не готов к открытому релизу без разблокировки внешних зависимостей». Кодовая база зрелая, тестовое покрытие выше среднего по индустрии, безопасность продумана многослойно. Основные риски — не код, а отсутствие реального окружения (VPS, ключи API, домен, SSL) и непрогнанная инфраструктура под нагрузкой.
+По категориям
 Таблица
 Категория	Балл	Обоснование
-Код и архитектура	9/10	Чистый стек, хорошие абстракции, 258 тестов, idempotent миграции
-Безопасность аутентификации	8.5/10	Cookie-схема solid, rotation + reuse detection на уровне enterprise-паттерна. Минусы: нет TOTP, нет fingerprinting, in-memory lockout
-Инфраструктура	7/10	Docker не протестирован end-to-end, in-memory rate-limit, нет внешнего мониторинга
-Готовность к продакшену	7/10	Код готов, но окружение (ключи, домен, сторы) блокирует релиз
-Консенсус подтверждаю: новый продуктовый код не нужен
-Ваши аудиты (kimi 7.5, qwen 8/6.5, дипсик 95%) сходятся в одном: кодовая база достигла потолка качества для MVP. Дальнейшее «полирование» фич (новые фильтры, UI-фишки) — отложить до стабильного staging.
-Дорожная карта (фактическая, не идеальная)
-Неделя 1: Staging foundation
-VPS (2 CPU / 4 GB RAM минимум)
-Docker Compose up: docker compose up --build → healthcheck /health/ready → 200
-Заполнить test-ключи: Stripe test, SMTP (Mailtrap), Sentry DSN, Redis
-Первый деплой через deploy.yml (проверить secrets)
-Smoke-тест: регистрация → лайк → чат с реальными сервисами (кроме Stripe live)
-Неделя 2: Нагрузка и отказоустойчивость
-k6 100 VU на staging (проверить RADAR_PRE_LEAK_64, memory, pool)
-Добавить Redis-backed rate-limit + lockout (или задокументировать single-instance)
-E2E: Redis fallback, refresh race, cookie edge cases
-UptimeRobot + Grafana alert (CPU > 80%, 5xx > 1%)
-Неделя 3: Android и домен
-Домен + Let's Encrypt SSL
-assetlinks.json + SHA256 fingerprint
-Keystore + AAB debug → Google Play Internal Testing
-RevenueCat проект + ключ в .env
-Неделя 4: Безопасность админки
-Admin TOTP 2FA (или временно IP-whitelist на nginx)
-CSRF double-submit — только если API выносится на поддомен
-Cleanup cron для revoked refresh tokens
-После релиза (месяц 2):
-S3/CDN для фото
-FCM push production
-Twilio SMS live
-Rekognition/OpenAI модерация
-Log aggregation (Loki/ELK)
-5. Быстрые проверки на сегодня
-Запустите сейчас (15 минут), чтобы убедиться в отсутствии регрессий:
-bash
-# 1. Redis fallback
-REDIS_URL=redis://invalid:6379 node server/src/index.js
-# → Проверить: login, like, chat работают? Без 500?
-
-# 2. Cookie race (ручная проверка)
-# Открыть два окна /login, залогиниться, в обоих быстро нажать F5
-# → Оба окна живы? Нет 401 "reuse"?
-
-# 3. File upload boundary
-# Попробовать загрузить 15MB файл, .php.jpg, ../../etc/passwd
-# → 413, uuid без .php, без path traversal?
-
-# 4. Миграции idempotency
-node database/migrations/migrate.js
-node database/migrations/migrate.js  # второй раз
-# → exit 0, нет Duplicate entry?
-Если все 4 проходят — вы готовы к VPS. Если нет — фиксим, потом staging.
+Код и архитектура	9/10	Strict TypeScript, prepared statements (?? в mysql2), миграции с идемпотентностью (information_schema + PREPARE), разделение ответственности (routes/middleware/jobs), ESM-консистентность. Минус: Windows-центричность скриптов (.bat/.ps1) усложнит переезд на Linux-VPS.
+Тестирование	9.5/10	388/388 зелёных (307 сервер + 81 фронт + 55 E2E), cross-browser (firefox/webkit), security blind spots (refresh race, GDPR cascade, cookie edges), schema-validate в CI. Минус: нет backup/restore smoke в CI, нет E2E для TOTP enrollment (требует QR-скан).
+Безопасность	8.5/10	httpOnly cookie + refresh rotation с reuse detection + family revocation, account lockout, XSS sanitize (stripHtml + миграция чистки легаси), helmet, rate-limit, admin TOTP 2FA, Sentry PII-scrubbing. Минус: CSRF double-submit отложен (SameSite=Lax — не панацея для same-site атак), fingerprinting сессий не реализован, нет UptimeRobot/алертов.
+Инфраструктура	7/10	Docker Compose, Prometheus/Grafana, CI/CD, Redis, k6 — всё описано и частично проверено. Минус: Docker Compose не поднимался реально (нет Docker на машине), нет staging-окружения, нет внешнего мониторинга (UptimeRobot), single-instance rate-limit (cluster mode запрещён до Redis store).
+Продукт / фичи	9/10	Полный цикл дейтинга + Hangouts 2.0 (date/company/mutual like/check-in/reviews) + партнёрская экосистема (Wave 1–4: deeplink → Stripe Checkout → S2S postback → B2B marketplace) + монетизация (Stripe + RevenueCat scaffold) + админка с аналитикой.
+Что критично для продакшена (блокеры релиза)
+Таблица
+#	Блокер	Почему критично	Что делать
+1	Нет staging VPS	Нельзя проверить Docker Compose, k6 100 VU, SSL, WS через nginx, поведение под реальной нагрузкой.	Поднять VPS (Hetzner/DO), настроить GitHub secrets, прогнать docker compose up end-to-end.
+2	Реальные API-ключи	Stripe LIVE, SMTP, Sentry DSN, S3, Twilio, OpenAI, FCM, RevenueCat — без них платежи, письма, пуши, модерация, SMS — моки.	Завести тестовые аккаунты, вписать в server/.env, прогнать E2E с реальными ключами.
+3	Android-релиз	APK debug собран, но нет домена, keystore, App Links (assetlinks.json), AAB, Google Play 17+.	Купить домен, настроить SSL (Let's Encrypt), сгенерировать keystore, собрать AAB, подать в Google Play.
+4	CSRF при выносе API на поддомен	Сейчас SameSite=Lax + CORS_ORIGIN strict. Если API уедет на api.swiftmatch.app, нужен double-submit token.	Зафиксировать в ADR: при выносе API на поддомен — внедрить CSRF-token (cookie + header).
+5	Single-instance rate-limit	pm2 fork mode + nginx limit_req — первая линия, но при росте нагрузки упремся в потолок одного процесса.	Миграция на Redis store для rate-limit после стабилизации staging.
+Что сделано исключительно хорошо
+Итеративный аудит-цикл — этапы 30–59 с закрытием находок трёх разных моделей (kimi/qwen/дипсик). Это редкая дисциплина: не просто «написал фичу», а «проверил, что аудит не найдёт регресс».
+Graceful degradation — сервер стартует и живёт без всех внешних ключей (mock/fallback/skip + warn). Это спасает dev-окружение и снижает риск падения в проде при временной недоступности Redis/S3.
+Схемная дисциплина — schema-validate.mjs в CI, EXPLAIN-аудит SQL, миграции идемпотентны, mysql_schema.sql синхронизирован с живой БД. Это убивает класс багов «колонка есть в коде, но нет в БД».
+Security headers + blind spots — 7 тестов заголовков против живого сервера, E2E на refresh race и GDPR cascade, ratelimit spec (61-й запрос → 429).
+Приоритет следующих шагов (фазы qwen, консенсус)
+Фаза 1: «Первый рубль» (1–2 недели)
+Staging VPS + GitHub secrets (DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY).
+Заполнить реальные ключи (Stripe test, SMTP, Sentry DSN).
+E2E на staging с реальными ключами.
+docker compose up end-to-end + healthcheck/volumes/сеть.
+Фаза 2: «Мобильный релиз» (2–3 недели)
+Домен + SSL (Let's Encrypt auto-renewal).
+Keystore + AAB + App Links (assetlinks.json + SHA256).
+RevenueCat проект + ключ.
+Google Play: политика 17+, скриншоты, TestFlight/Internal Testing.
+Фаза 3: «Надёжность» (параллельно)
+k6 100 VU на staging с мониторингом free -m / Threads_connected.
+UptimeRobot + Grafana alerts в Telegram (CPU, 5xx, DB connections).
+Тест плана отката (docs/rollback-plan.md).
+Разбить AGENTS.md при превышении 1500 строк (сейчас ~1180, но растёт).
+Фаза 4: «Масштабирование» (после релиза)
+S3/CDN для фото.
+FCM push на Android.
+Twilio SMS + Rekognition/OpenAI фото-модерация.
+Storybook / Design System.
+Итог
+Код готов на 85–90%. Не нужен новый продуктовый код. Нужно разблокировать прод: staging → ключи → домен → релиз Android. Технический долг второй очереди (CSRF double-submit, fingerprinting, circuit breaker, log aggregation) — после первых реальных пользователей, не раньше.
+Если завтра появится VPS + домен + ключи — проект можно вывести в закрытую бету за 2 недели.
