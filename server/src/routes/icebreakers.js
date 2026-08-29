@@ -2,10 +2,39 @@ import { Router } from 'express'
 import { auth } from '../middleware.js'
 import pool from '../db.js'
 import { rootLogger } from '../logger.js'
+import { createBreaker } from '../circuit-breaker.js'
 
 const router = Router()
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
+
+const openaiBreaker = createBreaker(
+  async ({ target, lang }) => {
+    const OpenAI = (await import('openai')).default
+    const client = new OpenAI({ apiKey: OPENAI_API_KEY })
+    const context = target
+      ? `User profile: ${target.display_name}, ${target.age} y.o., from ${target.city || 'unknown'}, bio: "${target.bio || ''}", dating goal: ${target.dating_goal || 'unknown'}.`
+      : 'User profile unknown.'
+    const response = await client.chat.completions.create({
+      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a dating app assistant. Suggest 3 short, friendly, personalized icebreakers (${lang === 'ru' ? 'in Russian' : 'in English'}, 1 sentence each, no questions marks spam, casual tone) to start a chat. Output ONLY a JSON array of strings.`,
+        },
+        { role: 'user', content: context },
+      ],
+      temperature: 0.9,
+      max_tokens: 200,
+    })
+    const raw = response.choices[0]?.message?.content || '[]'
+    const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed.slice(0, 3)
+    return null
+  },
+  'openai-icebreakers',
+  { timeout: 9000, volumeThreshold: 3 },
+)
 
 function randomQuestions(rows, n) {
   const shuffled = [...rows].sort(() => Math.random() - 0.5)
@@ -30,30 +59,12 @@ router.post('/api/icebreakers/suggest', auth, async (req, res) => {
 
     if (OPENAI_API_KEY) {
       try {
-        const OpenAI = (await import('openai')).default
-        const client = new OpenAI({ apiKey: OPENAI_API_KEY })
-        const context = target
-          ? `User profile: ${target.display_name}, ${target.age} y.o., from ${target.city || 'unknown'}, bio: "${target.bio || ''}", dating goal: ${target.dating_goal || 'unknown'}.`
-          : 'User profile unknown.'
-        const response = await client.chat.completions.create({
-          model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a dating app assistant. Suggest 3 short, friendly, personalized icebreakers (${lang === 'ru' ? 'in Russian' : 'in English'}, 1 sentence each, no questions marks spam, casual tone) to start a chat. Output ONLY a JSON array of strings.`,
-            },
-            { role: 'user', content: context },
-          ],
-          temperature: 0.9,
-          max_tokens: 200,
-        })
-        const raw = response.choices[0]?.message?.content || '[]'
-        const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return res.json({ source: 'openai', suggestions: parsed.slice(0, 3) })
+        const suggestions = await openaiBreaker.fire({ target, lang })
+        if (suggestions && suggestions.length > 0) {
+          return res.json({ source: 'openai', suggestions })
         }
       } catch (err) {
-        rootLogger.warn('Icebreakers: OpenAI error, falling back to DB:', err.message)
+        rootLogger.warn('Icebreakers: OpenAI breaker failed, falling back to DB:', err.message)
       }
     }
 
