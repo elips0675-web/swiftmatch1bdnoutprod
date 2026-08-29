@@ -49,7 +49,7 @@ export default defineConfig(({ mode }) => ({
     sourcemap: mode === "development",
     chunkSizeWarningLimit: 600,
     rollupOptions: {
-      external: ['@capacitor-community/admob', '@capacitor/push-notifications', '@capacitor/geolocation'],
+      external: ['@capacitor-community/admob', '@capacitor/push-notifications', '@capacitor/geolocation', '@revenuecat/purchases-capacitor'],
       output: {
         manualChunks(id: string) {
           if (id.includes("node_modules/react-dom") || id.includes("node_modules/react/") || id.includes("node_modules/react-router") || id.includes("node_modules/recharts") || id.includes("node_modules/date-fns")) return "vendor";

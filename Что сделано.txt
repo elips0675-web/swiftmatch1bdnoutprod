@@ -27,6 +27,46 @@
 - **Фикс:** добавлен `import { cn } from "@/lib/utils"`
 - Тесты: 388/388 ✅, Vite build ✅
 
+## Этап 77: Schema-validate в CI, регенерация mysql_schema.sql, миграция 043 (август 2026)
+
+- `scripts/schema-validate.mjs` — сверка `mysql_schema.sql` ↔ information_schema живой БД: **73 таблицы, 0 extra**, exit 1 при расхождении
+- `mysql_schema.sql` регенерирован по фактической БД
+- Миграция `043_fix_schema_drift.sql` применена; двойной прогон `migrate.js` → 0 errors
+- `sql-explain-audit.mjs` — 0 errors
+- Грабли: дрейф схемы (schema на диске ≠ live-БД) — сверять `SHOW COLUMNS` перед написанием SQL (AGENTS #28)
+
+## Этап 78: CI-доработка — прогон миграций в server-test и e2e-test (август 2026)
+
+- `.github/workflows/deploy.yml`: в job'ы **server-test** и **e2e-test** добавлен шаг `Apply DB migrations` ПОСЛЕ импорта schema.sql и ДО `Validate schema vs live DB` (`node database/migrations/migrate.js` с `DB_*` env)
+- Зачем: миграции ранее гонялись через ssh на сервере при деплое (этап 27), но тестовые job'ы поднимали БД только из schema.sql без применения нумерованных миграций — теперь консистентность кода и схемы проверяется в CI до деплоя
+- Верификация: структурная проверка YAML (6-space `- name:`, 8-space `run:`) — «Structure OK»; `node scripts/schema-validate.mjs` → OK 73 таблицы
+- Коммит: `e4cf137` `ci: run DB migrations in server-test and e2e-test jobs (этап 78)`, пуш `5090f4c..e4cf137 main -> main`
+- Грабли: `pyyaml`/js-yaml на машине нет — YAML валидировался структурным node-скриптом
+
+## Этап 79: k6 — установка + лайт-прогон 10 VU (август 2026)
+
+- k6 **не был установлен** (не в PATH, бинарника на дисках нет). choco-установка отклонена — требует прав администратора (`UnauthorizedAccessException` на `C:\ProgramData\chocolatey`). **Решение:** скачан standalone **k6 v0.53.0** с GitHub releases в `C:\Users\PC\AppData\Local\Temp\opencode\k6\extract\k6-v0.53.0-windows-amd64\k6.exe` — без прав, в repo не входит
+- `k6/load-test.js` уже синхронизирован с контрактами (этап 23: `/api/users/search`, `{liked_user_id}`, динамический chatId, `user5@mail.ru`/`demo123456`) — правок не потребовалось; `/health` сервера `{"status":"ok","db":"connected"}`
+- **Лайт-прогон** (стадии переопределены `--stage` → max 10 VU, ~70s): 382 итерации, ~17.3 req/s, 1222 запроса
+- **Все latency-пороги зелёные ✓**: http_req_duration p(95) **117ms** (<2000), login p(95) **232ms** (<3000), profile p(95) **62ms** (<1000), search p(95) **17ms** (<1500) — сервер быстрый и стабильный
+- **Падения — rate-limit'ы с одного IP, не баги**: `login` 31% success (authLimiter 60/мин, ~324 логина на итерацию → 429), `like` 50% (likeLimiter 30/мин → 429). Единственный пересечённый порог `errors rate<0.10` (42%) — целиком из-за 429
+- Вывод: полный ramp 100 VU на локальной машине невозможен (упирается в rate-limit'ы, не в сервер) — только на staging с multi-IP/поднятыми лимитами (см. «Что доделать.txt», этап 23/24)
+- Артефактов в репо не создано
+
+## Этап 80: Android Debug APK — СОБРАН (тулчейн установлен с нуля) (август 2026)
+
+- **Тулчейн установлен с нуля** (ранее его не было):
+  - **Temurin JDK 21.0.12.1+1 (LTS)** распакован в `%TEMP%\opencode\jdk21\extract\jdk-21.0.12.1+1` (`JAVA_HOME` на него) — работает, `gradle --version` показывает `Launcher JVM 21.0.12.1`
+  - **cmdline-tools** — первая распаковка `Expand-Archive` была битой (таймаут → jar'ы по подкаталогам с видео 0-файлами, `sdkmanager.jar` отсутствовал → `ClassNotFoundException: SdkManagerCli`). **Фикс:** повторная распаковка через `tar -xf` из целого zip (143 MB) → 95 jar, `sdkmanager --version` = **19.0**
+  - **SDK-компоненты** через `sdkmanager`: `platform-tools` (r37, `adb.exe`), `platforms;android-36`, `build-tools;35.0.0`; все лицензии приняты (`yes | sdkmanager --licenses` → `All SDK package licenses accepted`)
+  - **Gradle 8.14.3** — wrapper не мог скачать (10s connect timeout), скачан вручную `curl.exe -C -` (224 MB) и разложен в кэш wrapper'а `~\.gradle\wrapper\dists\gradle-8.14.3-all\10utluxaxniiv4wxiphsi49nj\` (+ маркер `.ok`)
+- **Frontend-сборка:** добавлен `@revenuecat/purchases-capacitor` в `build.rollupOptions.external` (vite.config.ts) — иначе Vite 8/Rolldown падал на динамическом `import()` в `src/lib/iap.ts` (пакет намеренно не установлен, AGENTS #25). `npm run build` с `VITE_API_URL=http://192.168.0.148:3002/api`, `VITE_WS_URL=ws://192.168.0.148:3002` (LAN IP машины для устройства)
+- `npx cap sync android` — ✓ (6 плагинов: admob, camera, filesystem, geolocation, preferences, push-notifications)
+- **`gradlew assembleDebug`** — **BUILD SUCCESSFUL** (1m33s, 281 tasks). Баг AGP 8.13 `:app:compressDebugAssets` («Failed to create MD5 hash ... info-B3OUwZcr.js.jar as it does not exist», 1 из ~180 ассетов не получал jar; standalone-повтор не помог — задача была stale). **Фикс:** точечно удалить `android/app/build/intermediates/compressed_assets` + `gradlew :app:compressDebugAssets --rerun-tasks` (180 jar, включая `info-*.js.jar`), затем полный `assembleDebug`
+- **APK собран и верифицирован:** `android/app/build/outputs/apk/debug/app-debug.apk` (**26.2 MB**), пакет `com.swiftmatch.app`, versionName 1.0 / versionCode 1, minSdk **24**, targetSdk/compileSdk **36**, label `SwiftMatch`, launchable `com.swiftmatch.app.MainActivity`, подпись **Android Debug** (apksigner verify ✓), web-assets (`assets/public/index.html`, `manifest.json`) внутри
+- **Замечание:** Dr.Web сработал на тулчейн в `%TEMP%\opencode` — ложное срабатывание (официальные источники: Temurin/dlg.google/services.gradle.org), исполняемые файлы не заблокированы. Тем не менее, в первый `assembleDebug` антивирус держал handle на `.js.jar` → transient `Unable to delete directory`; пауза + `--rerun-tasks` решили
+- Полный тулчейн-сетап (JAVA_HOME, SDK, gradle-кэш, обход compressDebugAssets) зафиксирован в AGENTS.md этап 29
+
 ## Этап 54: Hangouts 2.0 — Date vs Company режимы (25.08.2026)
 
 - **Миграция 037** (`037_hangouts_v2.sql`): `ALTER TABLE hangouts ADD hangout_type ENUM('date','company') DEFAULT 'date'`; таблицы `hangout_likes` (liker_id→liked_id, UNIQUE для mutual like), `hangout_participants` (hangout_id + user_id + role organizer/member), `hangout_checkins` (hangout_id + user_id + lat/lng + geofence_verified), `hangout_reviews` (hangout_id + reviewer_id + rating 1–5 + comment + tags JSON)

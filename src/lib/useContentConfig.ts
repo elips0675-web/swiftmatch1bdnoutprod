@@ -33,7 +33,7 @@ function mapKeys(items: string[], prefix: string): string[] {
 
 async function fetchConfig(): Promise<ContentConfig> {
   try {
-    const res = await fetch('/api/content')
+    const res = await fetch('/api/content', { cache: 'no-store' })
     if (!res.ok) throw new Error('Failed to fetch')
     const data = await res.json()
     cached = {
