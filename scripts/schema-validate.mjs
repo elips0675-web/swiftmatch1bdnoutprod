@@ -20,7 +20,7 @@ function loadEnv() {
 loadEnv()
 
 const SKIP_TABLES = new Set(['_migrations'])
-const CONSTRAINT_KEYWORDS = new Set(['PRIMARY', 'UNIQUE', 'KEY', 'INDEX', 'CONSTRAINT', 'FULLTEXT', 'SPATIAL', 'FOREIGN'])
+const CONSTRAINT_KEYWORDS = new Set(['PRIMARY', 'UNIQUE', 'KEY', 'INDEX', 'CONSTRAINT', 'FULLTEXT', 'SPATIAL', 'FOREIGN', 'CHECK'])
 
 function parseSchema(sqlText) {
   const tables = new Map()
@@ -40,9 +40,34 @@ function parseSchema(sqlText) {
   return tables
 }
 
+function mergeExpected(base, extra) {
+  // extra: Map<table, string[]> — мерджим недостающие таблицы и колонки в base
+  for (const [table, cols] of extra) {
+    if (!base.has(table)) {
+      base.set(table, cols)
+      continue
+    }
+    const cur = new Set(base.get(table))
+    for (const c of cols) cur.add(c)
+    base.set(table, [...cur])
+  }
+  return base
+}
+
 async function main() {
   const schemaPath = path.join(root, 'database', 'mysql_schema.sql')
   const expected = parseSchema(fs.readFileSync(schemaPath, 'utf8'))
+  // Учитываем таблицы, создаваемые миграциями (этап 77): иначе дрейф миграционных
+  // таблиц (напр. hangouts/partners/experiments/refresh_tokens, см. этап 77) не ловится,
+  // т.к. schema-validate сверял только schema.sql (самосверка «62 vs 62»).
+  const migrationsDir = path.join(root, 'database', 'migrations')
+  if (fs.existsSync(migrationsDir)) {
+    const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort()
+    for (const f of files) {
+      const sql = fs.readFileSync(path.join(migrationsDir, f), 'utf8')
+      mergeExpected(expected, parseSchema(sql))
+    }
+  }
   const conn = await mysql.createConnection({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
@@ -65,6 +90,7 @@ async function main() {
 
   let errors = 0
   for (const [table, cols] of expected) {
+    if (SKIP_TABLES.has(table)) continue
     if (!actual.has(table)) {
       console.error(`[schema] MISSING TABLE: ${table}`)
       errors++
