@@ -68,6 +68,13 @@ jobs:
         run: mysql -h127.0.0.1 -uroot -pswiftmatch_test swiftmatch_test < database/mysql_schema.sql
         env:
           MYSQL_PWD: swiftmatch_test
+      - name: Apply DB migrations (этап 78)
+        run: node database/migrations/migrate.js
+        env:
+          DB_HOST: 127.0.0.1
+          DB_USER: root
+          DB_PASSWORD: swiftmatch_test
+          DB_NAME: swiftmatch_test
       - name: Validate schema vs live DB (этап 35)
         run: node scripts/schema-validate.mjs
         env:
@@ -129,6 +136,13 @@ jobs:
         working-directory: server
       - name: Init DB schema
         run: mysql -h127.0.0.1 -uroot -pswiftmatch_test swiftmatch_test < database/mysql_schema.sql
+      - name: Apply DB migrations (этап 78)
+        run: node database/migrations/migrate.js
+        env:
+          DB_HOST: 127.0.0.1
+          DB_USER: root
+          DB_PASSWORD: swiftmatch_test
+          DB_NAME: swiftmatch_test
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
       - name: Start server
