@@ -26,6 +26,14 @@ Node.js/Express + MySQL (mysql2) бэкенд, Socket.IO real-time, Capacitor An
 - BottomNav добавлен на /profile/edit
 - Кнопка «Верифицировать» крупнее и с отступом от «Сохранить»
 
+## Фича «Изображения хенгаутов (постеры)» (30.08.2026, в работе)
+
+- Включение `hangouts.poster_url`/`event_url` (колонки были в схеме, но не использовались)
+- Сервер (`hangouts.js`): poster_url/event_url в list/тип create/update (slice 0,500)
+- Типы (`src/lib/hangouts.ts`), карточка (`hangouts.tsx` — hero-постер, fallback на категорию)
+- Формы create/edit: загрузка постера через `POST /api/upload`, превью, `poster_url` в body; i18n 4 ключа RU/EN
+- Vite build ✅. Осталось: demo_data.sql + прогон тестов (шаги 5–6)
+
 ## Безопасность (текущая модель)
 
 - **JWT в httpOnly cookie** `sm_token` (24h) + `sm_refresh` (7d): SameSite=Lax, Secure в production.

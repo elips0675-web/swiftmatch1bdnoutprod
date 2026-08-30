@@ -20,7 +20,7 @@ import { getToken } from "@/lib/token";
 import { cn } from "@/lib/utils";
 import { HANGOUT_CATEGORIES, HANGOUT_TYPES, type HangoutCategory, type HangoutType } from "@/lib/hangouts";
 import { toast } from "sonner";
-import { Loader2, Ticket, Heart, Users } from "lucide-react";
+import { Loader2, Ticket, Heart, Users, ImagePlus, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -61,6 +61,8 @@ export default function HangoutCreatePage() {
   const [listings, setListings] = useState<Array<{ id: number; category: string; title: string; description?: string; partner_name: string }>>([]);
   const [listingsLoading, setListingsLoading] = useState(false);
   const [selectedOfferId, setSelectedOfferId] = useState<number | null>(null);
+  const [posterUrl, setPosterUrl] = useState("");
+  const [uploadingPoster, setUploadingPoster] = useState(false);
 
   const openListings = async () => {
     setListingsOpen(true);
@@ -93,6 +95,31 @@ export default function HangoutCreatePage() {
       });
     } catch { /* трекинг не критичен */ }
     toast.success(t("partner.select_offer"));
+  };
+
+  const uploadPoster = async (file: File | undefined) => {
+    if (!file) return;
+    setUploadingPoster(true);
+    try {
+      const token = getToken();
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      if (res.ok) {
+        const { url } = await res.json();
+        setPosterUrl(url);
+      } else {
+        toast.error(t("upload.error"));
+      }
+    } catch {
+      toast.error(t("upload.network_error"));
+    } finally {
+      setUploadingPoster(false);
+    }
   };
 
   const submit = async () => {
@@ -132,6 +159,7 @@ export default function HangoutCreatePage() {
           event_date: new Date(eventDate).toISOString(),
           max_companions: maxCompanions,
           partner_offer_id: selectedOfferId ?? undefined,
+          poster_url: posterUrl.trim() || undefined,
         }),
       });
       if (!res.ok) {
@@ -291,6 +319,45 @@ export default function HangoutCreatePage() {
                 onChange={(e) => setEventDate(e.target.value)}
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>{t("hangout.form.poster")}</Label>
+            {posterUrl ? (
+              <div className="relative h-36 w-full rounded-xl overflow-hidden border">
+                <img src={posterUrl} alt="" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  data-testid="hangout-poster-remove"
+                  aria-label={t("hangout.form.poster_remove")}
+                  onClick={() => setPosterUrl("")}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <label
+                data-testid="hangout-poster-upload"
+                className="flex flex-col items-center justify-center h-32 w-full rounded-xl border-2 border-dashed border-muted text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors"
+              >
+                <ImagePlus size={22} className="mb-1" />
+                <span className="text-xs font-semibold">{t("hangout.form.poster_hint")}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingPoster}
+                  onChange={(e) => uploadPoster(e.target.files?.[0])}
+                />
+              </label>
+            )}
+            {uploadingPoster && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 size={13} className="animate-spin" />
+                {t("hangout.form.uploading")}
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">

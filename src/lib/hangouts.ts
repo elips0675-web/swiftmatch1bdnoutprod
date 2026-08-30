@@ -62,6 +62,8 @@ export interface Hangout {
   max_companions: number
   status: HangoutStatus
   created_at: string
+  poster_url?: string | null
+  event_url?: string | null
   display_name?: string
   avatar_url?: string | null
   age?: number
@@ -98,8 +100,9 @@ export interface MyHangoutResponse {
   hangout_status: HangoutStatus
   display_name: string
   avatar_url: string | null
+  poster_url?: string | null
+  event_url?: string | null
 }
-
 export function formatEventDate(value: string): string {
   const d = new Date(value)
   if (isNaN(d.getTime())) return value

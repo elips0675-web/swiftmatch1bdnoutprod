@@ -18,7 +18,7 @@ import { useLanguage } from "@/context/language-context";
 import { getToken } from "@/lib/token";
 import type { Hangout } from "@/lib/hangouts";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, ImagePlus, X } from "lucide-react";
 
 const COMPANION_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -43,6 +43,8 @@ export default function HangoutEditPage() {
   const [city, setCity] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [maxCompanions, setMaxCompanions] = useState(1);
+  const [posterUrl, setPosterUrl] = useState("");
+  const [uploadingPoster, setUploadingPoster] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -71,6 +73,7 @@ export default function HangoutEditPage() {
         setCity(data.city || "");
         setEventDate(toLocalInput(data.event_date));
         setMaxCompanions(Number(data.max_companions) || 1);
+        setPosterUrl(data.poster_url || "");
       } catch {
         if (!cancelled) setNotEditable(true);
       } finally {
@@ -82,6 +85,31 @@ export default function HangoutEditPage() {
       cancelled = true;
     };
   }, [id, navigate]);
+
+  const uploadPoster = async (file: File | undefined) => {
+    if (!file) return;
+    setUploadingPoster(true);
+    try {
+      const token = getToken();
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      if (res.ok) {
+        const { url } = await res.json();
+        setPosterUrl(url);
+      } else {
+        toast.error(t("upload.error"));
+      }
+    } catch {
+      toast.error(t("upload.network_error"));
+    } finally {
+      setUploadingPoster(false);
+    }
+  };
 
   const submit = async () => {
     if (!title.trim() || !eventDate) {
@@ -106,6 +134,7 @@ export default function HangoutEditPage() {
           city: city.trim() || undefined,
           event_date: new Date(eventDate).toISOString(),
           max_companions: maxCompanions,
+          poster_url: posterUrl.trim() || undefined,
         }),
       });
       if (!res.ok) throw new Error("failed");
@@ -205,8 +234,47 @@ export default function HangoutEditPage() {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>{t("hangout.form.max_companions")}</Label>
+          <div className="space-y-1.5">
+            <Label>{t("hangout.form.poster")}</Label>
+            {posterUrl ? (
+              <div className="relative h-36 w-full rounded-xl overflow-hidden border">
+                <img src={posterUrl} alt="" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  data-testid="hangout-poster-remove"
+                  aria-label={t("hangout.form.poster_remove")}
+                  onClick={() => setPosterUrl("")}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <label
+                data-testid="hangout-poster-upload"
+                className="flex flex-col items-center justify-center h-32 w-full rounded-xl border-2 border-dashed border-muted text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors"
+              >
+                <ImagePlus size={22} className="mb-1" />
+                <span className="text-xs font-semibold">{t("hangout.form.poster_hint")}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingPoster}
+                  onChange={(e) => uploadPoster(e.target.files?.[0])}
+                />
+              </label>
+            )}
+            {uploadingPoster && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 size={13} className="animate-spin" />
+                {t("hangout.form.uploading")}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>{t("hangout.form.max_companions")}</Label>
               <Select
                 value={String(maxCompanions)}
                 onValueChange={(v) => setMaxCompanions(Number(v))}

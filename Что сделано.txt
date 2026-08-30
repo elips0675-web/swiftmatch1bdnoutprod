@@ -2,6 +2,16 @@
 
 > Актуально на 30.08.2026. Все тесты: сервер **329/329** ✅ (29 файлов), фронт 81/81 ✅, E2E 150/150 ✅. Vite build: ✅. Lint: 0 errors. Этап 81 закрыл все кодовые пункты «Что доделать».
 
+## Фича «Изображения хенгаутов (постеры кафе/кино и т.д.)» (30.08.2026)
+
+- Колонки `hangouts.poster_url` / `hangouts.event_url` уже были в `mysql_schema.sql`, но нигде не использовались (0 совпадений по grep)
+- **Шаг 1 — сервер** (`server/src/routes/hangouts.js`): `poster_url`/`event_url` добавлены в `HANGOUT_LIST_SELECT`, в `responses/my`, в INSERT при создании, в `allowed`+обработку при PUT (slice 0,500, без stripHtml). `node --check` → OK
+- **Шаг 2 — типы** (`src/lib/hangouts.ts`): в `Hangout` и `MyHangoutResponse` добавлены `poster_url?`, `event_url?`
+- **Шаг 3 — карточка** (`src/pages/hangouts.tsx`): `HangoutCard` переписан — если есть `poster_url` → hero-изображение (h-32, object-cover, градиент-оверлей), иначе цветной блок категории с иконкой; аватар и display_name наложены поверх
+- **Шаг 4 — формы**: `hangout-create.tsx` и `hangout-edit.tsx` — блок загрузки постера (превью, кнопка удаления, `uploadPoster` через `POST /api/upload` → `{url}`), `poster_url` в body submit; edit дополнительно подхватывает `poster_url` при загрузке
+- **i18n**: добавлены ключи `hangout.form.poster`, `hangout.form.poster_hint`, `hangout.form.poster_remove`, `hangout.form.uploading` (RU + EN в `language-context.tsx`)
+- **Статус:** шаги 1–4 реализованы, `npx vite build` ✅ (без ошибок). Осталось: `demo_data.sql` для демо-хенгаутов (шаг 5) и прогон тестов (шаг 6)
+
 ## Хотфикс (26.08.2026): admin/content → profile/edit, UI-фиксы, поиск
 
 ### Интересы восстановлены в БД

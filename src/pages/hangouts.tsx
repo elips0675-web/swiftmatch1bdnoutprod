@@ -65,17 +65,33 @@ function HangoutCard({ hangout }: { hangout: Hangout }) {
 
   return (
     <Link to={`/hangouts/${hangout.id}`} className="block">
-      <Card data-testid={`hangout-card-${hangout.id}`} className="p-4 hover:bg-muted/30 transition-colors">
-        <div className="flex items-start gap-3">
-          <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
-            {hangout.avatar_url ? (
-              <img src={hangout.avatar_url} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <Icon size={20} className="text-primary" />
-            )}
+      <Card data-testid={`hangout-card-${hangout.id}`} className="p-0 overflow-hidden hover:bg-muted/30 transition-colors">
+        {hangout.poster_url ? (
+          <div className="relative h-32 w-full shrink-0">
+            <img src={hangout.poster_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+            <div className="absolute bottom-2 left-3 flex items-center gap-2">
+              {hangout.avatar_url ? (
+                <img src={hangout.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/80" />
+              ) : (
+                <span className="w-8 h-8 rounded-full bg-white/20 ring-2 ring-white/80 flex items-center justify-center">
+                  <Icon size={16} className="text-white" />
+                </span>
+              )}
+              <span className="text-xs text-white font-semibold drop-shadow">{hangout.display_name}</span>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
+        ) : (
+          <div className={cn("relative h-20 w-full shrink-0 flex items-center justify-center", CATEGORY_COLORS[hangout.category])}>
+            <Icon size={28} className="text-current opacity-70" />
+            <div className="absolute right-2 top-2 flex items-center gap-1.5">
+              {hangout.avatar_url && <img src={hangout.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover ring-1 ring-white/80" />}
+              <span className="text-[11px] text-muted-foreground truncate max-w-[140px]">{hangout.display_name}</span>
+            </div>
+          </div>
+        )}
+        <div className="p-4">
+          <div className="flex items-center gap-2 flex-wrap">
               <Badge className={cn("text-[10px] font-bold border-transparent", CATEGORY_COLORS[hangout.category])}>
                 {t(`hangout.category.${hangout.category}`)}
               </Badge>
@@ -83,31 +99,29 @@ function HangoutCard({ hangout }: { hangout: Hangout }) {
                 {isDate ? <Heart size={10} className="mr-0.5" /> : <UserPlus size={10} className="mr-0.5" />}
                 {t(`hangout.type.${hangout.hangout_type}`)}
               </Badge>
-              <span className="text-[11px] text-muted-foreground truncate">{hangout.display_name}</span>
-            </div>
-            <p className="font-semibold text-sm mt-1.5 leading-snug line-clamp-2">{hangout.title}</p>
-            <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-              <p className="flex items-center gap-1.5">
-                <CalendarDays size={12} />
-                {formatEventDate(hangout.event_date)}
+          </div>
+          <p className="font-semibold text-sm mt-1.5 leading-snug line-clamp-2">{hangout.title}</p>
+          <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+            <p className="flex items-center gap-1.5">
+              <CalendarDays size={12} />
+              {formatEventDate(hangout.event_date)}
+            </p>
+            {(hangout.place_name || hangout.city) && (
+              <p className="flex items-center gap-1.5 truncate">
+                <MapPin size={12} />
+                {[hangout.place_name, hangout.city].filter(Boolean).join(", ")}
               </p>
-              {(hangout.place_name || hangout.city) && (
-                <p className="flex items-center gap-1.5 truncate">
-                  <MapPin size={12} />
-                  {[hangout.place_name, hangout.city].filter(Boolean).join(", ")}
-                </p>
+            )}
+            <p className="flex items-center gap-1.5">
+              {isDate ? <Heart size={12} /> : <Users size={12} />}
+              {isDate
+                ? t("hangout.label.likes_count", { count: hangout.like_count ?? 0 })
+                : t("hangout.label.participants_count", { count: hangout.participant_count ?? 0, max: hangout.max_companions })
+              }
+              {typeof hangout.distance_km === "number" && (
+                <span className="ml-1">· {t("hangout.label.distance", { km: hangout.distance_km })}</span>
               )}
-              <p className="flex items-center gap-1.5">
-                {isDate ? <Heart size={12} /> : <Users size={12} />}
-                {isDate
-                  ? t("hangout.label.likes_count", { count: hangout.like_count ?? 0 })
-                  : t("hangout.label.participants_count", { count: hangout.participant_count ?? 0, max: hangout.max_companions })
-                }
-                {typeof hangout.distance_km === "number" && (
-                  <span className="ml-1">· {t("hangout.label.distance", { km: hangout.distance_km })}</span>
-                )}
-              </p>
-            </div>
+            </p>
           </div>
         </div>
       </Card>

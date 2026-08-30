@@ -80,6 +80,7 @@ const HANGOUT_LIST_SELECT = `
   SELECT h.id, h.user_id AS author_id, h.category, h.title, h.description,
          h.place_name, h.place_address, h.city, h.lat, h.lng, h.event_date,
          h.max_companions, h.hangout_type, h.status, h.created_at,
+         h.poster_url, h.event_url,
          up.display_name, up.avatar_url, up.age, up.online,
          (SELECT COUNT(*) FROM hangout_responses hr WHERE hr.hangout_id = h.id AND hr.status = 'accepted') AS accepted_count,
          (SELECT COUNT(*) FROM hangout_participants hp WHERE hp.hangout_id = h.id AND hp.status = 'joined') AS participant_count`
@@ -167,6 +168,7 @@ router.get('/api/hangouts/responses/my', auth, async (req, res) => {
     const [rows] = await pool.query(
       `SELECT hr.id, hr.hangout_id, hr.status AS response_status, hr.message, hr.created_at,
               h.category, h.title, h.description, h.place_name, h.city, h.lat, h.lng,
+              h.poster_url, h.event_url,
               h.event_date, h.max_companions, h.status AS hangout_status,
               up.display_name, up.avatar_url
        FROM hangout_responses hr
@@ -252,7 +254,7 @@ router.get('/api/hangouts/:id', optionalAuth, async (req, res) => {
 
 // ─── Create ────────────────────────────────────────────────────
 router.post('/api/hangouts', auth, createLimiter, async (req, res) => {
-  const { category, title, description, place_name, place_address, city, lat, lng, event_date, max_companions, partner_offer_id, hangout_type } = req.body
+  const { category, title, description, place_name, place_address, city, lat, lng, event_date, max_companions, partner_offer_id, hangout_type, poster_url, event_url } = req.body
   if (!category || !title || !event_date) {
     return res.status(400).json({ message: 'category, title and event_date are required' })
   }
@@ -301,8 +303,8 @@ router.post('/api/hangouts', auth, createLimiter, async (req, res) => {
     }
 
     const [result] = await pool.query(
-      `INSERT INTO hangouts (user_id, category, title, description, place_name, place_address, city, lat, lng, event_date, max_companions, partner_offer_id, hangout_type)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO hangouts (user_id, category, title, description, place_name, place_address, city, lat, lng, event_date, max_companions, partner_offer_id, hangout_type, poster_url, event_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.userId,
         category,
@@ -317,6 +319,8 @@ router.post('/api/hangouts', auth, createLimiter, async (req, res) => {
         companions,
         partner_offer_id && /^\d+$/.test(String(partner_offer_id)) ? Number(partner_offer_id) : null,
         validType,
+        poster_url ? String(poster_url).slice(0, 500) || null : null,
+        event_url ? String(event_url).slice(0, 500) || null : null,
       ],
     )
 
@@ -339,7 +343,7 @@ router.put('/api/hangouts/:id', auth, async (req, res) => {
     if (hangout.user_id !== req.userId) return res.status(403).json({ message: 'Not the author' })
     if (hangout.status !== 'active') return res.status(409).json({ message: `Cannot edit hangout in status ${hangout.status}` })
 
-    const allowed = ['title', 'description', 'place_name', 'place_address', 'city', 'lat', 'lng', 'event_date', 'max_companions']
+    const allowed = ['title', 'description', 'place_name', 'place_address', 'city', 'lat', 'lng', 'event_date', 'max_companions', 'poster_url', 'event_url']
     const sets = []
     const params = []
     for (const field of allowed) {
@@ -363,6 +367,8 @@ router.put('/api/hangouts/:id', auth, async (req, res) => {
       } else if (field === 'lat' || field === 'lng') {
         value = value === null || value === '' ? null : parseFloat(value)
         if (value !== null && isNaN(value)) return res.status(400).json({ message: `Invalid ${field}` })
+      } else if (field === 'poster_url' || field === 'event_url') {
+        value = value ? String(value).slice(0, 500) : null
       } else if (typeof value === 'string') {
         value = stripHtml(value).slice(0, 255) || null
       }
