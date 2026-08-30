@@ -56,7 +56,7 @@
 ## Этап 80: Android Debug APK — СОБРАН (тулчейн установлен с нуля) (август 2026)
 
 - **Тулчейн установлен с нуля** (ранее его не было):
-  - **Temurin JDK 21.0.12.1+1 (LTS)** распакован в `%TEMP%\opencode\jdk21\extract\jdk-21.0.12.1+1` (`JAVA_HOME` на него) — работает, `gradle --version` показывает `Launcher JVM 21.0.12.1`
+  - **Temurin JDK 21.0.12.1+1 (LTS)** развёрнут в `C:\jdk21\jdk-21.0.12.1+1` (перенесён из `%TEMP%\opencode\jdk21` — Dr.Web агрессивно сканирует TEMP и давал ложняки; `JAVA_HOME` на него) — работает, `gradle --version` показывает `Launcher JVM 21.0.12.1`
   - **cmdline-tools** — первая распаковка `Expand-Archive` была битой (таймаут → jar'ы по подкаталогам с видео 0-файлами, `sdkmanager.jar` отсутствовал → `ClassNotFoundException: SdkManagerCli`). **Фикс:** повторная распаковка через `tar -xf` из целого zip (143 MB) → 95 jar, `sdkmanager --version` = **19.0**
   - **SDK-компоненты** через `sdkmanager`: `platform-tools` (r37, `adb.exe`), `platforms;android-36`, `build-tools;35.0.0`; все лицензии приняты (`yes | sdkmanager --licenses` → `All SDK package licenses accepted`)
   - **Gradle 8.14.3** — wrapper не мог скачать (10s connect timeout), скачан вручную `curl.exe -C -` (224 MB) и разложен в кэш wrapper'а `~\.gradle\wrapper\dists\gradle-8.14.3-all\10utluxaxniiv4wxiphsi49nj\` (+ маркер `.ok`)

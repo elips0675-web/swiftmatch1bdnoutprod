@@ -19,7 +19,7 @@
 Из `android/` (JDK 21! AGP 8.14.3 не работает на JDK 25):
 
 ```bash
-export JAVA_HOME="<путь к JDK 21>"
+export JAVA_HOME="C:\jdk21\jdk-21.0.12.1+1"
 # (опц.) если пароли не в keystore-credentials.txt:
 # export KEYSTORE_STORE_PASSWORD=... KEYSTORE_KEY_ALIAS=swiftmatch-release KEYSTORE_KEY_PASSWORD=...
 

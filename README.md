@@ -321,7 +321,7 @@ crontab -l | { cat; echo "0 3 * * * /path/to/swiftmatch1bd/scripts/backup-mysql.
 npm run build            # или с VITE_API_URL=http://<LAN-IP>:3002 для теста на устройстве
 npx cap sync android     # из корня; подтягивает capacitor-cordova-android-plugins
 # строго из папки android/ (Gradle берёт root от CWD):
-$env:JAVA_HOME="<путь к JDK 21>"; android\gradlew.bat :app:assembleDebug
+$env:JAVA_HOME="C:\jdk21\jdk-21.0.12.1+1"; android\gradlew.bat :app:assembleDebug
 # → android\app\build\outputs\apk\debug\app-debug.apk
 ```
 > Грабля: если `compressDebugAssets` падает с «Failed to create MD5 hash ...jar as it does not exist» — прогнать задачу standalone (`gradlew :app:compressDebugAssets`), затем полный `assembleDebug`. Детали в AGENTS.md (#29).
