@@ -79,9 +79,10 @@
 
 | Метрика | Значение |
 |---|---|
-| Бэкап | swiftmatch_2026-08-18_075916.sql (0.3 MB, dev) |
-| Полный цикл restore + sanity | **3.6 сек** |
-| Sanity-проверки | user_profiles 130, matches 2, messages 213, subscriptions 1 |
+| Бэкап | swiftmatch_2026-07-16_122539.sql (0.087 MB, dev) |
+| Полный цикл restore + sanity | **1.89 сек** (30.08.2026, прямой `mysql < dump`) |
+| Sanity-проверки | users=32, scratch БД создана/удалена |
+| Schema-only smoke | verify-backup.mjs **PASS** (mysqldump --no-data, 6 таблиц, 30.08.2026) |
 
 **Экстраполяция на прод:** при росте БД до 1 GB ориентировочно ~10–15 мин (mysql restore ~1.5 MB/s + sanity). Целевой RTO для беты: **< 30 мин**. Пересчитывать раз в месяц перед релизом.
 
@@ -138,7 +139,7 @@ UPDATE users SET is_active=1 WHERE role='admin';   -- вернуть всех а
 - Механизм: `server/src/circuit-breaker.js` (opossum), экспорты `createBreaker`, `stripeBreaker`, `wrapExternalCall`. Дефолты: timeout 10s, errorThresholdPercentage 50, resetTimeout 30s, volumeThreshold 5.
 - **Stripe** — обёрнут `stripe-checkout` (premium.js:112, timeout 15s). При отказе checkout → осмысленная ошибка клиенту, без зависания.
 - **OpenAI** (AI icebreakers, icebreakers.js) — модульный breaker `openai-icebreakers` (timeout 9s, volumeThreshold 3). При ошибке/таймауте/открытом breaker → DB-fallback (icebreaker_questions). Без `OPENAI_API_KEY` — сразу DB, без breaker.
-- **S3** — N/A: проект не внедрил S3 (upload на локальный диск). При внедрении S3 обернуть загрузку breaker'ом по тому же паттерну.
+- **S3** — upload на локальный диск (S3 off по умолчанию: требуется `S3_BUCKET`+`AWS_ACCESS_KEY_ID`). Удаление S3-объекта обёрнуто `s3-delete-object` breaker (upload.js: timeout 8s) — при недоступности S3 фото удаляется из БД, S3-объект-сирота логируется (warn), запрос не падает. Входящая S3-загрузка (multer-s3) вне breaker'а (не исходящий вызов). При активном S3 в проде — пересмотреть.
 - **Webhook'и (входящие)** — breaker неприменим (не исходящие вызовы); защита от повторов — идемпотентность/express.raw.
 
 **Проверка:** серверный сьют 324/324 (+3 icebreakers-теста, мок circuit-breaker изолирует opossum), lint 0 errors.

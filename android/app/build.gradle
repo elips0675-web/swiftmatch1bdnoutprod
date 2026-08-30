@@ -16,10 +16,26 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            def env = System.getenv()
+            def credFile = file('keystore/keystore-credentials.txt')
+            def props = new Properties()
+            if (credFile.exists()) {
+                credFile.withInputStream { props.load(it) }
+            }
+            def relStore = env.KEYSTORE_PATH ? project.file(env.KEYSTORE_PATH) : file('keystore/swiftmatch-release.jks')
+            storeFile relStore
+            storePassword env.KEYSTORE_STORE_PASSWORD ?: props.getProperty('STORE_PASSWORD', '')
+            keyAlias env.KEYSTORE_KEY_ALIAS ?: props.getProperty('KEY_ALIAS', 'swiftmatch-release')
+            keyPassword env.KEYSTORE_KEY_PASSWORD ?: props.getProperty('KEY_PASSWORD', '')
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 }

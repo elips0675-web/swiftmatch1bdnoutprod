@@ -8,12 +8,20 @@ import { auth, optionalAuth } from '../middleware.js'
 import logger from '../logger.js'
 import { processImage } from '../image-pipeline.js'
 import { moderateImage } from '../ai-moderation.js'
+import { createBreaker } from '../circuit-breaker.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const UPLOAD_DIR = path.resolve(__dirname, '../../uploads')
 
 let storage
 const USE_S3 = process.env.S3_BUCKET && process.env.AWS_ACCESS_KEY_ID
+
+const s3DeleteBreaker = USE_S3
+  ? createBreaker(async (s3, key) => {
+      const { DeleteObjectCommand } = await import('@aws-sdk/client-s3')
+      await s3.send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }))
+    }, 's3-delete-object', { timeout: 8000 })
+  : null
 
 async function initStorage() {
   if (storage) return storage
@@ -142,7 +150,7 @@ router.delete('/api/photos/:id', auth, async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ message: 'Photo not found' })
 
     if (USE_S3) {
-      const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3')
+      const { S3Client } = await import('@aws-sdk/client-s3')
       const s3 = new S3Client({
         region: process.env.AWS_REGION || 'us-east-1',
         credentials: {
@@ -151,7 +159,11 @@ router.delete('/api/photos/:id', auth, async (req, res) => {
         },
       })
       const key = rows[0].url.replace('/uploads/', 'uploads/')
-      await s3.send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }))
+      if (s3DeleteBreaker) {
+        await s3DeleteBreaker.fire(s3, key).catch((err) => {
+          logger.warn('S3 delete failed (photo removed from DB, orphan object may remain):', err?.message || err)
+        })
+      }
     } else {
       const filePath = path.join(UPLOAD_DIR, path.basename(rows[0].url))
       try { fs.unlinkSync(filePath) } catch {}

@@ -54,7 +54,16 @@
 - **Деградация `mysql_schema.sql` (риск 🔴 при пересоздании БД):** schema.sql = **62 таблицы**, живая БД = **73**. Всё из 62 существует в live (лишних нет), но **29 таблиц созданы ТОЛЬКО миграциями 006–042** и отсутствуют в schema.sql: `_migrations`, `audit_log`, `config`, `consent_log`, `data_erase_requests`, `date_checkins`, `emergency_contacts`, `experiment_assignments`, `experiments`, `fcm_tokens`, `hangout_*` (5), `partner_*` (5), `partners`, `push_subscriptions`, `refresh_tokens`, `sms_verification`, `user_aliases`, `user_verifications`, `webhook_events`.
   - **Влияние на CI:** `deploy.yml` server-test/e2e инициализируют БД ТОЛЬКО `mysql < mysql_schema.sql` (строки 68/131), миграции в test-шагах НЕ прогоняются. `schema-validate.mjs` сверяет БД только против schema.sql (не читает `migrations/`) → самосверка «62 vs 62», дрейф миграционных таблиц НЕ ловится. `sql-explain-audit.mjs` — частично.
 
-## Плановые хвосты (не блокируют)
+## Этап 81 (30.08.2026) — circuit breaker S3-delete, opossum fix, RTO-уточнение, Linux запуск + Android-release-инструкция
+
+- **Circuit breaker** (закрытие пункта «Stripe/OpenAI/S3», дипсик #4): S3-удаление фото обёрнуто breaker'ом `s3-delete-object` (`server/src/routes/upload.js`, timeout 8s). При недоступности S3 фото удаляется из БД, S3-объект-сирота логируется (warn), запрос не падает. Входящая S3-загрузка (multer-s3) вне breaker'а (не исходящий вызов). Stripe/OpenAI уже были обёрнуты (этап 76).
+- **opossum fix:** пакет `opossum` (заявлен в package.json) НЕ был установлен в node_modules → падали 4 файла тестов, импортирующих `circuit-breaker.js`. Установлен (`npm install opossum`). Серверный сьют: 287 → **329/329 (29 файлов)**.
+- **Юнит-тест circuit-breaker:** `server/src/__tests__/circuit-breaker.test.js` (+5): fire возвращает результат, fire пробрасывает ошибку сервиса, stripeBreaker имеет fire, wrapExternalCall работает.
+- **RTO-уточнение (этап C):** `node scripts/verify-backup.mjs` → **PASS**; свежий **полный** restore реального бэкапа `swiftmatch_2026-07-16_122539.sql` (0.087 MB) в scratch-БД = **1.89 сек** (users=32, sanity OK, cleanup) — обновлено в `docs/rollback-plan.md` N+1.
+- **Этап E (Windows→Linux .sh):** создан настоящий Linux `запуск-всего.sh` (bash, `set -euo pipefail`, переменные `API_PORT`/`FRONT_PORT`/`MYSQL_START`, MySQL через systemd/service/mysqld с fallback, API `node src/index.js`, Frontend `npx vite --port 8081 --host`, trap-очистка). `bash -n` → **SYNTAX OK**. Проверено: старые корневые `.sh` (`деплой.sh`, `запуск.sh`, `Запуск админки.sh`) содержали Windows-пути — не трогал (исторические); `scripts/backup-mysql.sh` уже был.
+- **Этап B — инструкция:** `docs/android-release-guide.md` — где keystore/креды (gitignored, бэкап), как пересобрать release APK/AAB (JDK 21, signingConfig env/props), шаги к Google Play (upload key, SHA-256 `0af36dbf...6ec41`, App Links/assetlinks, политика 17+, прод-домен).
+- Проверки: сервер **329/329**, lint 0 errors (правки без новых errors), build не затронут (server-only + docs + android config).
+
 
 - Внешние блокеры (не код): staging VPS + docker compose up, реальные ключи в `.env`, домен + SSL + Google Play, k6 100 VU на staging, UptimeRobot/Grafana-алерты.
 - Код/низкий приоритет (после релиза): CSRF double-submit (при выносе API на поддомен), fingerprint refresh, SMS (Twilio), AI-модерация фото (Rekognition), CDN/S3.

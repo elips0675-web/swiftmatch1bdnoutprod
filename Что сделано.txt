@@ -635,3 +635,13 @@
 - Живая проверка после рестарта: PUT био с 'тест <script>alert(1)</script> alert("xss") javascript:evil() onerror=go нормальный текст <3' -> сохранено 'тест evil() нормальный текст <3' (residue false), био восстановлено
 - sanitize.test.js: 7 тестов
 - Счётчики: server 192/192, front 61/61, E2E 47/47 = 300/300
+
+## Этап 81 (30.08.2026): circuit breaker S3-delete, opossum fix, RTO-уточнение, Linux-запуск, Android release-инструкция
+
+- **Circuit breaker (дипсик #4, «Stripe/OpenAI/S3»):** S3-удаление фото обёрнуто breaker'ом `s3-delete-object` (`server/src/routes/upload.js`, timeout 8s). При недоступности S3 фото удаляется из БД, S3-объект-сирота логируется (warn), запрос не падает. Stripe/OpenAI уже обёрнуты (этап 76). Запись в rollback-plan N+3 обновлена (S3 теперь не «N/A»).
+- **opossum fix:** пакет `opossum` (в package.json) не был установлен в node_modules → падали 4 файла тестов, импортирующих circuit-breaker. `npm install opossum`. Серверный сьют 287 → **329/329 (29 файлов)**.
+- **Юнит-тест circuit-breaker:** `server/src/__tests__/circuit-breaker.test.js` (+5): fire возвращает результат; fire пробрасывает ошибку сервиса; stripeBreaker имеет fire; wrapExternalCall работает.
+- **RTO-уточнение (этап C):** `node scripts/verify-backup.mjs` → **PASS**; свежий полный restore реального бэкапа 0.087 MB в scratch-БД = **1.89 сек** (users=32, sanity OK) → обновлено в rollback-plan N+1.
+- **Этап E (Windows→Linux .sh):** создан валидный `запуск-всего.sh` (bash, set -euo pipefail, переменные API_PORT/FRONT_PORT/MYSQL_START, MySQL через systemd/service/mysqld fallback, API node src/index.js, Front npx vite --port 8081 --host, trap-очистка). `bash -n` → **SYNTAX OK**. backup-mysql.sh уже был; старые корневые .sh с Windows-путями не трогал (исторические).
+- **Этап B — инструкция:** `docs/android-release-guide.md` — keystore/креды (gitignored, бэкап), пересборка release APK/AAB (JDK 21, signingConfig env/props), шаги к Google Play (upload key, SHA-256, App Links/assetlinks, политика 17+, прод-домен).
+- Проверки: server **329/329**, lint 0 errors, build не затронут (server-only + docs + android config).

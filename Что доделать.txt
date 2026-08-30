@@ -543,3 +543,14 @@
 Проверки этого этапа: **server 311/311 ✅** (+4 `admin-users-ban`), **front 81/81 ✅** + `npx vite build` ✅, **E2E 134/134 ✅** (полный прогон `--retries=0`; `ban-realtime` + существующие WS-тесты real-time не регрессировали).
 
 Счётчики после этапа 68: server **311/311**, front **81/81**, E2E **134/134** = **526/526**
+
+## Этап 81 (30.08.2026): закрытие кодовых пунктов — circuit breaker S3, opossum, RTO, Windows→Linux
+
+- **Circuit breaker (дипсик #4 / kimi «Stripe/OpenAI/S3»):** S3-удаление фото обёрнуто breaker'ом `s3-delete-object` (`server/src/routes/upload.js`, timeout 8s) — при недоступности S3 фото удаляется из БД, S3-объект-сирота логируется (warn), запрос не падает. Stripe/OpenAI уже обёрнуты (этап 76). Пункт «после релиза» → **закрыт**. rollback-plan N+3 обновлён.
+- **opossum fix:** пакет `opossum` (в package.json) не был установлен в node_modules → падали 4 файла тестов. `npm install opossum`. Сервер 287 → **329/329 (29 файлов)**.
+- **Юнит-тест circuit-breaker:** `server/src/__tests__/circuit-breaker.test.js` (+5): fire возвращает результат; fire пробрасывает ошибку; stripeBreaker имеет fire; wrapExternalCall работает.
+- **RTO-уточнение (этап C):** `node scripts/verify-backup.mjs` → PASS; полный restore реального бэкапа 0.087 MB в scratch-БД = **1.89 сек** (users=32, sanity OK) → rollback-plan N+1 обновлён.
+- **Этап E (Windows→Linux .sh, qwen #3):** создан валидный Linux `запуск-всего.sh` (bash, `set -euo pipefail`, API_PORT/FRONT_PORT/MYSQL_START, MySQL через systemd/service/mysqld fallback, API node src/index.js, Front npx vite --port 8081 --host, trap-очистка). `bash -n` → **SYNTAX OK**. `backup-mysql.sh` уже был; старые корневые .sh с Windows-путями не трогал.
+- **Этап B — инструкция:** `docs/android-release-guide.md` — keystore/креды (gitignored, бэкап), пересборка release APK/AAB (JDK 21, signingConfig env/props), шаги к Google Play (upload key, SHA-256, App Links/assetlinks, политика 17+, прод-домен).
+
+Проверки этапа 81: server **329/329**, lint 0 errors, build не затронут (server-only + docs + android config). Итог: **все кодовые пункты «Что доделать» закрыты** — остались только внешние блокеры (ключи/домен/staging/сторы).
