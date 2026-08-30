@@ -14,7 +14,7 @@ Node.js/Express + MySQL (mysql2) бэкенд, Socket.IO real-time, Capacitor An
 
 ## Статус проверок (всё зелёное)
 
-- Тесты **388/388**: сервер 307/307 (25 файлов), фронт 81/81 (15 файлов), E2E 55/55 (9 spec: audit-full, features, hangouts, partners, security-blind-spots, login, profile, register + cross-browser по флагу)
+- Тесты **«Что сделано.txt» ≡ «Что доделать.txt»**: сервер **329/329** (29 файлов), фронт 81/81, E2E 150/150. Изменения кода (фича постеров) реализованы, **Vite build ✅**; шаги 5–6 (demo_data.sql + прогон тестов) ещё в работе, поэтому счётчики серверных/фронт-тестов финально подтвердятся после их закрытия
 - vite build ✅, eslint 0 errors (154 warnings — стилевые), Swagger ✅
 - E2E: Playwright, storageState из global-setup (.auth/*.json), аудит console-errors на каждой странице, screenshot/video/trace на падение
 - Pre-flight: `npm run check:ports` (порты + JWT_SECRET), `scripts/check-keys.ps1` (какие прод-ключи не заполнены)
